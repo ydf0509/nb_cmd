@@ -5,7 +5,6 @@ REST API 模式 —— 自动将 NbCmd 类的方法生成 FastAPI 路由。
 """
 import inspect
 import io
-import sys
 import time
 
 from ..core.discovery import discover_commands
@@ -246,33 +245,23 @@ def _make_route(app, path, summary, cmd_name, instance, request_model, type_hint
                 converted[k] = v
         return converted
 
-    _method = getattr(_cls, _cmd_name, None)
-    _is_async = inspect.iscoroutinefunction(_method) if _method else False
+    from ..core._io_dispatch import _tls as _api_tls, install as _install_io
+    _install_io()
 
-    async def _exec_async(fresh_inst, kwargs):
-        old_stdout = sys.stdout
-        old_stderr = sys.stderr
-        sys.stdout = captured_out = io.StringIO()
-        sys.stderr = captured_err = io.StringIO()
-        try:
-            method = getattr(fresh_inst, _cmd_name)
-            result = await method(**_convert_kwargs(kwargs))
-        finally:
-            sys.stdout = old_stdout
-            sys.stderr = old_stderr
-        return result, captured_out.getvalue(), captured_err.getvalue()
-
-    def _exec_sync(fresh_inst, kwargs):
-        old_stdout = sys.stdout
-        old_stderr = sys.stderr
-        sys.stdout = captured_out = io.StringIO()
-        sys.stderr = captured_err = io.StringIO()
+    def _exec_in_thread(fresh_inst, kwargs):
+        import asyncio as _aio
+        captured_out = io.StringIO()
+        captured_err = io.StringIO()
+        _api_tls.captured_stdout = captured_out
+        _api_tls.captured_stderr = captured_err
         try:
             method = getattr(fresh_inst, _cmd_name)
             result = method(**_convert_kwargs(kwargs))
+            if inspect.iscoroutine(result):
+                result = _aio.run(result)
         finally:
-            sys.stdout = old_stdout
-            sys.stderr = old_stderr
+            _api_tls.captured_stdout = None
+            _api_tls.captured_stderr = None
         return result, captured_out.getvalue(), captured_err.getvalue()
 
     if request_model is not None:
@@ -285,10 +274,8 @@ def _make_route(app, path, summary, cmd_name, instance, request_model, type_hint
             fresh_inst = _fresh(raw_init)
             fresh_inst.before_run()
             try:
-                if _is_async:
-                    result, stdout_output, stderr_output = await _exec_async(fresh_inst, kwargs)
-                else:
-                    result, stdout_output, stderr_output = await asyncio.to_thread(_exec_sync, fresh_inst, kwargs)
+                result, stdout_output, stderr_output = await asyncio.to_thread(
+                    _exec_in_thread, fresh_inst, kwargs)
                 api_result = handle_api_result(result)
                 duration_ms = int((time.time() - start) * 1000)
                 return {
@@ -316,10 +303,8 @@ def _make_route(app, path, summary, cmd_name, instance, request_model, type_hint
             fresh_inst = _fresh(raw_init)
             fresh_inst.before_run()
             try:
-                if _is_async:
-                    result, stdout_output, stderr_output = await _exec_async(fresh_inst, request)
-                else:
-                    result, stdout_output, stderr_output = await asyncio.to_thread(_exec_sync, fresh_inst, request)
+                result, stdout_output, stderr_output = await asyncio.to_thread(
+                    _exec_in_thread, fresh_inst, request)
                 api_result = handle_api_result(result)
                 duration_ms = int((time.time() - start) * 1000)
                 return {

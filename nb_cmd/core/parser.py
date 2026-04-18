@@ -269,7 +269,7 @@ def _print_init_params(write_fn, instance):
 
 
 def _add_init_global_options(parser, instance):
-    """将 __init__ 中的自定义参数变为全局选项，支持 Arg 描述器"""
+    """将 __init__ 中的自定义参数变为全局选项，支持 Annotated 描述"""
     from .arg import unwrap_arg
 
     init_method = instance.__class__.__init__
@@ -428,7 +428,7 @@ def _build_group_subparser(parent_parser, group_cls, base_cls, init_kwargs=None)
             except TypeError:
                 pass
 
-    group_commands = discover_commands(group_instance, base_cls)
+    group_commands = discover_commands(group_instance, base_cls, include_builtins=False)
 
     if not group_commands:
         return

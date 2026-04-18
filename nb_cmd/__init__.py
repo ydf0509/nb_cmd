@@ -10,7 +10,7 @@ nb_cmd — 万能接口生成器
     class MyTool(NbCmd):
         def greet(self, name: str, times: int = 1):
             for _ in range(times):
-                print(f"你好, {name}!")
+                print('你好, {}!'.format(name))
 
     if __name__ == '__main__':
         MyTool().run()

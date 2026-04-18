@@ -54,6 +54,9 @@ def start_web_server(instance, base_cls, host=None, port=None):
     commands = discover_commands(instance, base_cls, enable_exec=_enable_exec)
     description = inspect.getdoc(instance) or instance.__class__.__name__
 
+    from ..core._io_dispatch import _tls, install as _install_io
+    _install_io()
+
     static_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'ui', 'static')
     has_built_frontend = os.path.isfile(os.path.join(static_dir, 'index.html'))
 
@@ -231,20 +234,6 @@ def start_web_server(instance, base_cls, host=None, port=None):
                     return info['method'], current_inst, info
         return None, None, None
 
-    class _QueueWriter(object):
-        """将 write() 调用转发到 queue 的伪文件对象，伪装为 TTY 以触发颜色输出"""
-        def __init__(self, output_queue, stream_type):
-            self._q = output_queue
-            self._type = stream_type
-            self.encoding = 'utf-8'
-        def write(self, data):
-            if data:
-                self._q.put((self._type, data))
-        def flush(self):
-            pass
-        def isatty(self):
-            return True
-
     def _cancel_thread(tid):
         """向指定线程注入 KeyboardInterrupt，模拟 Ctrl+C"""
         import ctypes
@@ -276,18 +265,13 @@ def start_web_server(instance, base_cls, host=None, port=None):
             result_holder = {'result': None, 'error': None, 'cancelled': False}
 
             def _run():
-                old_out, old_err = sys.stdout, sys.stderr
-                ws_out = _QueueWriter(output_q, 'stdout')
-                ws_err = _QueueWriter(output_q, 'stderr')
-                sys.stdout = ws_out
-                sys.stderr = ws_err
+                _tls.output_queue = output_q
                 saved_streams = []
                 if hasattr(target_inst, '_logger') and target_inst._logger:
                     for h in target_inst._logger.handlers:
                         if hasattr(h, 'stream'):
                             saved_streams.append((h, h.stream))
-                            if h.stream is old_err or h.stream is old_out:
-                                h.stream = ws_err
+                            h.stream = sys.stderr
                 try:
                     target_inst.before_run()
                     r = method(**kwargs)
@@ -305,7 +289,7 @@ def start_web_server(instance, base_cls, host=None, port=None):
                 finally:
                     for h, orig in saved_streams:
                         h.stream = orig
-                    sys.stdout, sys.stderr = old_out, old_err
+                    _tls.output_queue = None
                     target_inst.after_run()
                     output_q.put(None)
 

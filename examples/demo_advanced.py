@@ -75,17 +75,17 @@ class DeployTool(NbCmd):
         """持续打印多行（用于测试 WebSocket 实时流式输出）"""
         for i in range(10):
             time.sleep(1)
-            print(f'print {i}')
-            self.logger.debug(f'logger debug {i}')
-            self.logger.info(f'logger info {i}')
-            self.logger.warning(f'logger warning {i}')
-            self.logger.error(f'logger error {i}')
-            self.logger.critical(f'logger critical {i}')
+            print('print {}'.format(i))
+            self.logger.debug('logger debug {}'.format(i))
+            self.logger.info('logger info {}'.format(i))
+            self.logger.warning('logger warning {}'.format(i))
+            self.logger.error('logger error {}'.format(i))
+            self.logger.critical('logger critical {}'.format(i))
 
-            cmdui.info(f'ui info {i}')
-            cmdui.success(f'ui success {i}')
-            cmdui.error(f'ui error {i}')
-            cmdui.warning(f'ui warning {i}')
+            cmdui.info('ui info {}'.format(i))
+            cmdui.success('ui success {}'.format(i))
+            cmdui.error('ui error {}'.format(i))
+            cmdui.warning('ui warning {}'.format(i))
 
 
 

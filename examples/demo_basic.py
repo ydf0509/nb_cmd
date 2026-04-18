@@ -4,9 +4,8 @@ nb_cmd 基础用法 demo —— 对应设计文档 4.1 最简示例
 
 用法:
     python demo_basic.py --help
-    python demo_basic.py greet 张三 --times 3
     python demo_basic.py greet -n 张三 -t 3
-    python demo_basic.py deploy 192.168.1.1 --port 2222 --verbose
+    python demo_basic.py deploy -H 192.168.1.1 -p 2222 -v
     python demo_basic.py deploy --help
 """
 import sys

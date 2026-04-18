@@ -1,3 +1,9 @@
+---
+noteId: "b28b8f503b2711f18f3255ad17859a5a"
+tags: []
+
+---
+
 # nb_cmd 设计稿（PyPI包名: nb-cmd）
 
 ## 一句话定位
