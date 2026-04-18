@@ -2,9 +2,16 @@
 """
 命令发现模块 —— 通过反射发现类中的所有公有方法，自动转换为子命令。
 """
+import sys
 import inspect
 
-from typing import get_type_hints
+if sys.version_info >= (3, 11):
+    from typing import get_type_hints
+else:
+    try:
+        from typing_extensions import get_type_hints
+    except ImportError:
+        from typing import get_type_hints
 
 from .arg import unwrap_arg
 
@@ -48,7 +55,7 @@ def discover_commands(instance, base_cls, include_builtins=True, enable_exec=Tru
         doc = inspect.getdoc(attr) or ""
 
         try:
-            hints = get_type_hints(attr)
+            hints = get_type_hints(attr, include_extras=True)
         except Exception:
             hints = {}
 

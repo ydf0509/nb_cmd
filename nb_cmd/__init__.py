@@ -22,7 +22,7 @@ import json
 import logging
 import sys
 
-from .core.arg import Arg  # noqa: F401
+from .core.arg import Annotated, Param  # noqa: F401
 # 模块级 cmdui 单例，在延后创建（类定义之后）
 from .ui.colors import print_success, print_warning, print_error, print_info
 from .ui.table import print_table, print_kv
@@ -59,7 +59,7 @@ class NbCmdMeta(object):
     web_title = None           # type: str   # Web UI 页面标题
     web_theme = 'light'        # type: str   # Web UI 主题 ('light' / 'dark')
     enable_exec = True         # type: bool  # 是否暴露内置 exec 命令（False 可防止恶意执行）
-    aliases = {}               # type: dict  # 参数别名（推荐用 Arg(alias=...) 替代）
+    aliases = {}               # type: dict  # 参数别名（推荐用 Annotated 替代）
 
 
 class UIHelper(object):

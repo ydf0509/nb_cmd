@@ -17,7 +17,9 @@ import sys
 import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
-from nb_cmd import NbCmd, Arg, NbCmdMeta, cmdui
+from typing import Annotated
+
+from nb_cmd import NbCmd, NbCmdMeta, cmdui
 from enum import Enum
 
 
@@ -34,9 +36,9 @@ class DbTool(NbCmd):
         name = "dbtool"
         version = "1.0.0"
 
-    def query(self, sql: Arg(str, 'SQL查询语句'),
-              output: Arg(OutputFormat, '输出格式') = OutputFormat.TABLE,
-              limit: Arg(int, '返回行数上限') = 100):
+    def query(self, sql: Annotated[str, 'SQL查询语句'],
+              output: Annotated[OutputFormat, '输出格式'] = OutputFormat.TABLE,
+              limit: Annotated[int, '返回行数上限'] = 100):
         """执行SQL查询并展示结果"""
         cmdui.info('执行: {}'.format(sql))
         result = [
@@ -54,8 +56,8 @@ class DbTool(NbCmd):
             for row in result:
                 print(",".join(str(v) for v in row.values()))
 
-    def migrate(self, version: Arg(str, '目标版本号') = "latest",
-                dry_run: Arg(bool, '试运行，不实际执行') = False):
+    def migrate(self, version: Annotated[str, '目标版本号'] = "latest",
+                dry_run: Annotated[bool, '试运行，不实际执行'] = False):
         """执行数据库迁移"""
         if dry_run:
             cmdui.warning("试运行模式，不会实际执行")

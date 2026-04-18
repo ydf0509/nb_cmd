@@ -10,7 +10,7 @@
 - [为什么用 nb_cmd？](#为什么用-nb_cmd)
 - [安装](#安装)
 - [5 分钟快速上手](#5-分钟快速上手)
-- [核心特性](#核心特性)（自动推导 / OOP 继承 / 多层级子命令 / cmdui 输出 / Arg 描述器 / 全局参数 / 参数校验 / 系统命令 / Meta 配置 / 生命周期钩子 / 帮助系统 / Web UI 交互）
+- [核心特性](#核心特性)（自动推导 / OOP 继承 / 多层级子命令 / cmdui 输出 / Annotated 参数描述 / 全局参数 / 参数校验 / 系统命令 / Meta 配置 / 生命周期钩子 / 帮助系统 / Web UI 交互）
 - [完整 API 速查](#完整-api-速查)
 - [和竞品对比](#和竞品对比)
 - [项目结构](#项目结构)
@@ -199,12 +199,12 @@ nb_cmd 通过 Python 方法签名自动生成 CLI 参数，零配置：
 |---|---|---|
 | 公有方法名 | 子命令名（`snake_case` → `kebab-case`） | `def show_users` → `show-users` |
 | 方法的 docstring | 子命令帮助文本 | `"""查看用户"""` → `--help` 里的描述 |
-| 无默认值的参数 | 位置参数（必填）；有 `alias` 时为 `--flag`（必填） | `name: str` → `greet 张三`；`name: Arg(str, alias='n')` → `-n 张三` |
+| 无默认值的参数 | 位置参数（必填）；有短别名时为 `--flag`（必填） | `name: str` → `greet 张三`；`name: Annotated[str, '', 'n']` → `-n 张三` |
 | 有默认值的参数 | 可选参数（`--xxx`） | `port: int = 22` → `--port 2222` |
 | `bool` 类型 | 开关参数（`--flag`） | `verbose: bool = False` → `--verbose` |
 | `int` / `float` 类型 | 自动类型转换和校验 | 输入非数字会报错 |
 | `Enum` 类型 | 自动生成选择项 | `env: Environment` → `{dev,staging,prod}` |
-| `Arg(type, desc, alias)` | 参数描述 + 短别名 | `name: Arg(str, '用户名', alias='n')` → `-n` |
+| `Annotated[type, desc, alias]` | 参数描述 + 短别名 | `name: Annotated[str, '用户名', 'n']` → `-n` |
 | `_` 开头的方法 | 不暴露为子命令 | `_helper()` → 内部方法 |
 
 ### 2. OOP 继承覆写
@@ -393,10 +393,12 @@ $ curl -X POST http://localhost:8025/deploy-tool/status
 如果子类的 `__init__` 有必填参数，直接传 class 会因为无法无参实例化而报错。此时可以传入**实例**，nb_cmd 会自动提取 init 参数用于后续重建实例：
 
 ```python
-from nb_cmd import NbCmd, Arg
+from typing import Annotated
+
+from nb_cmd import NbCmd
 
 class ServerTool(NbCmd):
-    def __init__(self, region: Arg(str, '机房区域')):
+    def __init__(self, region: Annotated[str, '机房区域']):
         super().__init__()
         self.region = region
 
@@ -484,19 +486,21 @@ class DbTool(NbCmd):
 [OK] 迁移完成!
 ```
 
-### 5. Arg 参数描述器
+### 5. Annotated 参数描述
 
-用 `Arg` 为参数添加描述和短别名，CLI `--help`、Web UI 输入框、Swagger 文档会同步显示：
+用 `typing.Annotated` 为参数添加描述和短别名，CLI `--help`、Web UI 输入框、Swagger 文档会同步显示：
 
 ```python
-from nb_cmd import NbCmd, Arg
+from typing import Annotated
+
+from nb_cmd import NbCmd
 
 class MyTool(NbCmd):
     """部署工具"""
 
-    def deploy(self, host: Arg(str, '服务器地址', alias='H'),
-               port: Arg(int, '端口号', alias='p') = 22,
-               verbose: Arg(bool, '详细模式', alias='v') = False):
+    def deploy(self, host: Annotated[str, '服务器地址', 'H'],
+               port: Annotated[int, '端口号', 'p'] = 22,
+               verbose: Annotated[bool, '详细模式', 'v'] = False):
         """部署到远程服务器"""
         ...
 ```
@@ -511,24 +515,35 @@ optional arguments:
 $ python my_tool.py deploy -H 10.0.0.1 -p 2222 -v
 ```
 
-`Arg` 的三个参数都是渐进式的——`desc` 和 `alias` 可选，不影响原有的 `name: str` 写法：
+`Annotated` 的元数据是渐进式的——描述与短别名可选，不影响原有的 `name: str` 写法：
 
 ```python
-name: str                              # 最简写法，完全兼容
-name: Arg(str, '用户名')               # 加描述
-name: Arg(str, '用户名', alias='n')    # 加描述 + 短别名
-name: Arg(str, alias='n')              # 只加短别名
+name: str                                    # 最简写法，完全兼容
+name: Annotated[str, '用户名']               # 加描述
+name: Annotated[str, '用户名', 'n']          # 加描述 + 短别名
+name: Annotated[str, '', 'n']                # 只加短别名
 ```
 
-> Web UI 中，`Arg` 的 `desc` 会显示在输入框旁边的灰色提示文字和 placeholder 中。
+也可以用 `Param` 对象获得关键字参数风格（IDE 可补全字段名）：
+
+```python
+from nb_cmd import Param
+
+name: Annotated[str, Param(desc='用户名', alias='n')]
+port: Annotated[int, Param(desc='端口号')] = 22
+```
+
+> `Param(desc, alias)` 和位置字符串完全等价。Web UI 中，描述会显示在输入框旁边的灰色提示文字和 placeholder 中。
 
 ### 6. 全局参数（`__init__` 参数）
 
 当多个子命令需要共享上下文（如机房区域、数据库连接、超时时间），把它们放到 `__init__` 中：
 
 ```python
-from nb_cmd import NbCmd, Arg, NbCmdMeta, cmdui
+from typing import Annotated
 from enum import Enum
+
+from nb_cmd import NbCmd, NbCmdMeta, cmdui
 
 class Environment(Enum):
     DEV = "dev"
@@ -542,8 +557,8 @@ class ServerTool(NbCmd):
         version = "1.0.0"
         use_nb_log = True
 
-    def __init__(self, region: Arg(str, '机房区域', alias='r'),
-                 timeout: Arg(int, '超时秒数') = 30):
+    def __init__(self, region: Annotated[str, '机房区域', 'r'],
+                 timeout: Annotated[int, '超时秒数'] = 30):
         super().__init__()
         self.region = region
         self.timeout = timeout
@@ -724,7 +739,7 @@ class MyTool(NbCmd):
 | `web_title` | str | `None` | Web UI 页面标题 |
 | `web_theme` | str | `'light'` | Web UI 主题（`'light'` / `'dark'`） |
 | `enable_exec` | bool | `True` | 是否暴露内置 `exec` 命令（设为 `False` 可防止恶意执行系统命令） |
-| `aliases` | dict | `{}` | 参数别名（推荐用 `Arg(alias=...)` 替代） |
+| `aliases` | dict | `{}` | 参数别名（推荐用 `Annotated[..., 'desc', 'a']` 指定短别名替代） |
 
 ### 10. 生命周期钩子
 
@@ -811,7 +826,8 @@ stats — 查看系统状态
 ### 导入
 
 ```python
-from nb_cmd import NbCmd, Arg, NbCmdMeta, cmdui, validate
+from typing import Annotated
+from nb_cmd import NbCmd, NbCmdMeta, Param, cmdui, validate
 ```
 
 ### cmdui（UI / 交互工具）
@@ -840,13 +856,24 @@ from nb_cmd import NbCmd, Arg, NbCmdMeta, cmdui, validate
 | `self.on_error(command, error)` | 钩子：子命令出错时调用 |
 | `exec <cmd>` (内置子命令) | 执行任意系统命令（CLI 和 Web UI 均可用） |
 
-### Arg 描述器
+### Annotated 参数描述
+
+两种等价写法：
+
+**位置字符串：** `Annotated[类型, '描述', '别名']`
+
+| 位置 | 必填 | 说明 |
+|------|------|------|
+| 第一个参数（类型） | 是 | 实际参数类型（`str`, `int`, `bool`, `Enum`, `List[str]` 等） |
+| 第二个参数（字符串） | 否 | 参数描述（`--help`、Web UI placeholder、Swagger 同步显示） |
+| 第三个参数（字符串） | 否 | 短别名（`'n'` → `-n`，`'host-name'` → `--host-name`） |
+
+**Param 对象：** `Annotated[类型, Param(desc='描述', alias='别名')]`
 
 | 参数 | 必填 | 说明 |
 |------|------|------|
-| `type_` | 是 | 参数类型（`str`, `int`, `bool`, `Enum`, `List[str]` 等） |
-| `desc` | 否 | 参数描述（`--help`、Web UI placeholder、Swagger 同步显示） |
-| `alias` | 否 | 短别名（`'n'` → `-n`，`'host-name'` → `--host-name`） |
+| `desc` | 否 | 参数描述 |
+| `alias` | 否 | 短别名 |
 
 ---
 
@@ -953,7 +980,7 @@ python deploy.py --web --web-port 8080     # Web UI + REST API
 nb_cmd/
 ├── __init__.py          # NbCmd 基类 + UIHelper
 ├── core/
-│   ├── arg.py           # Arg 参数描述器
+│   ├── arg.py           # Annotated 参数元数据解析
 │   ├── discovery.py     # 命令发现（反射 + 类型检查）
 │   ├── parser.py        # argparse 解析器构建
 │   ├── type_utils.py    # 类型工具（Enum/Optional/List 等）

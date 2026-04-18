@@ -8,7 +8,9 @@ import time
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
-from nb_cmd import NbCmd, Arg, NbCmdMeta, cmdui
+from typing import Annotated
+
+from nb_cmd import NbCmd, NbCmdMeta, cmdui
 from enum import Enum
 
 
@@ -31,10 +33,10 @@ class DeployTool(NbCmd):
         web_title = "部署工具"
 
     def deploy(self,
-               host: Arg(str, '目标服务器地址', alias='H'),
-               port: Arg(int, '端口号', alias='p') = 22,
-               env: Arg(Environment, '部署环境', alias='e') = Environment.DEV,
-               dry_run: Arg(bool, '试运行模式') = False,
+               host: Annotated[str, '目标服务器地址', 'H'],
+               port: Annotated[int, '端口号', 'p'] = 22,
+               env: Annotated[Environment, '部署环境', 'e'] = Environment.DEV,
+               dry_run: Annotated[bool, '试运行模式'] = False,
                ):
         """执行部署到指定服务器"""
         print('环境: {}'.format(env.value if hasattr(env, 'value') else env))

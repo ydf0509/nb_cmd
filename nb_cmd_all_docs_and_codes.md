@@ -108,7 +108,7 @@ NbCmd 的 Meta 配置基类。
             use_nb_log = True
 `````
 
-**Class Variables (14):**
+**Class Variables (15):**
 - `name = None`
 - `version = '0.0.1'`
 - `description = None`
@@ -122,10 +122,11 @@ NbCmd 的 Meta 配置基类。
 - `serve_workers = 1`
 - `web_title = None`
 - `web_theme = 'light'`
+- `enable_exec = True`
 - `aliases = {}`
 
 ##### 📌 `class UIHelper(object)`
-*Line: 64*
+*Line: 65*
 
 **Docstring:**
 `````
@@ -163,7 +164,7 @@ NbCmd 的 UI 工具方法集合。
   - *蓝色信息*
 
 ##### 📌 `class NbCmd(object)`
-*Line: 154*
+*Line: 155*
 
 **Docstring:**
 `````
@@ -297,10 +298,20 @@ Entry Points (not imported by other project files):
 `````markdown
 # nb_cmd
 
-**万能接口生成器** —— 你写一个 Python class，自动获得 CLI + REST API + Web UI 三种接口。
+**Python 码农的低代码平台** —— 写一个 class，自动获得 CLI + REST API + Web UI 三种接口。不写路由、不写前端、不写文档，全自动。
 
 [![Python](https://img.shields.io/badge/python-3.7%2B-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
+
+## 目录
+
+- [为什么用 nb_cmd？](#为什么用-nb_cmd)
+- [安装](#安装)
+- [5 分钟快速上手](#5-分钟快速上手)
+- [核心特性](#核心特性)（自动推导 / OOP 继承 / 多层级子命令 / cmdui 输出 / Arg 描述器 / 全局参数 / 参数校验 / 系统命令 / Meta 配置 / 生命周期钩子 / 帮助系统 / Web UI 交互）
+- [完整 API 速查](#完整-api-速查)
+- [和竞品对比](#和竞品对比)
+- [项目结构](#项目结构)
 
 ---
 
@@ -327,6 +338,29 @@ nb_cmd 换了一种思路：**Class 是中心，接口是投影。**
 ```
 
 写一次业务逻辑，三种接口自动生成，不改一行代码。
+
+**你写什么 → 你得到什么：**
+
+| 你写的 | 自动获得 |
+|--------|----------|
+| 方法签名 `def deploy(self, host: str, port: int = 22)` | CLI 参数 + API 端点 + Web 表单（输入框/数字框/复选框） |
+| 方法的 docstring `"""部署到远程服务器"""` | CLI --help + Swagger 文档 + Web UI 描述 |
+| 类型注解 `env: Environment`（Enum） | CLI choices + API 校验 + Web 下拉选择 |
+| `print()` / `cmdui.table()` | CLI 终端输出 + Web 实时流式推送（WebSocket + ANSI 彩色渲染） |
+| `sub_commands = {'git': GitTool}` | CLI 多级子命令 + API 嵌套路由 + Web UI 折叠分组 |
+
+**不需要写的：** 路由定义、Pydantic 模型、HTML 表单、CSS 样式、JavaScript 交互、WebSocket 端点、Swagger 注解、前后端联调。
+
+| 功能 | argparse | click | typer | fire | **nb_cmd** |
+|------|:--------:|:-----:|:-----:|:----:|:----------:|
+| 零配置 | ✗ | ✗ | 部分 | ✓ | **✓** |
+| 类型驱动 | 手动 | 手动 | ✓ | ✗ | **✓** |
+| OOP 继承/覆写 | ✗ | ✗ | ✗ | 有限 | **✓** |
+| 自动生成 REST API | ✗ | ✗ | ✗ | ✗ | **✓** |
+| 自动生成 Web UI | ✗ | ✗ | ✗ | ✗ | **✓** |
+| 多层级子命令 | 手动 | ✓ | ✓ | 有限 | **✓** |
+| Swagger 文档 | ✗ | ✗ | ✗ | ✗ | **✓** |
+| 进度条/表格/彩色 | ✗ | ✓ | ✓(rich) | ✗ | **✓** |
 
 ---
 
@@ -419,8 +453,16 @@ API文档: http://0.0.0.0:8080/docs
 
 打开浏览器：
 
-- `http://localhost:8080` → **Web UI**：左侧是命令输入 + 参数表单，右侧是实时控制台输出 + 命令历史，中间分割条可自由拖动
+- `http://localhost:8080` → **Web UI**：左侧是命令输入 + 收藏/历史搜索 + 参数表单，右侧是实时控制台输出，中间分割条可自由拖动
 - `http://localhost:8080/docs` → **Swagger 文档**：所有命令自动生成 REST API
+
+**Web UI 主要功能：**
+
+- 命令行直接输入任意命令（非 NbCmd 命令自动通过 `exec` 执行）
+- 参数表单自动生成（根据方法签名推导控件类型）
+- WebSocket 实时流式输出（支持 ANSI 彩色渲染）
+- 长时间命令可随时取消（停止按钮，类似 Ctrl+C）
+- 命令收藏 + 执行历史（SQLite 持久化，Select2 风格弹框搜索）
 
 用 curl 或 requests 调用（和 Web UI 共用同一套接口）：
 
@@ -551,7 +593,122 @@ $ python git_tool.py remote add origin https://...    # 二级命令
 $ python git_tool.py commit "fix bug" --all           # 一级命令
 ```
 
+启动 Web 模式后，用 curl 调用多层级子命令：
+
+```bash
+# 启动 Web UI + REST API
+$ python git_tool.py --web --web-port 8080
+
+# 一级命令：POST /status（无参数）
+$ curl -X POST http://localhost:8080/status
+
+# 一级命令带参数：POST /commit
+$ curl -X POST http://localhost:8080/commit \
+    -H "Content-Type: application/json" \
+    -d '{"message": "fix bug", "all": true}'
+
+# 二级命令（子命令组）：POST /remote/add
+$ curl -X POST http://localhost:8080/remote/add \
+    -H "Content-Type: application/json" \
+    -d '{"name": "origin", "url": "https://github.com/user/repo.git"}'
+
+# 二级命令：POST /remote/remove
+$ curl -X POST http://localhost:8080/remote/remove \
+    -H "Content-Type: application/json" \
+    -d '{"name": "origin"}'
+```
+
+> **路由规则：** 一级命令路由为 `/{command}`，子命令组中的命令路由为 `/{group}/{sub_command}`，与 CLI 的层级结构一一对应。所有接口在 Swagger 文档 `http://localhost:8080/docs` 中可查看。
+
 在 Web UI 中，子命令组以蓝色标题 `[组]` 展示，展开后列出每个子命令的参数表单。
+
+#### 组合多个 NbCmd 类为统一入口
+
+已有的多个 NbCmd 类可以通过 `sub_commands` 组合成一个"大一统"工具，共享同一个 Web UI / API 入口：
+
+```python
+from nb_cmd import NbCmd
+
+class MyTool(NbCmd):
+    """基础工具"""
+    def greet(self, name: str, times: int = 1):
+        """问好"""
+        for _ in range(times):
+            print('你好, {}!'.format(name))
+
+class DeployTool(NbCmd):
+    """部署工具"""
+    def deploy(self, host: str, port: int = 22):
+        """部署"""
+        print('部署到 {}:{}'.format(host, port))
+
+    def status(self):
+        """查看状态"""
+        print('当前状态: 运行中')
+
+class OneAllTool(NbCmd):
+    """综合工具，在一个网页运行所有NbCmd其他类"""
+
+    sub_commands = {
+        'mytool': MyTool,
+        'deploy-tool': DeployTool,
+    }
+
+if __name__ == '__main__':
+    OneAllTool().run()
+```
+
+```bash
+# CLI 用法
+$ python bigone.py mytool greet 张三 --times 3
+$ python bigone.py deploy-tool deploy web-01 --port 2222
+$ python bigone.py deploy-tool status
+```
+
+启动 Web 模式后，所有子类的命令统一暴露为 REST API：
+
+```bash
+$ python bigone.py --web --web-port 8025
+
+# mytool 组的 greet 命令
+$ curl -X POST http://localhost:8025/mytool/greet \
+    -H "Content-Type: application/json" \
+    -d '{"name": "张三", "times": 3}'
+
+# deploy-tool 组的 deploy 命令
+$ curl -X POST http://localhost:8025/deploy-tool/deploy \
+    -H "Content-Type: application/json" \
+    -d '{"host": "web-01", "port": 2222}'
+
+# deploy-tool 组的 status 命令（无参数）
+$ curl -X POST http://localhost:8025/deploy-tool/status
+```
+
+> 这样可以把团队中各个人写的 NbCmd 类"插拔式"地组合到一个统一入口，Web UI 中每个组独立折叠展示。
+
+#### sub_commands 支持传入实例
+
+如果子类的 `__init__` 有必填参数，直接传 class 会因为无法无参实例化而报错。此时可以传入**实例**，nb_cmd 会自动提取 init 参数用于后续重建实例：
+
+```python
+from nb_cmd import NbCmd, Arg
+
+class ServerTool(NbCmd):
+    def __init__(self, region: Arg(str, '机房区域')):
+        super().__init__()
+        self.region = region
+
+    def stats(self):
+        print('区域: {}'.format(self.region))
+
+class OneAllTool(NbCmd):
+    sub_commands = {
+        'mytool': MyTool,                    # 传 class（无 __init__ 参数）
+        'server': ServerTool('beijing'),     # 传实例（有 __init__ 参数）
+    }
+```
+
+> `sub_commands` 的 value 可以是 **class** 或 **instance**。传 instance 时，nb_cmd 从实例上提取 init 参数值，Web/API 模式下每次请求仍会新建隔离实例。
 
 ### 4. 内置输出工具（通过 cmdui 访问）
 
@@ -811,6 +968,8 @@ $ python my_tool.py exec "docker ps"
 $ python my_tool.py exec "ls -la"
 ```
 
+> **Web UI 智能路由：** 在 Web UI 的命令输入框中，输入非 NbCmd 命令（如 `python script.py`、`docker ps`、`ls -la`）会自动通过 `exec` 执行，无需手动加 `exec` 前缀。
+
 ```python
 class MyTool(NbCmd):
     def deploy(self, host: str):
@@ -862,6 +1021,7 @@ class MyTool(NbCmd):
 | `serve_workers` | int | `1` | 工作进程数（规划中） |
 | `web_title` | str | `None` | Web UI 页面标题 |
 | `web_theme` | str | `'light'` | Web UI 主题（`'light'` / `'dark'`） |
+| `enable_exec` | bool | `True` | 是否暴露内置 `exec` 命令（设为 `False` 可防止恶意执行系统命令） |
 | `aliases` | dict | `{}` | 参数别名（推荐用 `Arg(alias=...)` 替代） |
 
 ### 10. 生命周期钩子
@@ -927,6 +1087,21 @@ deploy — 部署服务到目标主机
 stats — 查看系统状态
 ```
 
+### 12. Web UI 交互特性
+
+以下功能在 `--web` 模式下自动可用，无需额外配置：
+
+| 功能 | 说明 |
+|------|------|
+| 实时流式输出 | WebSocket 推送，print() 实时显示在控制台，支持 ANSI 彩色渲染 |
+| 命令取消 | 长时间运行的命令可点击"停止"按钮随时取消（类似 Ctrl+C），执行中"执行"按钮自动置灰 |
+| 命令收藏 | 点击 ★ 按钮将常用命令保存到 SQLite，自动去重 |
+| 执行历史 | 每次执行自动记录到 SQLite，保留最近 1000 条 |
+| Select2 搜索 | 收藏和历史各有独立的 Select2 风格弹框，支持模糊搜索、键盘导航，点击即填入命令行 |
+| 智能路由 | 命令行输入非 NbCmd 命令时自动通过 exec 执行，可直接输入 `python xxx.py`、`docker ps` 等 |
+| 参数表单 | 根据方法签名自动推导控件（文本框、数字框、复选框、下拉选择等） |
+| 可拖拽布局 | 左右面板中间的分割条可自由拖动调整比例 |
+
 ---
 
 ## 完整 API 速查
@@ -973,136 +1148,7 @@ from nb_cmd import NbCmd, Arg, NbCmdMeta, cmdui, validate
 
 ---
 
-## 从零到完整：渐进式示例
-
-展示如何从最简单的 class 逐步添加功能，每一步都是独立可运行的。
-
-### Level 1：最简 — 3 行代码
-
-```python
-from nb_cmd import NbCmd
-
-class Hi(NbCmd):
-    def say(self, name: str):
-        """打招呼"""
-        print('Hello, {}!'.format(name))
-
-if __name__ == '__main__':
-    Hi().run()
-```
-
-```bash
-$ python hi.py say 张三          # CLI
-$ python hi.py --web             # 一键变 Web UI + REST API
-```
-
-### Level 2：加 Arg 描述 + 短别名
-
-```python
-from nb_cmd import NbCmd, Arg, cmdui
-
-class Hi(NbCmd):
-    def say(self, name: Arg(str, '要问候的人', alias='n'),
-            times: Arg(int, '次数', alias='t') = 1):
-        """打招呼"""
-        for _ in range(times):
-            print('Hello, {}!'.format(name))
-        cmdui.success('完成!')
-
-if __name__ == '__main__':
-    Hi().run()
-```
-
-```bash
-$ python hi.py say -n 张三 -t 3
-```
-
-### Level 3：加全局参数 + Meta 配置
-
-```python
-from nb_cmd import NbCmd, Arg, NbCmdMeta, cmdui
-
-class ServerTool(NbCmd):
-    """服务器运维工具"""
-
-    class Meta(NbCmdMeta):
-        version = "2.0.0"
-        use_nb_log = True
-        web_theme = "dark"
-
-    def __init__(self, region: Arg(str, '机房区域', alias='r') = 'cn-east',
-                 timeout: Arg(int, '超时秒数') = 30):
-        super().__init__()
-        self.region = region
-        self.timeout = timeout
-
-    def deploy(self, host: str, port: int = 22):
-        """部署到远程服务器"""
-        self.shell('echo "部署到 {} (区域: {})"'.format(host, self.region))
-        cmdui.success('部署完成!')
-
-    def stats(self):
-        """查看状态"""
-        cmdui.kv({"区域": self.region, "超时": "{}s".format(self.timeout)})
-
-if __name__ == '__main__':
-    ServerTool().run()
-```
-
-```bash
-$ python server_tool.py --region shanghai deploy 10.0.0.1
-$ python server_tool.py --web --web-port 9000
-$ curl -X POST http://localhost:9000/stats \
-    -H "Content-Type: application/json" \
-    -d '{"init_params": {"region": "guangzhou"}}'
-```
-
-### Level 4：加继承 + 子命令组
-
-```python
-from nb_cmd import NbCmd, cmdui
-
-class BaseDeploy(NbCmd):
-    def deploy(self, host: str):
-        self._do_deploy(host)
-        cmdui.success('部署完成!')
-
-    def _do_deploy(self, host):
-        cmdui.info('基础部署到 {}'.format(host))
-
-class DockerDeploy(BaseDeploy):
-    """Docker 部署——只覆写一个方法"""
-    def _do_deploy(self, host):
-        cmdui.info('docker pull && docker-compose up -d on {}'.format(host))
-
-class K8sDeploy(BaseDeploy):
-    """K8s 部署——覆写 + 新增命令"""
-    def _do_deploy(self, host):
-        cmdui.info('kubectl apply on {}'.format(host))
-
-    def scale(self, replicas: int = 3):
-        """扩缩容"""
-        cmdui.info('kubectl scale --replicas={}'.format(replicas))
-```
-
----
-
 ## 和竞品对比
-
-### 功能矩阵
-
-| 功能 | argparse | click | typer | fire | **nb_cmd** |
-|------|:--------:|:-----:|:-----:|:----:|:----------:|
-| 零配置 | ✗ | ✗ | 部分 | ✓ | **✓** |
-| 类型驱动 | 手动 | 手动 | ✓ | ✗ | **✓** |
-| OOP 继承/覆写 | ✗ | ✗ | ✗ | 有限 | **✓** |
-| 自动生成 REST API | ✗ | ✗ | ✗ | ✗ | **✓** |
-| 自动生成 Web UI | ✗ | ✗ | ✗ | ✗ | **✓** |
-| 多层级子命令 | 手动 | ✓ | ✓ | 有限 | **✓** |
-| 进度条/表格/彩色 | ✗ | ✓ | ✓(rich) | ✗ | **✓** |
-| 生命周期钩子 | ✗ | 有限 | ✗ | ✗ | **✓** |
-| Swagger 文档 | ✗ | ✗ | ✗ | ✗ | **✓** |
-| 系统命令执行 | ✗ | ✗ | ✗ | ✗ | **✓** |
 
 ### 代码对比：实现同一个工具
 
@@ -1181,77 +1227,17 @@ python deploy.py --web --web-port 8080     # Web UI + REST API
 
 **核心差异：** argparse / click / typer 的世界观是"CLI 是终点"。nb_cmd 的世界观是"Class 是中心，接口是投影"——CLI、API、Web UI 只是同一份业务逻辑的不同表现形式。
 
----
+### vs 传统前后端开发
 
-## nb_cmd vs 传统前后端开发
-
-传统方式：**写后端 → 写接口 → 写文档 → 写前端 → 联调**，5 步缺一不可。
-
-### 传统方式：以实现一个"部署工具"为例
-
-**第 1 步：手写 API 接口（每个功能一个路由）**
-
-```python
-from fastapi import FastAPI
-app = FastAPI()
-
-@app.post("/api/deploy")
-async def deploy(host: str, port: int = 22, env: str = "dev"):
-    ...
-
-@app.post("/api/status")
-async def status():
-    ...
-
-# 10 个功能 = 10 个路由 + 10 个 Pydantic 模型
-```
-
-**第 2 步：手写前端表单（每个接口一套 HTML/JS）**
-
-```html
-<form id="deployForm">
-  <input name="host" required />
-  <input name="port" type="number" value="22" />
-  <select name="env">
-    <option value="dev">dev</option>
-    <option value="prod">prod</option>
-  </select>
-  <button>部署</button>
-</form>
-<script>
-  // 每个表单都要写 fetch + 结果展示 + 错误处理...
-</script>
-```
-
-**第 3 步：前后端联调**——参数名对不上？类型转换出错？文档过时？
-
-### nb_cmd 方式：只写 class
-
-```python
-class DeployTool(NbCmd):
-    def deploy(self, host: str, port: int = 22, env: Environment = Environment.DEV):
-        ...
-    def status(self):
-        ...
-```
-
-**然后你自动获得：**
+传统方式：**写后端 → 写接口 → 写文档 → 写前端 → 联调**，5 步缺一不可。nb_cmd 方式：只写 class，其余自动生成。
 
 | 能力 | 传统方式 | nb_cmd |
 |------|---------|--------|
 | REST API（含 Swagger） | 手写路由 + 模型 | **方法签名自动生成** |
 | Web UI（表单 + 控件） | 手写 HTML/CSS/JS | **类型注解自动推导控件** |
 | WebSocket 实时输出 | 手写 WS 端点 + 前端接收 | **print() 自动流式推送** |
-| ANSI 颜色渲染 | 不支持 | **自动转 HTML 彩色** |
 | 命令行 CLI | 另写 argparse | **同一份代码** |
 | 文档同步 | 手动维护 | **永远一致（同一个类）** |
-| 新增参数 | 改后端 + 改前端 + 改文档 | **加一个参数，三处自动更新** |
-
-### 工作量对比
-
-| | 传统前后端 | nb_cmd |
-|---|-----------|--------|
-| 10 个功能的工具 | **20-30 小时** | **加几行类型注解** |
 | 新增 1 个参数 | 改 3 处（后端/前端/文档） | **改 1 处（方法签名）** |
 | 前端开发者 | 需要 | **不需要** |
 
@@ -1416,6 +1402,7 @@ nb_cmd = ["ui/static/**/*"]
 `````
 
 └── examples
+    ├── bigone_cmd.py
     ├── demo_advanced.py
     ├── demo_basic.py
     ├── demo_full.py
@@ -1428,8 +1415,10 @@ nb_cmd = ["ui/static/**/*"]
 ---
 
 
-## nb_cmd (relative dir: `examples`)  Included Files (total: 6 files)
+## nb_cmd (relative dir: `examples`)  Included Files (total: 7 files)
 
+
+- `examples/bigone_cmd.py`
 
 - `examples/demo_advanced.py`
 
@@ -1443,6 +1432,80 @@ nb_cmd = ["ui/static/**/*"]
 
 - `examples/demo_subcommands.py`
 
+
+---
+
+
+--- **start of file: examples/bigone_cmd.py** (project: nb_cmd) --- 
+
+`````python
+# -*- coding: utf-8 -*-
+"""
+nb_cmd 综合入口 demo —— 把多个 NbCmd 类组合到一个统一的 CLI / Web UI / REST API
+
+用法:
+    python bigone_cmd.py --help
+    python bigone_cmd.py mytool greet 张三 --times 3
+    python bigone_cmd.py deploy deploy web-01 --env prod
+    python bigone_cmd.py k8s scale --replicas 5
+    python bigone_cmd.py db query "SELECT 1"
+    python bigone_cmd.py git status
+    python bigone_cmd.py git remote add origin https://github.com/x/x.git
+    python bigone_cmd.py server deploy 10.0.0.1 --env staging
+    python bigone_cmd.py server stats
+    python bigone_cmd.py --web --web-port 8025
+"""
+import sys
+import os
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+
+from nb_cmd import NbCmd
+from demo_basic import MyTool
+from demo_advanced import DeployTool
+from demo_inherit import K8sDeploy
+from demo_full import DbTool
+from demo_subcommands import GitTool
+from demo_nb_log import ServerTool
+
+
+class OneAllTool(NbCmd):
+    """
+    综合工具，在一个网页运行所有NbCmd其他类
+    """
+
+    sub_commands = {
+        'mytool': MyTool,
+        'deploy': DeployTool,
+        'k8s': K8sDeploy,
+        'db': DbTool,
+        'git': GitTool,
+        'server': ServerTool('beijing'),
+    }
+
+
+if __name__ == '__main__':
+    OneAllTool().run()
+
+    '''
+    D:/ProgramData/Miniconda3/envs/py39b/python.exe D:/codes/nb_cmd/examples/bigone_cmd.py --web --web-port 8025
+
+    curl -X POST http://localhost:8025/mytool/greet -H "Content-Type: application/json" -d "{\"name\": \"张三\", \"times\": 3}"
+    curl -X POST http://localhost:8025/deploy/deploy -H "Content-Type: application/json" -d "{\"host\": \"web-01\", \"env\": \"prod\"}"
+    curl -X POST http://localhost:8025/deploy/status
+    curl -X POST http://localhost:8025/k8s/deploy -H "Content-Type: application/json" -d "{\"host\": \"10.0.0.1\"}"
+    curl -X POST http://localhost:8025/k8s/scale -H "Content-Type: application/json" -d "{\"replicas\": 5}"
+    curl -X POST http://localhost:8025/db/query -H "Content-Type: application/json" -d "{\"sql\": \"SELECT * FROM users\"}"
+    curl -X POST http://localhost:8025/db/stats
+    curl -X POST http://localhost:8025/git/status
+    curl -X POST http://localhost:8025/git/commit -H "Content-Type: application/json" -d "{\"message\": \"fix bug\", \"all\": true}"
+    curl -X POST http://localhost:8025/server/deploy -H "Content-Type: application/json" -d "{\"host\": \"10.0.0.1\", \"env\": \"staging\"}"
+    curl -X POST http://localhost:8025/server/stats
+    '''
+
+
+`````
+
+--- **end of file: examples/bigone_cmd.py** (project: nb_cmd) --- 
 
 ---
 
@@ -2170,6 +2233,7 @@ class NbCmdMeta(object):
     serve_workers = 1          # type: int   # 工作进程数
     web_title = None           # type: str   # Web UI 页面标题
     web_theme = 'light'        # type: str   # Web UI 主题 ('light' / 'dark')
+    enable_exec = True         # type: bool  # 是否暴露内置 exec 命令（False 可防止恶意执行）
     aliases = {}               # type: dict  # 参数别名（推荐用 Arg(alias=...) 替代）
 
 
@@ -2530,7 +2594,7 @@ from typing import get_type_hints
 from .arg import unwrap_arg
 
 
-def discover_commands(instance, base_cls, include_builtins=True):
+def discover_commands(instance, base_cls, include_builtins=True, enable_exec=True):
     """
     发现 instance 上所有应暴露为 CLI 子命令的方法，以及 sub_commands 中的子命令组。
 
@@ -2538,13 +2602,15 @@ def discover_commands(instance, base_cls, include_builtins=True):
     ----------
     include_builtins : bool
         是否包含基类内置命令（如 exec），顶层类为 True，子命令组为 False
+    enable_exec : bool
+        是否启用内置 exec 命令，由 Meta.enable_exec 控制
 
     返回: OrderedDict  { cmd_name: cmd_info_dict }
     """
     from collections import OrderedDict
     commands = OrderedDict()
 
-    _BUILTIN_COMMANDS = {'exec'} if include_builtins else set()
+    _BUILTIN_COMMANDS = {'exec'} if (include_builtins and enable_exec) else set()
     base_methods = set(dir(base_cls)) - _BUILTIN_COMMANDS
 
     for name in sorted(dir(instance)):
@@ -2615,15 +2681,40 @@ def discover_commands(instance, base_cls, include_builtins=True):
         }
 
     sub_cmds = getattr(instance.__class__, 'sub_commands', {})
-    for group_name, group_cls in sub_cmds.items():
-        if inspect.isclass(group_cls) and issubclass(group_cls, base_cls):
+    for group_name, group_val in sub_cmds.items():
+        if inspect.isclass(group_val) and issubclass(group_val, base_cls):
+            commands[group_name] = {
+                'cls': group_val,
+                'doc': (inspect.getdoc(group_val) or "").split('\n')[0],
+                'is_group': True,
+                'init_kwargs': {},
+            }
+        elif isinstance(group_val, base_cls):
+            group_cls = group_val.__class__
             commands[group_name] = {
                 'cls': group_cls,
                 'doc': (inspect.getdoc(group_cls) or "").split('\n')[0],
                 'is_group': True,
+                'init_kwargs': _extract_init_kwargs(group_val),
             }
 
     return commands
+
+
+def _extract_init_kwargs(instance):
+    """从实例上提取 __init__ 参数的当前值，用于子命令组的重新实例化"""
+    cls = instance.__class__
+    init_method = cls.__init__
+    if init_method is object.__init__:
+        return {}
+    sig = inspect.signature(init_method)
+    kwargs = {}
+    for pname, param in sig.parameters.items():
+        if pname == 'self':
+            continue
+        if hasattr(instance, pname):
+            kwargs[pname] = getattr(instance, pname)
+    return kwargs
 
 `````
 
@@ -2696,13 +2787,14 @@ def build_parser(instance, commands, meta):
         if cmd_info.get('is_group'):
             group_cls = cmd_info['cls']
             group_doc = cmd_info.get('doc', '')
+            group_kwargs = cmd_info.get('init_kwargs', {})
             sub = subparsers.add_parser(
                 cli_name,
                 help=group_doc + '（子命令组）' if group_doc else '子命令组',
                 description=group_doc,
                 formatter_class=_RawDefaultsHelpFormatter,
             )
-            _build_group_subparser(sub, group_cls, instance.__class__)
+            _build_group_subparser(sub, group_cls, instance.__class__, group_kwargs)
         else:
             param_hint = _build_param_hint(cmd_info)
             help_text = cmd_info['doc']
@@ -2750,7 +2842,8 @@ def print_full_help(instance, base_cls):
     from .discovery import discover_commands
 
     meta = getattr(instance.__class__, 'Meta', type('Meta', (), {}))
-    commands = discover_commands(instance, base_cls)
+    _enable_exec = getattr(meta, 'enable_exec', True)
+    commands = discover_commands(instance, base_cls, enable_exec=_enable_exec)
     description = inspect.getdoc(instance) or instance.__class__.__name__
     version = getattr(meta, 'version', '0.0.1')
 
@@ -2775,32 +2868,39 @@ def print_full_help(instance, base_cls):
         w('\n')
 
     w('{}\n'.format('-' * 56))
+    _print_group_commands(w, commands, base_cls, prefix='')
+    _sys.stdout.flush()
+
+
+def _print_group_commands(w, commands, base_cls, prefix=''):
+    """递归打印命令组及其所有子命令（含嵌套组）"""
+    from .discovery import discover_commands
+
     for cmd_name, cmd_info in commands.items():
         cli_name = cmd_name.replace('_', '-')
+        full_name = '{} {}'.format(prefix, cli_name).strip() if prefix else cli_name
 
         if cmd_info.get('is_group'):
             w('{} \033[36m[子命令组]\033[0m  {}\n'.format(
-                cli_name, cmd_info.get('doc', '')))
+                full_name, cmd_info.get('doc', '')))
             group_cls = cmd_info['cls']
+            group_kwargs = cmd_info.get('init_kwargs', {})
             try:
-                group_inst = group_cls()
+                group_inst = group_cls(**group_kwargs) if group_kwargs else group_cls()
             except TypeError:
                 group_inst = group_cls.__new__(group_cls)
             group_cmds = discover_commands(group_inst, base_cls,
                                            include_builtins=False)
-            for sub_name, sub_info in group_cmds.items():
-                if sub_info.get('is_group'):
-                    continue
-                sub_cli = '{} {}'.format(cli_name, sub_name.replace('_', '-'))
-                w('\n  {} — {}\n'.format(sub_cli, sub_info.get('doc', '')))
-                _print_params(w, sub_info)
+            _print_group_commands(w, group_cmds, base_cls, prefix=full_name)
             w('\n')
         else:
-            w('{} — {}\n'.format(cli_name, cmd_info.get('doc', '')))
+            if prefix:
+                w('\n  {} — {}\n'.format(full_name, cmd_info.get('doc', '')))
+            else:
+                w('{} — {}\n'.format(full_name, cmd_info.get('doc', '')))
             _print_params(w, cmd_info)
-            w('\n')
-
-    _sys.stdout.flush()
+            if not prefix:
+                w('\n')
 
 
 def _print_params(write_fn, cmd_info):
@@ -3042,16 +3142,19 @@ def _add_method_arguments(sub_parser, cmd_info, meta):
                 sub_parser.add_argument(param_name, **kwargs)
 
 
-def _build_group_subparser(parent_parser, group_cls, base_cls):
+def _build_group_subparser(parent_parser, group_cls, base_cls, init_kwargs=None):
     """递归为子命令组构建 subparser"""
     from .discovery import discover_commands
 
-    group_instance = group_cls.__new__(group_cls)
-    if hasattr(group_cls.__init__, '__func__') and group_cls.__init__ is not object.__init__:
-        try:
-            group_cls.__init__(group_instance)
-        except TypeError:
-            pass
+    if init_kwargs:
+        group_instance = group_cls(**init_kwargs)
+    else:
+        group_instance = group_cls.__new__(group_cls)
+        if hasattr(group_cls.__init__, '__func__') and group_cls.__init__ is not object.__init__:
+            try:
+                group_cls.__init__(group_instance)
+            except TypeError:
+                pass
 
     group_commands = discover_commands(group_instance, base_cls)
 
@@ -3068,13 +3171,14 @@ def _build_group_subparser(parent_parser, group_cls, base_cls):
         if cmd_info.get('is_group'):
             nested_cls = cmd_info['cls']
             nested_doc = cmd_info.get('doc', '')
+            nested_kwargs = cmd_info.get('init_kwargs', {})
             nested_sub = group_subparsers.add_parser(
                 cli_name,
                 help=nested_doc + '（子命令组）' if nested_doc else '子命令组',
                 description=nested_doc,
                 formatter_class=_RawDefaultsHelpFormatter,
             )
-            _build_group_subparser(nested_sub, nested_cls, base_cls)
+            _build_group_subparser(nested_sub, nested_cls, base_cls, nested_kwargs)
         else:
             sub = group_subparsers.add_parser(
                 cli_name,
@@ -3434,7 +3538,8 @@ def start_api_server(instance, base_cls, host=None, port=None):
         allow_headers=["*"],
     )
 
-    commands = discover_commands(instance, base_cls)
+    _enable_exec = getattr(meta, 'enable_exec', True)
+    commands = discover_commands(instance, base_cls, enable_exec=_enable_exec)
     _register_routes(app, instance, commands, base_cls=base_cls)
 
     from fastapi.responses import RedirectResponse
@@ -3497,7 +3602,8 @@ def _register_routes(app, instance, commands, base_cls=None, prefix=''):
         if cmd_info.get('is_group'):
             if base_cls is not None:
                 group_cls = cmd_info['cls']
-                group_instance = group_cls()
+                group_kwargs = cmd_info.get('init_kwargs', {})
+                group_instance = group_cls(**group_kwargs) if group_kwargs else group_cls()
                 group_commands = discover_commands(group_instance, base_cls,
                                                    include_builtins=False)
                 group_prefix = '{}/{}'.format(prefix, cmd_name) if prefix else cmd_name
@@ -3729,7 +3835,8 @@ def run_cli(instance, base_cls, args=None):
     args : list, optional  命令行参数列表，默认 sys.argv[1:]
     """
     meta = getattr(instance.__class__, 'Meta', type('Meta', (), {}))
-    commands = discover_commands(instance, base_cls)
+    _enable_exec = getattr(meta, 'enable_exec', True)
+    commands = discover_commands(instance, base_cls, enable_exec=_enable_exec)
     parser = build_parser(instance, commands, meta)
 
     parsed = parser.parse_args(args)
@@ -3804,9 +3911,10 @@ def _extract_kwargs(method, cmd_info, parsed):
 def _run_group_command(instance, group_info, parsed, base_cls):
     """执行子命令组中的命令"""
     group_cls = group_info['cls']
+    group_kwargs = group_info.get('init_kwargs', {})
 
     try:
-        group_instance = group_cls()
+        group_instance = group_cls(**group_kwargs) if group_kwargs else group_cls()
     except TypeError:
         group_instance = group_cls.__new__(group_cls)
 
@@ -3902,7 +4010,8 @@ def start_web_server(instance, base_cls, host=None, port=None):
     from ..ui import colors as _colors_mod
     _colors_mod._COLOR_ENABLED = True
 
-    commands = discover_commands(instance, base_cls)
+    _enable_exec = getattr(meta, 'enable_exec', True)
+    commands = discover_commands(instance, base_cls, enable_exec=_enable_exec)
     description = inspect.getdoc(instance) or instance.__class__.__name__
 
     static_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'ui', 'static')
@@ -3911,28 +4020,27 @@ def start_web_server(instance, base_cls, host=None, port=None):
     from ..modes.api_mode import _register_routes as _register_pydantic_routes
     _register_pydantic_routes(app, instance, commands, base_cls=base_cls)
 
-    @app.get('/api/commands', summary='获取所有命令及参数定义')
-    async def get_commands():
+    def _build_group_result(cmds_dict):
+        """递归构建命令组的结构（含嵌套子命令组）"""
         result = {}
-        for name, info in commands.items():
+        for name, info in cmds_dict.items():
             if info.get('is_group'):
-                group_cls = info['cls']
-                group_instance = group_cls()
-                group_cmds = discover_commands(group_instance, base_cls,
-                                               include_builtins=False)
-                sub_result = {}
-                for sub_name, sub_info in group_cmds.items():
-                    if sub_info.get('is_group'):
-                        continue
-                    sub_result[sub_name] = _build_cmd_info(sub_info)
+                g_cls = info['cls']
+                g_kwargs = info.get('init_kwargs', {})
+                g_inst = g_cls(**g_kwargs) if g_kwargs else g_cls()
+                g_cmds = discover_commands(g_inst, base_cls, include_builtins=False)
                 result[name] = {
                     'type': 'group',
                     'description': info.get('doc', ''),
-                    'sub_commands': sub_result,
+                    'sub_commands': _build_group_result(g_cmds),
                 }
-                continue
-            result[name] = _build_cmd_info(info)
+            else:
+                result[name] = _build_cmd_info(info)
         return result
+
+    @app.get('/api/commands', summary='获取所有命令及参数定义')
+    async def get_commands():
+        return _build_group_result(commands)
 
     init_params_info = _build_init_params_info(instance)
     _user_cls = instance.__class__
@@ -3965,6 +4073,82 @@ def start_web_server(instance, base_cls, host=None, port=None):
         }
 
     import queue as _queue
+    import sqlite3 as _sqlite3
+
+    _db_path = os.path.join(os.getcwd(), 'nb_cmd_web.db')
+
+    def _get_db():
+        conn = _sqlite3.connect(_db_path)
+        conn.execute('CREATE TABLE IF NOT EXISTS saved_commands '
+                     '(id INTEGER PRIMARY KEY AUTOINCREMENT, '
+                     'command TEXT UNIQUE NOT NULL, '
+                     'created_at TEXT DEFAULT CURRENT_TIMESTAMP)')
+        conn.execute('CREATE TABLE IF NOT EXISTS command_history '
+                     '(id INTEGER PRIMARY KEY AUTOINCREMENT, '
+                     'command TEXT NOT NULL, '
+                     'executed_at TEXT DEFAULT CURRENT_TIMESTAMP)')
+        return conn
+
+    _get_db().close()
+
+    @app.get('/api/saved-commands', summary='获取收藏命令列表')
+    async def get_saved_commands():
+        conn = _get_db()
+        rows = conn.execute(
+            'SELECT id, command, created_at FROM saved_commands ORDER BY id DESC'
+        ).fetchall()
+        conn.close()
+        return [{'id': r[0], 'command': r[1], 'created_at': r[2]} for r in rows]
+
+    @app.post('/api/save-command', summary='收藏命令（去重）')
+    async def save_command(body: dict):
+        cmd = body.get('command', '').strip()
+        if not cmd:
+            return {'status': 'error', 'message': '命令不能为空'}
+        conn = _get_db()
+        try:
+            conn.execute('INSERT OR IGNORE INTO saved_commands (command) VALUES (?)', (cmd,))
+            conn.commit()
+        finally:
+            conn.close()
+        return {'status': 'ok'}
+
+    @app.delete('/api/save-command', summary='取消收藏命令')
+    async def delete_saved_command(body: dict):
+        cmd = body.get('command', '').strip()
+        conn = _get_db()
+        try:
+            conn.execute('DELETE FROM saved_commands WHERE command = ?', (cmd,))
+            conn.commit()
+        finally:
+            conn.close()
+        return {'status': 'ok'}
+
+    @app.get('/api/history', summary='获取命令执行历史（最近1000条）')
+    async def get_history():
+        conn = _get_db()
+        rows = conn.execute(
+            'SELECT id, command, executed_at FROM command_history '
+            'ORDER BY id DESC LIMIT 1000'
+        ).fetchall()
+        conn.close()
+        return [{'id': r[0], 'command': r[1], 'executed_at': r[2]} for r in rows]
+
+    @app.post('/api/history', summary='记录一条执行历史')
+    async def post_history(body: dict):
+        cmd = body.get('command', '').strip()
+        if not cmd:
+            return {'status': 'error'}
+        conn = _get_db()
+        try:
+            conn.execute('INSERT INTO command_history (command) VALUES (?)', (cmd,))
+            conn.execute(
+                'DELETE FROM command_history WHERE id NOT IN '
+                '(SELECT id FROM command_history ORDER BY id DESC LIMIT 1000)')
+            conn.commit()
+        finally:
+            conn.close()
+        return {'status': 'ok'}
 
     def _make_instance(raw_init_params=None):
         """每次请求创建一个新的用户类实例，彼此隔离"""
@@ -3981,7 +4165,7 @@ def start_web_server(instance, base_cls, host=None, port=None):
         return _user_cls(**kwargs) if kwargs else _user_cls()
 
     def _resolve_command(route_path, raw_init_params=None):
-        """根据路由路径解析出 (method, target_instance, cmd_info)，每次新建实例"""
+        """根据路由路径解析出 (method, target_instance, cmd_info)，支持多层嵌套"""
         parts = route_path.replace('-', '_').split('/')
         if len(parts) == 1:
             cmd_name = parts[0]
@@ -3990,16 +4174,21 @@ def start_web_server(instance, base_cls, host=None, port=None):
                 target_inst = _make_instance(raw_init_params)
                 method = getattr(target_inst, cmd_name)
                 return method, target_inst, info
-        elif len(parts) == 2:
-            group_name, sub_name = parts
-            if group_name in commands and commands[group_name].get('is_group'):
-                group_cls = commands[group_name]['cls']
-                group_inst = group_cls()
-                group_cmds = discover_commands(group_inst, base_cls,
-                                               include_builtins=False)
-                if sub_name in group_cmds and not group_cmds[sub_name].get('is_group'):
-                    sub_info = group_cmds[sub_name]
-                    return sub_info['method'], group_inst, sub_info
+        elif len(parts) >= 2:
+            current_cmds = commands
+            current_inst = None
+            for i, part in enumerate(parts):
+                if part not in current_cmds:
+                    break
+                info = current_cmds[part]
+                if info.get('is_group'):
+                    g_cls = info['cls']
+                    g_kwargs = info.get('init_kwargs', {})
+                    current_inst = g_cls(**g_kwargs) if g_kwargs else g_cls()
+                    current_cmds = discover_commands(current_inst, base_cls,
+                                                     include_builtins=False)
+                elif i == len(parts) - 1 and current_inst is not None:
+                    return info['method'], current_inst, info
         return None, None, None
 
     class _QueueWriter(object):
@@ -4016,9 +4205,18 @@ def start_web_server(instance, base_cls, host=None, port=None):
         def isatty(self):
             return True
 
+    def _cancel_thread(tid):
+        """向指定线程注入 KeyboardInterrupt，模拟 Ctrl+C"""
+        import ctypes
+        res = ctypes.pythonapi.PyThreadState_SetAsyncExc(
+            ctypes.c_ulong(tid), ctypes.py_object(KeyboardInterrupt))
+        return res == 1
+
     @app.websocket('/ws/execute')
     async def ws_execute(websocket: WebSocket):
         await websocket.accept()
+        cancel_event = threading.Event()
+        worker_thread = None
         try:
             msg = await websocket.receive_json()
             route_path = msg.get('command', '')
@@ -4035,7 +4233,7 @@ def start_web_server(instance, base_cls, host=None, port=None):
 
             kwargs = _convert_request_params(raw_kwargs, cmd_info)
             output_q = _queue.Queue()
-            result_holder = {'result': None, 'error': None}
+            result_holder = {'result': None, 'error': None, 'cancelled': False}
 
             def _run():
                 old_out, old_err = sys.stdout, sys.stderr
@@ -4054,9 +4252,14 @@ def start_web_server(instance, base_cls, host=None, port=None):
                     target_inst.before_run()
                     r = method(**kwargs)
                     result_holder['result'] = handle_api_result(r)
+                except KeyboardInterrupt:
+                    result_holder['cancelled'] = True
                 except Exception as exc:
-                    result_holder['error'] = str(exc)
-                    target_inst.on_error(route_path, exc)
+                    if cancel_event.is_set():
+                        result_holder['cancelled'] = True
+                    else:
+                        result_holder['error'] = str(exc)
+                        target_inst.on_error(route_path, exc)
                 finally:
                     for h, orig in saved_streams:
                         h.stream = orig
@@ -4065,13 +4268,32 @@ def start_web_server(instance, base_cls, host=None, port=None):
                     output_q.put(None)
 
             t = threading.Thread(target=_run, daemon=True)
+            worker_thread = t
             start_ts = time.time()
             t.start()
 
+            async def _listen_cancel():
+                """后台监听客户端的取消消息"""
+                try:
+                    while not cancel_event.is_set():
+                        client_msg = await asyncio.wait_for(
+                            websocket.receive_json(), timeout=0.1)
+                        if client_msg.get('action') == 'cancel':
+                            cancel_event.set()
+                            if t.is_alive() and t.ident:
+                                _cancel_thread(t.ident)
+                            return
+                except asyncio.TimeoutError:
+                    pass
+                except (WebSocketDisconnect, Exception):
+                    cancel_event.set()
+
             while True:
+                listen_task = asyncio.ensure_future(_listen_cancel())
                 try:
                     item = output_q.get(timeout=0.05)
                     if item is None:
+                        listen_task.cancel()
                         break
                     stream_type, data = item
                     await websocket.send_json({'type': stream_type, 'data': data})
@@ -4084,13 +4306,22 @@ def start_web_server(instance, base_cls, host=None, port=None):
                             await websocket.send_json({
                                 'type': item[0], 'data': item[1]
                             })
+                        listen_task.cancel()
                         break
                     await asyncio.sleep(0.02)
+                finally:
+                    if not listen_task.done():
+                        listen_task.cancel()
 
-            t.join(timeout=1)
+            t.join(timeout=2)
             duration = int((time.time() - start_ts) * 1000)
 
-            if result_holder['error']:
+            if result_holder['cancelled'] or cancel_event.is_set():
+                await websocket.send_json({
+                    'type': 'cancelled',
+                    'duration_ms': duration,
+                })
+            elif result_holder['error']:
                 await websocket.send_json({
                     'type': 'error',
                     'error': result_holder['error'],
@@ -4103,7 +4334,9 @@ def start_web_server(instance, base_cls, host=None, port=None):
                     'duration_ms': duration,
                 })
         except WebSocketDisconnect:
-            pass
+            cancel_event.set()
+            if worker_thread and worker_thread.is_alive() and worker_thread.ident:
+                _cancel_thread(worker_thread.ident)
         except Exception:
             pass
 
@@ -4111,7 +4344,7 @@ def start_web_server(instance, base_cls, host=None, port=None):
         from fastapi.staticfiles import StaticFiles
         app.mount("/", StaticFiles(directory=static_dir, html=True), name="static")
     else:
-        html_content = _generate_builtin_html(title, version, description, theme)
+        html_content = _generate_builtin_html(title, version, description, theme, _enable_exec)
 
         @app.get('/', response_class=HTMLResponse, include_in_schema=False)
         async def index():
@@ -4268,7 +4501,7 @@ def _convert_request_params(request, cmd_info):
     return kwargs
 
 
-def _generate_builtin_html(title, version, description, theme):
+def _generate_builtin_html(title, version, description, theme, enable_exec=True):
     """生成内置的 Web UI HTML 页面（当没有 Vue 前端构建产物时使用）"""
     dark_css = """
         :root { --bg: #1a1a2e; --card-bg: #16213e; --text: #e0e0e0; --border: #0f3460;
@@ -4341,24 +4574,45 @@ body { font-family: -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif;
 .console-output .cmd-echo { color: var(--primary); }
 .console-output .err { color: var(--error); }
 .console-output .ok { color: var(--success); }
-.history-area { max-height: 200px; overflow-y: auto; border-top: 1px solid var(--border);
-                 background: var(--card-bg); }
-.history-area .history-label { padding: 6px 16px; font-size: 13px; color: var(--info);
-                                border-bottom: 1px solid var(--border); }
-.history-item { padding: 6px 16px; cursor: pointer; font-family: monospace; font-size: 13px;
-                 border-bottom: 1px solid var(--border); display: flex; align-items: center;
-                 justify-content: space-between; }
-.history-item:hover { background: var(--hover-bg); }
-.history-item .hist-text { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.history-item .copy-btn { flex-shrink: 0; margin-left: 8px; padding: 2px 8px; font-size: 11px;
-                          border: 1px solid var(--border); border-radius: 3px; cursor: pointer;
-                          background: var(--card-bg); color: var(--text); opacity: 0;
-                          transition: opacity 0.15s; }
-.history-item:hover .copy-btn { opacity: 1; }
-.history-item .copy-btn:hover { background: var(--primary); color: #fff; border-color: var(--primary); }
 .status-bar { padding: 6px 16px; font-size: 12px; border-top: 1px solid var(--border);
                background: var(--card-bg); display: flex; justify-content: space-between; color: #888; }
 .arrow { transition: transform 0.2s; } .arrow.open { transform: rotate(90deg); }
+.save-cmd-btn { background: transparent; color: #888; border: none; font-size: 18px; cursor: pointer;
+               padding: 4px 8px; margin-left: 4px; line-height: 1; }
+.save-cmd-btn:hover { color: #ffd740; }
+.s2-wrap { display: flex; flex-direction: column; gap: 6px; padding: 6px 16px; background: var(--card-bg); border-bottom: 1px solid var(--border); }
+.s2-box { position: relative; flex: 1; }
+.s2-trigger { display: flex; align-items: center; gap: 6px; padding: 7px 10px; border: 1px solid var(--border);
+              border-radius: 4px; background: var(--input-bg); cursor: pointer; font-size: 13px;
+              transition: border-color 0.15s; user-select: none; }
+.s2-trigger:hover { border-color: var(--primary); }
+.s2-box.open .s2-trigger { border-color: var(--primary); border-radius: 4px 4px 0 0; }
+.s2-icon { flex-shrink: 0; font-size: 14px; }
+.s2-label { flex-shrink: 0; font-size: 13px; }
+.s2-count { font-size: 11px; color: #888; background: var(--bg); padding: 0 6px; border-radius: 8px; margin-left: auto; }
+.s2-arrow { flex-shrink: 0; font-size: 10px; color: #888; transition: transform 0.2s; }
+.s2-box.open .s2-arrow { transform: rotate(180deg); }
+.s2-drop { display: none; position: absolute; top: 100%; left: 0; right: 0; z-index: 1000;
+           background: var(--card-bg); border: 1px solid var(--primary); border-top: none;
+           border-radius: 0 0 4px 4px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
+.s2-box.open .s2-drop { display: block; }
+.s2-search { width: 100%; padding: 7px 10px; border: none; border-bottom: 1px solid var(--border);
+             outline: none; background: var(--input-bg); color: var(--text); font-size: 12px; box-sizing: border-box; }
+.s2-list { max-height: 200px; overflow-y: auto; }
+.s2-item { padding: 6px 10px; cursor: pointer; font-family: monospace; font-size: 12px;
+           display: flex; align-items: center; white-space: nowrap; overflow: hidden; }
+.s2-item:hover { background: var(--hover-bg); }
+.s2-item .s2-iico { margin-right: 6px; flex-shrink: 0; font-size: 11px; }
+.s2-item .s2-itxt { flex: 1; overflow: hidden; text-overflow: ellipsis; }
+.s2-item .s2-idel { flex-shrink: 0; margin-left: 6px; color: #888; cursor: pointer;
+                     border: none; background: none; font-size: 13px; padding: 0 4px; }
+.s2-item .s2-idel:hover { color: var(--error); }
+.s2-empty { padding: 10px; font-size: 11px; color: #636e72; text-align: center; }
+button:disabled, .form-actions button:disabled { opacity: 0.4; cursor: not-allowed; }
+.stop-btn { display: none; background: var(--error); color: #fff; border: none; padding: 4px 14px;
+            border-radius: 4px; cursor: pointer; font-size: 12px; margin-left: 12px; }
+.stop-btn:hover { opacity: 0.85; }
+.stop-btn.visible { display: inline-block; }
 </style>
 </head>
 <body>
@@ -4374,6 +4628,33 @@ body { font-family: -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif;
         <span class="prompt">$</span>
         <input id="cmdInput" type="text" placeholder="输入命令..." autofocus autocomplete="off" />
         <button onclick="executeFromInput()">执行</button>
+        <button class="save-cmd-btn" onclick="saveCurrentCmd()" onmousedown="event.preventDefault()" title="收藏当前命令">&#9733;</button>
+      </div>
+    </div>
+    <div class="s2-wrap">
+      <div class="s2-box" id="s2Saved">
+        <div class="s2-trigger" onclick="toggleS2('s2Saved')">
+          <span class="s2-icon" style="color:#ffd740;">&#9733;</span>
+          <span class="s2-label">收藏</span>
+          <span class="s2-count" id="savedCount">0</span>
+          <span class="s2-arrow">&#9662;</span>
+        </div>
+        <div class="s2-drop" onmousedown="event.stopPropagation()">
+          <input class="s2-search" id="savedSearch" type="text" placeholder="搜索收藏..." oninput="renderSaved()" />
+          <div class="s2-list" id="savedBody"></div>
+        </div>
+      </div>
+      <div class="s2-box" id="s2Hist">
+        <div class="s2-trigger" onclick="toggleS2('s2Hist')">
+          <span class="s2-icon" style="color:#82b1ff;">&#128339;</span>
+          <span class="s2-label">历史</span>
+          <span class="s2-count" id="histCount">0</span>
+          <span class="s2-arrow">&#9662;</span>
+        </div>
+        <div class="s2-drop" onmousedown="event.stopPropagation()">
+          <input class="s2-search" id="histSearch" type="text" placeholder="搜索历史..." oninput="renderHist()" />
+          <div class="s2-list" id="histBody"></div>
+        </div>
       </div>
     </div>
     <div id="initParamsArea" style="display:none;"></div>
@@ -4387,23 +4668,36 @@ body { font-family: -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif;
       <div class="console-label">&#128203; 实时控制台输出</div>
       <div class="console-output" id="consoleOutput"></div>
     </div>
-    <div class="history-area">
-      <div class="history-label">&#128220; 命令历史</div>
-      <div id="historyList"></div>
-    </div>
   </div>
 </div>
 <div class="status-bar">
-  <span id="statusText">状态: 就绪</span>
+  <span><span id="statusText">状态: 就绪</span><button class="stop-btn" id="stopBtn" onclick="cancelExecution()">&#9632; 停止</button></span>
   <span id="execCount">执行次数: 0</span>
 </div>
 
 <script>
 let commands = {};
 let initParamNames = [];
-let history = JSON.parse(localStorage.getItem('nb_cmd_history') || '[]');
+let enableExec = ''' + ('true' if enable_exec else 'false') + ''';
+let history = [];
 let historyIdx = -1;
 let execCount = 0;
+let isExecuting = false;
+let activeWs = null;
+
+function setExecuting(running) {
+  isExecuting = running;
+  var btns = document.querySelectorAll('.form-actions button.primary, .cmd-input-wrapper button');
+  btns.forEach(function(b) { b.disabled = running; });
+  var stopBtn = document.getElementById('stopBtn');
+  if (running) { stopBtn.classList.add('visible'); } else { stopBtn.classList.remove('visible'); }
+}
+
+function cancelExecution() {
+  if (activeWs && activeWs.readyState === WebSocket.OPEN) {
+    activeWs.send(JSON.stringify({action: 'cancel'}));
+  }
+}
 
 function esc(s) { var d=document.createElement('div'); d.textContent=String(s); return d.innerHTML; }
 
@@ -4454,13 +4748,15 @@ function ansiToHtml(raw) {
 }
 
 function findCmdInfo(pyName) {
-  if (commands[pyName]) return commands[pyName];
-  var slash = pyName.indexOf('/');
-  if (slash > 0) {
-    var grp = pyName.substring(0, slash);
-    var sub = pyName.substring(slash + 1);
-    if (commands[grp] && commands[grp].type === 'group' && commands[grp].sub_commands) {
-      return commands[grp].sub_commands[sub] || null;
+  var parts = pyName.split('/');
+  var node = commands;
+  for (var i = 0; i < parts.length; i++) {
+    if (!node || !node[parts[i]]) return null;
+    if (i === parts.length - 1) return node[parts[i]];
+    if (node[parts[i]].type === 'group' && node[parts[i]].sub_commands) {
+      node = node[parts[i]].sub_commands;
+    } else {
+      return null;
     }
   }
   return null;
@@ -4562,29 +4858,29 @@ function renderCmdSection(formId, cliLabel, description, params) {
   return html;
 }
 
-function renderForms() {
-  const area = document.getElementById('formArea');
-  let html = '';
-  for (const [name, info] of Object.entries(commands)) {
+function renderGroup(cmds, prefix) {
+  var html = '';
+  for (var [name, info] of Object.entries(cmds)) {
+    var cliName = name.replace(/_/g, '-');
+    var fullPrefix = prefix ? prefix + '/' + name : name;
+    var fullLabel = prefix ? prefix.replace(/_/g,'-').replace(/\\//g,' ') + ' ' + cliName : cliName;
     if (info.type === 'group') {
-      var grpCliName = name.replace(/_/g, '-');
       html += '<div class="form-section"><div class="form-section-header" onclick="toggleSection(this)">';
-      html += '<span><span class="arrow">&#9654;</span> <span class="cmd-name" style="color:var(--primary);">' + grpCliName + '</span>';
+      html += '<span><span class="arrow">&#9654;</span> <span class="cmd-name" style="color:var(--primary);">' + fullLabel + '</span>';
       html += '<span class="cmd-desc">[组] ' + (info.description||'') + '</span></span></div>';
       html += '<div class="form-section-body">';
-      if (info.sub_commands) {
-        for (const [subName, subInfo] of Object.entries(info.sub_commands)) {
-          var subCliLabel = grpCliName + ' ' + subName.replace(/_/g, '-');
-          var formId = name + '/' + subName;
-          html += renderCmdSection(formId, subCliLabel, subInfo.description, subInfo.parameters);
-        }
-      }
+      if (info.sub_commands) { html += renderGroup(info.sub_commands, fullPrefix); }
       html += '</div></div>';
-      continue;
+    } else {
+      html += renderCmdSection(fullPrefix, fullLabel, info.description, info.parameters);
     }
-    var cliName = name.replace(/_/g, '-');
-    html += renderCmdSection(name, cliName, info.description, info.parameters);
   }
+  return html;
+}
+
+function renderForms() {
+  const area = document.getElementById('formArea');
+  var html = renderGroup(commands, '');
   area.innerHTML = html || '<p style="padding:16px;color:#888;">无可用命令</p>';
 }
 
@@ -4661,10 +4957,17 @@ async function executeFromInput() {
     cmdInfo = grpInfo.sub_commands ? grpInfo.sub_commands[subPy] : null;
     routePath = parts[0] + '/' + parts[1];
     argStart = 2;
-  } else {
-    cmdInfo = commands[firstPy] || null;
+  } else if (commands[firstPy]) {
+    cmdInfo = commands[firstPy];
     routePath = parts[0];
     argStart = 1;
+  } else if (enableExec) {
+    await doExecute('exec', {cmd: raw});
+    input.value = '';
+    return;
+  } else {
+    appendLog('[错误] 未知命令: ' + parts[0], 'error');
+    return;
   }
   const kwargs = {};
   const inputInitP = {};
@@ -4684,6 +4987,9 @@ async function executeFromInput() {
       } else {
         if (posIdx < positionals.length) {
           kwargs[positionals[posIdx].name] = parts[i]; posIdx++;
+        } else if (positionals.length > 0) {
+          var lastP = positionals[positionals.length - 1].name;
+          kwargs[lastP] += ' ' + parts[i];
         }
       }
     }
@@ -4694,6 +5000,8 @@ async function executeFromInput() {
 }
 
 function doExecute(routePath, kwargs, initParamsOverride) {
+  if (isExecuting) return;
+  setExecuting(true);
   var consoleEl = document.getElementById('consoleOutput');
   var ts = new Date().toLocaleTimeString();
   var initP = initParamsOverride || getInitParams();
@@ -4703,6 +5011,12 @@ function doExecute(routePath, kwargs, initParamsOverride) {
     else cmdStr += ' --' + e[0].replace(/_/g,'-') + ' ' + e[1];
   });
 
+  function _finish(statusMsg) {
+    setExecuting(false);
+    activeWs = null;
+    document.getElementById('statusText').innerText = statusMsg;
+  }
+
   consoleEl.innerHTML += '<span class="ts">[' + ts + ']</span> <span class="cmd-echo">$ ' + cmdStr + '</span>\\n';
   document.getElementById('statusText').innerText = '状态: 执行中... ' + cmdStr;
 
@@ -4711,6 +5025,7 @@ function doExecute(routePath, kwargs, initParamsOverride) {
 
   try {
     var ws = new WebSocket(wsUrl);
+    activeWs = ws;
     ws.onopen = function() {
       var payload = {command: routePath, args: kwargs};
       if (initP) payload.init_params = initP;
@@ -4731,18 +5046,25 @@ function doExecute(routePath, kwargs, initParamsOverride) {
         consoleEl.innerHTML += '<span class="ok">[完成] ' + (msg.duration_ms||0) + 'ms</span>\\n\\n';
         execCount++;
         document.getElementById('execCount').innerText = '执行次数: ' + execCount;
-        document.getElementById('statusText').innerText = '状态: 就绪  |  最后执行: ' + cmdStr + ' ' + ts;
+        _finish('状态: 就绪  |  最后执行: ' + cmdStr + ' ' + ts);
+      } else if (msg.type === 'cancelled') {
+        consoleEl.innerHTML += '<span class="err">[已取消] ' + (msg.duration_ms||0) + 'ms</span>\\n\\n';
+        _finish('状态: 就绪  |  已取消: ' + cmdStr);
       } else if (msg.type === 'error') {
         consoleEl.innerHTML += '<span class="err">[错误] ' + esc(msg.error||'未知错误') + '</span>\\n\\n';
-        document.getElementById('statusText').innerText = '状态: 就绪  |  出错: ' + cmdStr;
+        _finish('状态: 就绪  |  出错: ' + cmdStr);
       }
       consoleEl.scrollTop = consoleEl.scrollHeight;
     };
     ws.onerror = function() {
+      setExecuting(false); activeWs = null;
       _doExecuteFallback(routePath, kwargs, cmdStr, ts);
     };
-    ws.onclose = function() {};
+    ws.onclose = function() {
+      if (isExecuting) { setExecuting(false); activeWs = null; }
+    };
   } catch(e) {
+    setExecuting(false); activeWs = null;
     _doExecuteFallback(routePath, kwargs, cmdStr, ts);
   }
   addHistory(cmdStr);
@@ -4774,50 +5096,138 @@ function _doExecuteFallback(routePath, kwargs, cmdStr, ts) {
   });
 }
 
+let savedCmds = [];
+
 function addHistory(cmd) {
   history.unshift(cmd);
-  if (history.length > 50) history.pop();
-  localStorage.setItem('nb_cmd_history', JSON.stringify(history));
-  renderHistory();
+  if (history.length > 100) history.pop();
+  fetch('/api/history', {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({command: cmd})
+  }).catch(function(){});
+  renderSaved(); renderHist();
 }
 
-function renderHistory() {
-  const el = document.getElementById('historyList');
-  el.innerHTML = '';
-  history.forEach(function(cmd, i) {
-    const div = document.createElement('div');
-    div.className = 'history-item';
-    var span = document.createElement('span');
-    span.className = 'hist-text';
-    span.textContent = (i+1) + '. ' + cmd;
-    span.onclick = function() { document.getElementById('cmdInput').value = cmd; };
-    div.appendChild(span);
-    var btn = document.createElement('button');
-    btn.className = 'copy-btn';
-    btn.textContent = '复制';
-    btn.onclick = function(e) {
-      e.stopPropagation();
-      navigator.clipboard.writeText(cmd).then(function() {
-        btn.textContent = '已复制';
-        setTimeout(function() { btn.textContent = '复制'; }, 1500);
-      });
-    };
-    div.appendChild(btn);
-    el.appendChild(div);
-  });
+async function loadHistory() {
+  try {
+    var resp = await fetch('/api/history');
+    var data = await resp.json();
+    history = data.map(function(d){ return d.command; });
+  } catch(e) { console.error(e); }
 }
+
+async function saveCurrentCmd() {
+  var cmd = document.getElementById('cmdInput').value.trim();
+  if (!cmd) return;
+  await fetch('/api/save-command', {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({command: cmd})
+  });
+  await loadSavedCmds();
+  renderSaved();
+}
+
+async function deleteSavedCmd(cmd, ev) {
+  if (ev) ev.stopPropagation();
+  await fetch('/api/save-command', {
+    method: 'DELETE', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({command: cmd})
+  });
+  await loadSavedCmds();
+  renderSaved();
+}
+
+async function loadSavedCmds() {
+  try {
+    var resp = await fetch('/api/saved-commands');
+    savedCmds = await resp.json();
+  } catch(e) { console.error(e); }
+}
+
+function fuzzyMatch(query, text) {
+  if (!query) return true;
+  var q = query.toLowerCase();
+  var t = text.toLowerCase();
+  if (t.indexOf(q) >= 0) return true;
+  var qi = 0;
+  for (var ti = 0; ti < t.length && qi < q.length; ti++) {
+    if (t[ti] === q[qi]) qi++;
+  }
+  return qi === q.length;
+}
+
+function renderSaved() {
+  var body = document.getElementById('savedBody');
+  var q = document.getElementById('savedSearch').value.trim();
+  var filtered = savedCmds.filter(function(s) { return fuzzyMatch(q, s.command); });
+  document.getElementById('savedCount').textContent = savedCmds.length;
+  var html = '';
+  if (filtered.length > 0) {
+    filtered.forEach(function(s) {
+      html += '<div class="s2-item" onclick="fillCmd(\\''+s.command.replace(/'/g,"\\\\'")+'\\')">';
+      html += '<span class="s2-iico" style="color:#ffd740;">&#9733;</span>';
+      html += '<span class="s2-itxt">' + esc(s.command) + '</span>';
+      html += '<button class="s2-idel" onclick="deleteSavedCmd(\\''+s.command.replace(/'/g,"\\\\'")+'\\'  ,event)" title="取消收藏">&times;</button>';
+      html += '</div>';
+    });
+  } else {
+    html += '<div class="s2-empty">' + (q ? '无匹配' : '点击 ★ 收藏命令') + '</div>';
+  }
+  body.innerHTML = html;
+}
+
+function renderHist() {
+  var body = document.getElementById('histBody');
+  var q = document.getElementById('histSearch').value.trim();
+  var seen = {};
+  var filtered = [];
+  history.forEach(function(h) {
+    if (!seen[h] && fuzzyMatch(q, h)) { filtered.push(h); seen[h]=true; }
+  });
+  document.getElementById('histCount').textContent = history.length;
+  var html = '';
+  if (filtered.length > 0) {
+    filtered.forEach(function(h) {
+      html += '<div class="s2-item" onclick="fillCmd(\\''+h.replace(/'/g,"\\\\'")+'\\')">';
+      html += '<span class="s2-iico" style="color:#82b1ff;">&#128339;</span>';
+      html += '<span class="s2-itxt">' + esc(h) + '</span>';
+      html += '</div>';
+    });
+  } else {
+    html += '<div class="s2-empty">' + (q ? '无匹配' : '执行命令后自动记录') + '</div>';
+  }
+  body.innerHTML = html;
+}
+
+function fillCmd(cmd) {
+  document.getElementById('cmdInput').value = cmd;
+  document.getElementById('cmdInput').focus();
+  document.querySelectorAll('.s2-box.open').forEach(function(b) { b.classList.remove('open'); });
+}
+
+function toggleS2(id) {
+  var el = document.getElementById(id);
+  var wasOpen = el.classList.contains('open');
+  document.querySelectorAll('.s2-box.open').forEach(function(b) { b.classList.remove('open'); });
+  if (!wasOpen) {
+    el.classList.add('open');
+    var si = el.querySelector('.s2-search');
+    if (si) { si.value = ''; si.focus(); }
+    if (id === 's2Saved') renderSaved();
+    else renderHist();
+  }
+}
+
+document.addEventListener('mousedown', function(e) {
+  document.querySelectorAll('.s2-box.open').forEach(function(box) {
+    if (!box.contains(e.target)) box.classList.remove('open');
+  });
+});
 
 const cmdInput = document.getElementById('cmdInput');
 cmdInput.addEventListener('keydown', function(e) {
   if (e.key === 'Enter') { executeFromInput(); }
-  else if (e.key === 'ArrowUp') {
-    e.preventDefault();
-    if (historyIdx < history.length - 1) { historyIdx++; cmdInput.value = history[historyIdx]; }
-  } else if (e.key === 'ArrowDown') {
-    e.preventDefault();
-    if (historyIdx > 0) { historyIdx--; cmdInput.value = history[historyIdx]; }
-    else { historyIdx = -1; cmdInput.value = ''; }
-  } else if (e.key === 'Tab') {
+  else if (e.key === 'Tab') {
     e.preventDefault();
     var val = cmdInput.value.trim();
     var allNames = [];
@@ -4827,7 +5237,7 @@ cmdInput.addEventListener('keydown', function(e) {
   }
 });
 
-renderHistory();
+Promise.all([loadHistory(), loadSavedCmds()]).then(function() { renderSaved(); renderHist(); });
 loadCommands();
 loadInitParams();
 

@@ -14,7 +14,9 @@ setup(
     packages=find_packages(),
     package_data={'nb_cmd': ['ui/static/**/*']},
     python_requires='>=3.7',
-    install_requires=[],
+    install_requires=[
+        'typing_extensions>=3.7.4;python_version<"3.9"',
+    ],
     extras_require={
         'api': ['fastapi>=0.68.0', 'uvicorn>=0.15.0', 'pydantic>=1.8.0'],
         'web': ['fastapi>=0.68.0', 'uvicorn>=0.15.0', 'websockets>=10.0'],

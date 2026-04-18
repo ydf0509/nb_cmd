@@ -18,7 +18,9 @@ import sys
 import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
-from nb_cmd import NbCmd, Arg, NbCmdMeta, cmdui
+from typing import Annotated
+
+from nb_cmd import NbCmd, NbCmdMeta, cmdui
 from enum import Enum
 
 
@@ -41,8 +43,8 @@ class ServerTool(NbCmd):
 
         web_theme = "dark"
 
-    def __init__(self, region: Arg(str, '机房区域', alias='r'),
-                 timeout: Arg(int, '超时秒数') = 30):
+    def __init__(self, region: Annotated[str, '机房区域', 'r'],
+                 timeout: Annotated[int, '超时秒数'] = 30):
         super().__init__()
         self.region = region
         self.timeout = timeout

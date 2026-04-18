@@ -13,21 +13,23 @@ import sys
 import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
-from nb_cmd import NbCmd, Arg
+from typing import Annotated
+
+from nb_cmd import NbCmd
 
 
 class MyTool(NbCmd):
     """我的超级工具（自动变成CLI的description）"""
 
-    def greet(self, name: Arg(str, '要问候的人名', alias='n'),
-              times: Arg(int, '问候次数', alias='t') = 1):
+    def greet(self, name: Annotated[str, '要问候的人名', 'n'],
+              times: Annotated[int, '问候次数', 't'] = 1):
         """向某人问好（自动变成子命令的帮助信息）"""
         for _ in range(times):
             print('你好, {}!'.format(name))
 
-    def deploy(self, host: Arg(str, '服务器地址', alias='H'),
-               port: Arg(int, '端口号', alias='p') = 22,
-               verbose: Arg(bool, '详细模式', alias='v') = False):
+    def deploy(self, host: Annotated[str, '服务器地址', 'H'],
+               port: Annotated[int, '端口号', 'p'] = 22,
+               verbose: Annotated[bool, '详细模式', 'v'] = False):
         """部署到远程服务器"""
         if verbose:
             print('[详细模式] 正在部署到 {}:{} ...'.format(host, port))
