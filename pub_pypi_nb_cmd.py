@@ -3,7 +3,7 @@ import os
 import sys
 import shutil
 import time
-import git_nb_cron
+import git_nb_cmd
 
 # sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 

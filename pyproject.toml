@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "nb-cmd"
 version = "0.1.0"
-description = "万能接口生成器——你写一个 Python class，自动获得 CLI + REST API + Web UI 三种接口"
+description = "万能接口生成器——你写一个 Python class，自动获得 CLI + REST API + Web UI 三种操作方式，堪称python界低代码平台"
 readme = "README.md"
 license = {text = "MIT"}
 requires-python = ">=3.7"
@@ -24,6 +24,9 @@ classifiers = [
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+
     "Topic :: Software Development :: Libraries :: Python Modules",
     "Topic :: Utilities",
 ]
