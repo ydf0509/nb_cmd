@@ -1,0 +1,44 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "nb-cmd"
+version = "0.1.0"
+description = "万能接口生成器——你写一个 Python class，自动获得 CLI + REST API + Web UI 三种接口"
+readme = "README.md"
+license = {text = "MIT"}
+requires-python = ">=3.7"
+authors = [
+    {name = "ydf", email = "ydf0509@sohu.com"},
+]
+keywords = ["cli", "api", "webui", "command", "argparse", "fastapi"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.7",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Utilities",
+]
+
+[project.optional-dependencies]
+api = ["fastapi>=0.68.0", "uvicorn>=0.15.0", "pydantic>=1.8.0"]
+web = ["fastapi>=0.68.0", "uvicorn>=0.15.0", "websockets>=10.0"]
+all = ["fastapi>=0.68.0", "uvicorn>=0.15.0", "pydantic>=1.8.0", "websockets>=10.0"]
+nb = ["nb_log"]
+
+[project.urls]
+Homepage = "https://github.com/ydf0509/nb_cmd"
+
+[tool.setuptools.packages.find]
+include = ["nb_cmd*"]
+
+[tool.setuptools.package-data]
+nb_cmd = ["ui/static/**/*"]
