@@ -50,7 +50,8 @@ def start_web_server(instance, base_cls, host=None, port=None):
     from ..ui import colors as _colors_mod
     _colors_mod._COLOR_ENABLED = True
 
-    commands = discover_commands(instance, base_cls)
+    _enable_exec = getattr(meta, 'enable_exec', True)
+    commands = discover_commands(instance, base_cls, enable_exec=_enable_exec)
     description = inspect.getdoc(instance) or instance.__class__.__name__
 
     static_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'ui', 'static')
@@ -59,28 +60,27 @@ def start_web_server(instance, base_cls, host=None, port=None):
     from ..modes.api_mode import _register_routes as _register_pydantic_routes
     _register_pydantic_routes(app, instance, commands, base_cls=base_cls)
 
-    @app.get('/api/commands', summary='获取所有命令及参数定义')
-    async def get_commands():
+    def _build_group_result(cmds_dict):
+        """递归构建命令组的结构（含嵌套子命令组）"""
         result = {}
-        for name, info in commands.items():
+        for name, info in cmds_dict.items():
             if info.get('is_group'):
-                group_cls = info['cls']
-                group_instance = group_cls()
-                group_cmds = discover_commands(group_instance, base_cls,
-                                               include_builtins=False)
-                sub_result = {}
-                for sub_name, sub_info in group_cmds.items():
-                    if sub_info.get('is_group'):
-                        continue
-                    sub_result[sub_name] = _build_cmd_info(sub_info)
+                g_cls = info['cls']
+                g_kwargs = info.get('init_kwargs', {})
+                g_inst = g_cls(**g_kwargs) if g_kwargs else g_cls()
+                g_cmds = discover_commands(g_inst, base_cls, include_builtins=False)
                 result[name] = {
                     'type': 'group',
                     'description': info.get('doc', ''),
-                    'sub_commands': sub_result,
+                    'sub_commands': _build_group_result(g_cmds),
                 }
-                continue
-            result[name] = _build_cmd_info(info)
+            else:
+                result[name] = _build_cmd_info(info)
         return result
+
+    @app.get('/api/commands', summary='获取所有命令及参数定义')
+    async def get_commands():
+        return _build_group_result(commands)
 
     init_params_info = _build_init_params_info(instance)
     _user_cls = instance.__class__
@@ -205,7 +205,7 @@ def start_web_server(instance, base_cls, host=None, port=None):
         return _user_cls(**kwargs) if kwargs else _user_cls()
 
     def _resolve_command(route_path, raw_init_params=None):
-        """根据路由路径解析出 (method, target_instance, cmd_info)，每次新建实例"""
+        """根据路由路径解析出 (method, target_instance, cmd_info)，支持多层嵌套"""
         parts = route_path.replace('-', '_').split('/')
         if len(parts) == 1:
             cmd_name = parts[0]
@@ -214,16 +214,21 @@ def start_web_server(instance, base_cls, host=None, port=None):
                 target_inst = _make_instance(raw_init_params)
                 method = getattr(target_inst, cmd_name)
                 return method, target_inst, info
-        elif len(parts) == 2:
-            group_name, sub_name = parts
-            if group_name in commands and commands[group_name].get('is_group'):
-                group_cls = commands[group_name]['cls']
-                group_inst = group_cls()
-                group_cmds = discover_commands(group_inst, base_cls,
-                                               include_builtins=False)
-                if sub_name in group_cmds and not group_cmds[sub_name].get('is_group'):
-                    sub_info = group_cmds[sub_name]
-                    return sub_info['method'], group_inst, sub_info
+        elif len(parts) >= 2:
+            current_cmds = commands
+            current_inst = None
+            for i, part in enumerate(parts):
+                if part not in current_cmds:
+                    break
+                info = current_cmds[part]
+                if info.get('is_group'):
+                    g_cls = info['cls']
+                    g_kwargs = info.get('init_kwargs', {})
+                    current_inst = g_cls(**g_kwargs) if g_kwargs else g_cls()
+                    current_cmds = discover_commands(current_inst, base_cls,
+                                                     include_builtins=False)
+                elif i == len(parts) - 1 and current_inst is not None:
+                    return info['method'], current_inst, info
         return None, None, None
 
     class _QueueWriter(object):
@@ -379,7 +384,7 @@ def start_web_server(instance, base_cls, host=None, port=None):
         from fastapi.staticfiles import StaticFiles
         app.mount("/", StaticFiles(directory=static_dir, html=True), name="static")
     else:
-        html_content = _generate_builtin_html(title, version, description, theme)
+        html_content = _generate_builtin_html(title, version, description, theme, _enable_exec)
 
         @app.get('/', response_class=HTMLResponse, include_in_schema=False)
         async def index():
@@ -536,7 +541,7 @@ def _convert_request_params(request, cmd_info):
     return kwargs
 
 
-def _generate_builtin_html(title, version, description, theme):
+def _generate_builtin_html(title, version, description, theme, enable_exec=True):
     """生成内置的 Web UI HTML 页面（当没有 Vue 前端构建产物时使用）"""
     dark_css = """
         :root { --bg: #1a1a2e; --card-bg: #16213e; --text: #e0e0e0; --border: #0f3460;
@@ -713,6 +718,7 @@ button:disabled, .form-actions button:disabled { opacity: 0.4; cursor: not-allow
 <script>
 let commands = {};
 let initParamNames = [];
+let enableExec = ''' + ('true' if enable_exec else 'false') + ''';
 let history = [];
 let historyIdx = -1;
 let execCount = 0;
@@ -782,13 +788,15 @@ function ansiToHtml(raw) {
 }
 
 function findCmdInfo(pyName) {
-  if (commands[pyName]) return commands[pyName];
-  var slash = pyName.indexOf('/');
-  if (slash > 0) {
-    var grp = pyName.substring(0, slash);
-    var sub = pyName.substring(slash + 1);
-    if (commands[grp] && commands[grp].type === 'group' && commands[grp].sub_commands) {
-      return commands[grp].sub_commands[sub] || null;
+  var parts = pyName.split('/');
+  var node = commands;
+  for (var i = 0; i < parts.length; i++) {
+    if (!node || !node[parts[i]]) return null;
+    if (i === parts.length - 1) return node[parts[i]];
+    if (node[parts[i]].type === 'group' && node[parts[i]].sub_commands) {
+      node = node[parts[i]].sub_commands;
+    } else {
+      return null;
     }
   }
   return null;
@@ -890,29 +898,29 @@ function renderCmdSection(formId, cliLabel, description, params) {
   return html;
 }
 
-function renderForms() {
-  const area = document.getElementById('formArea');
-  let html = '';
-  for (const [name, info] of Object.entries(commands)) {
+function renderGroup(cmds, prefix) {
+  var html = '';
+  for (var [name, info] of Object.entries(cmds)) {
+    var cliName = name.replace(/_/g, '-');
+    var fullPrefix = prefix ? prefix + '/' + name : name;
+    var fullLabel = prefix ? prefix.replace(/_/g,'-').replace(/\\//g,' ') + ' ' + cliName : cliName;
     if (info.type === 'group') {
-      var grpCliName = name.replace(/_/g, '-');
       html += '<div class="form-section"><div class="form-section-header" onclick="toggleSection(this)">';
-      html += '<span><span class="arrow">&#9654;</span> <span class="cmd-name" style="color:var(--primary);">' + grpCliName + '</span>';
+      html += '<span><span class="arrow">&#9654;</span> <span class="cmd-name" style="color:var(--primary);">' + fullLabel + '</span>';
       html += '<span class="cmd-desc">[组] ' + (info.description||'') + '</span></span></div>';
       html += '<div class="form-section-body">';
-      if (info.sub_commands) {
-        for (const [subName, subInfo] of Object.entries(info.sub_commands)) {
-          var subCliLabel = grpCliName + ' ' + subName.replace(/_/g, '-');
-          var formId = name + '/' + subName;
-          html += renderCmdSection(formId, subCliLabel, subInfo.description, subInfo.parameters);
-        }
-      }
+      if (info.sub_commands) { html += renderGroup(info.sub_commands, fullPrefix); }
       html += '</div></div>';
-      continue;
+    } else {
+      html += renderCmdSection(fullPrefix, fullLabel, info.description, info.parameters);
     }
-    var cliName = name.replace(/_/g, '-');
-    html += renderCmdSection(name, cliName, info.description, info.parameters);
   }
+  return html;
+}
+
+function renderForms() {
+  const area = document.getElementById('formArea');
+  var html = renderGroup(commands, '');
   area.innerHTML = html || '<p style="padding:16px;color:#888;">无可用命令</p>';
 }
 
@@ -989,10 +997,17 @@ async function executeFromInput() {
     cmdInfo = grpInfo.sub_commands ? grpInfo.sub_commands[subPy] : null;
     routePath = parts[0] + '/' + parts[1];
     argStart = 2;
-  } else {
-    cmdInfo = commands[firstPy] || null;
+  } else if (commands[firstPy]) {
+    cmdInfo = commands[firstPy];
     routePath = parts[0];
     argStart = 1;
+  } else if (enableExec) {
+    await doExecute('exec', {cmd: raw});
+    input.value = '';
+    return;
+  } else {
+    appendLog('[错误] 未知命令: ' + parts[0], 'error');
+    return;
   }
   const kwargs = {};
   const inputInitP = {};
@@ -1012,6 +1027,9 @@ async function executeFromInput() {
       } else {
         if (posIdx < positionals.length) {
           kwargs[positionals[posIdx].name] = parts[i]; posIdx++;
+        } else if (positionals.length > 0) {
+          var lastP = positionals[positionals.length - 1].name;
+          kwargs[lastP] += ' ' + parts[i];
         }
       }
     }

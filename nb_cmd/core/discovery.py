@@ -9,7 +9,7 @@ from typing import get_type_hints
 from .arg import unwrap_arg
 
 
-def discover_commands(instance, base_cls, include_builtins=True):
+def discover_commands(instance, base_cls, include_builtins=True, enable_exec=True):
     """
     发现 instance 上所有应暴露为 CLI 子命令的方法，以及 sub_commands 中的子命令组。
 
@@ -17,13 +17,15 @@ def discover_commands(instance, base_cls, include_builtins=True):
     ----------
     include_builtins : bool
         是否包含基类内置命令（如 exec），顶层类为 True，子命令组为 False
+    enable_exec : bool
+        是否启用内置 exec 命令，由 Meta.enable_exec 控制
 
     返回: OrderedDict  { cmd_name: cmd_info_dict }
     """
     from collections import OrderedDict
     commands = OrderedDict()
 
-    _BUILTIN_COMMANDS = {'exec'} if include_builtins else set()
+    _BUILTIN_COMMANDS = {'exec'} if (include_builtins and enable_exec) else set()
     base_methods = set(dir(base_cls)) - _BUILTIN_COMMANDS
 
     for name in sorted(dir(instance)):
@@ -94,12 +96,37 @@ def discover_commands(instance, base_cls, include_builtins=True):
         }
 
     sub_cmds = getattr(instance.__class__, 'sub_commands', {})
-    for group_name, group_cls in sub_cmds.items():
-        if inspect.isclass(group_cls) and issubclass(group_cls, base_cls):
+    for group_name, group_val in sub_cmds.items():
+        if inspect.isclass(group_val) and issubclass(group_val, base_cls):
+            commands[group_name] = {
+                'cls': group_val,
+                'doc': (inspect.getdoc(group_val) or "").split('\n')[0],
+                'is_group': True,
+                'init_kwargs': {},
+            }
+        elif isinstance(group_val, base_cls):
+            group_cls = group_val.__class__
             commands[group_name] = {
                 'cls': group_cls,
                 'doc': (inspect.getdoc(group_cls) or "").split('\n')[0],
                 'is_group': True,
+                'init_kwargs': _extract_init_kwargs(group_val),
             }
 
     return commands
+
+
+def _extract_init_kwargs(instance):
+    """从实例上提取 __init__ 参数的当前值，用于子命令组的重新实例化"""
+    cls = instance.__class__
+    init_method = cls.__init__
+    if init_method is object.__init__:
+        return {}
+    sig = inspect.signature(init_method)
+    kwargs = {}
+    for pname, param in sig.parameters.items():
+        if pname == 'self':
+            continue
+        if hasattr(instance, pname):
+            kwargs[pname] = getattr(instance, pname)
+    return kwargs

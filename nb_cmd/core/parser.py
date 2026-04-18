@@ -59,13 +59,14 @@ def build_parser(instance, commands, meta):
         if cmd_info.get('is_group'):
             group_cls = cmd_info['cls']
             group_doc = cmd_info.get('doc', '')
+            group_kwargs = cmd_info.get('init_kwargs', {})
             sub = subparsers.add_parser(
                 cli_name,
                 help=group_doc + '（子命令组）' if group_doc else '子命令组',
                 description=group_doc,
                 formatter_class=_RawDefaultsHelpFormatter,
             )
-            _build_group_subparser(sub, group_cls, instance.__class__)
+            _build_group_subparser(sub, group_cls, instance.__class__, group_kwargs)
         else:
             param_hint = _build_param_hint(cmd_info)
             help_text = cmd_info['doc']
@@ -113,7 +114,8 @@ def print_full_help(instance, base_cls):
     from .discovery import discover_commands
 
     meta = getattr(instance.__class__, 'Meta', type('Meta', (), {}))
-    commands = discover_commands(instance, base_cls)
+    _enable_exec = getattr(meta, 'enable_exec', True)
+    commands = discover_commands(instance, base_cls, enable_exec=_enable_exec)
     description = inspect.getdoc(instance) or instance.__class__.__name__
     version = getattr(meta, 'version', '0.0.1')
 
@@ -138,32 +140,39 @@ def print_full_help(instance, base_cls):
         w('\n')
 
     w('{}\n'.format('-' * 56))
+    _print_group_commands(w, commands, base_cls, prefix='')
+    _sys.stdout.flush()
+
+
+def _print_group_commands(w, commands, base_cls, prefix=''):
+    """递归打印命令组及其所有子命令（含嵌套组）"""
+    from .discovery import discover_commands
+
     for cmd_name, cmd_info in commands.items():
         cli_name = cmd_name.replace('_', '-')
+        full_name = '{} {}'.format(prefix, cli_name).strip() if prefix else cli_name
 
         if cmd_info.get('is_group'):
             w('{} \033[36m[子命令组]\033[0m  {}\n'.format(
-                cli_name, cmd_info.get('doc', '')))
+                full_name, cmd_info.get('doc', '')))
             group_cls = cmd_info['cls']
+            group_kwargs = cmd_info.get('init_kwargs', {})
             try:
-                group_inst = group_cls()
+                group_inst = group_cls(**group_kwargs) if group_kwargs else group_cls()
             except TypeError:
                 group_inst = group_cls.__new__(group_cls)
             group_cmds = discover_commands(group_inst, base_cls,
                                            include_builtins=False)
-            for sub_name, sub_info in group_cmds.items():
-                if sub_info.get('is_group'):
-                    continue
-                sub_cli = '{} {}'.format(cli_name, sub_name.replace('_', '-'))
-                w('\n  {} — {}\n'.format(sub_cli, sub_info.get('doc', '')))
-                _print_params(w, sub_info)
+            _print_group_commands(w, group_cmds, base_cls, prefix=full_name)
             w('\n')
         else:
-            w('{} — {}\n'.format(cli_name, cmd_info.get('doc', '')))
+            if prefix:
+                w('\n  {} — {}\n'.format(full_name, cmd_info.get('doc', '')))
+            else:
+                w('{} — {}\n'.format(full_name, cmd_info.get('doc', '')))
             _print_params(w, cmd_info)
-            w('\n')
-
-    _sys.stdout.flush()
+            if not prefix:
+                w('\n')
 
 
 def _print_params(write_fn, cmd_info):
@@ -405,16 +414,19 @@ def _add_method_arguments(sub_parser, cmd_info, meta):
                 sub_parser.add_argument(param_name, **kwargs)
 
 
-def _build_group_subparser(parent_parser, group_cls, base_cls):
+def _build_group_subparser(parent_parser, group_cls, base_cls, init_kwargs=None):
     """递归为子命令组构建 subparser"""
     from .discovery import discover_commands
 
-    group_instance = group_cls.__new__(group_cls)
-    if hasattr(group_cls.__init__, '__func__') and group_cls.__init__ is not object.__init__:
-        try:
-            group_cls.__init__(group_instance)
-        except TypeError:
-            pass
+    if init_kwargs:
+        group_instance = group_cls(**init_kwargs)
+    else:
+        group_instance = group_cls.__new__(group_cls)
+        if hasattr(group_cls.__init__, '__func__') and group_cls.__init__ is not object.__init__:
+            try:
+                group_cls.__init__(group_instance)
+            except TypeError:
+                pass
 
     group_commands = discover_commands(group_instance, base_cls)
 
@@ -431,13 +443,14 @@ def _build_group_subparser(parent_parser, group_cls, base_cls):
         if cmd_info.get('is_group'):
             nested_cls = cmd_info['cls']
             nested_doc = cmd_info.get('doc', '')
+            nested_kwargs = cmd_info.get('init_kwargs', {})
             nested_sub = group_subparsers.add_parser(
                 cli_name,
                 help=nested_doc + '（子命令组）' if nested_doc else '子命令组',
                 description=nested_doc,
                 formatter_class=_RawDefaultsHelpFormatter,
             )
-            _build_group_subparser(nested_sub, nested_cls, base_cls)
+            _build_group_subparser(nested_sub, nested_cls, base_cls, nested_kwargs)
         else:
             sub = group_subparsers.add_parser(
                 cli_name,

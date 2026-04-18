@@ -1,9 +1,19 @@
 # nb_cmd
 
-**万能接口生成器** —— 你写一个 Python class，自动获得 CLI + REST API + Web UI 三种接口。
+**Python 码农的低代码平台** —— 写一个 class，自动获得 CLI + REST API + Web UI 三种接口。不写路由、不写前端、不写文档，全自动。
 
 [![Python](https://img.shields.io/badge/python-3.7%2B-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
+
+## 目录
+
+- [为什么用 nb_cmd？](#为什么用-nb_cmd)
+- [安装](#安装)
+- [5 分钟快速上手](#5-分钟快速上手)
+- [核心特性](#核心特性)（自动推导 / OOP 继承 / 多层级子命令 / cmdui 输出 / Arg 描述器 / 全局参数 / 参数校验 / 系统命令 / Meta 配置 / 生命周期钩子 / 帮助系统 / Web UI 交互）
+- [完整 API 速查](#完整-api-速查)
+- [和竞品对比](#和竞品对比)
+- [项目结构](#项目结构)
 
 ---
 
@@ -30,6 +40,29 @@ nb_cmd 换了一种思路：**Class 是中心，接口是投影。**
 ```
 
 写一次业务逻辑，三种接口自动生成，不改一行代码。
+
+**你写什么 → 你得到什么：**
+
+| 你写的 | 自动获得 |
+|--------|----------|
+| 方法签名 `def deploy(self, host: str, port: int = 22)` | CLI 参数 + API 端点 + Web 表单（输入框/数字框/复选框） |
+| 方法的 docstring `"""部署到远程服务器"""` | CLI --help + Swagger 文档 + Web UI 描述 |
+| 类型注解 `env: Environment`（Enum） | CLI choices + API 校验 + Web 下拉选择 |
+| `print()` / `cmdui.table()` | CLI 终端输出 + Web 实时流式推送（WebSocket + ANSI 彩色渲染） |
+| `sub_commands = {'git': GitTool}` | CLI 多级子命令 + API 嵌套路由 + Web UI 折叠分组 |
+
+**不需要写的：** 路由定义、Pydantic 模型、HTML 表单、CSS 样式、JavaScript 交互、WebSocket 端点、Swagger 注解、前后端联调。
+
+| 功能 | argparse | click | typer | fire | **nb_cmd** |
+|------|:--------:|:-----:|:-----:|:----:|:----------:|
+| 零配置 | ✗ | ✗ | 部分 | ✓ | **✓** |
+| 类型驱动 | 手动 | 手动 | ✓ | ✗ | **✓** |
+| OOP 继承/覆写 | ✗ | ✗ | ✗ | 有限 | **✓** |
+| 自动生成 REST API | ✗ | ✗ | ✗ | ✗ | **✓** |
+| 自动生成 Web UI | ✗ | ✗ | ✗ | ✗ | **✓** |
+| 多层级子命令 | 手动 | ✓ | ✓ | 有限 | **✓** |
+| Swagger 文档 | ✗ | ✗ | ✗ | ✗ | **✓** |
+| 进度条/表格/彩色 | ✗ | ✓ | ✓(rich) | ✗ | **✓** |
 
 ---
 
@@ -122,16 +155,16 @@ API文档: http://0.0.0.0:8080/docs
 
 打开浏览器：
 
-- `http://localhost:8080` → **Web UI**：左侧是命令输入 + 参数表单，右侧是实时控制台输出 + 命令历史，中间分割条可自由拖动
+- `http://localhost:8080` → **Web UI**：左侧是命令输入 + 收藏/历史搜索 + 参数表单，右侧是实时控制台输出，中间分割条可自由拖动
 - `http://localhost:8080/docs` → **Swagger 文档**：所有命令自动生成 REST API
 
-**Web UI 界面预览：**
+**Web UI 主要功能：**
 
-![Web UI 主界面](https://raw.githubusercontent.com/ydf0509/nb_cmd/main/docs/images/web_ui_main.png)
-
-执行命令后，右侧实时显示彩色日志输出、结果数据和命令历史：
-
-![Web UI 执行输出](https://raw.githubusercontent.com/ydf0509/nb_cmd/main/docs/images/web_ui_output.png)
+- 命令行直接输入任意命令（非 NbCmd 命令自动通过 `exec` 执行）
+- 参数表单自动生成（根据方法签名推导控件类型）
+- WebSocket 实时流式输出（支持 ANSI 彩色渲染）
+- 长时间命令可随时取消（停止按钮，类似 Ctrl+C）
+- 命令收藏 + 执行历史（SQLite 持久化，Select2 风格弹框搜索）
 
 用 curl 或 requests 调用（和 Web UI 共用同一套接口）：
 
@@ -262,7 +295,122 @@ $ python git_tool.py remote add origin https://...    # 二级命令
 $ python git_tool.py commit "fix bug" --all           # 一级命令
 ```
 
+启动 Web 模式后，用 curl 调用多层级子命令：
+
+```bash
+# 启动 Web UI + REST API
+$ python git_tool.py --web --web-port 8080
+
+# 一级命令：POST /status（无参数）
+$ curl -X POST http://localhost:8080/status
+
+# 一级命令带参数：POST /commit
+$ curl -X POST http://localhost:8080/commit \
+    -H "Content-Type: application/json" \
+    -d '{"message": "fix bug", "all": true}'
+
+# 二级命令（子命令组）：POST /remote/add
+$ curl -X POST http://localhost:8080/remote/add \
+    -H "Content-Type: application/json" \
+    -d '{"name": "origin", "url": "https://github.com/user/repo.git"}'
+
+# 二级命令：POST /remote/remove
+$ curl -X POST http://localhost:8080/remote/remove \
+    -H "Content-Type: application/json" \
+    -d '{"name": "origin"}'
+```
+
+> **路由规则：** 一级命令路由为 `/{command}`，子命令组中的命令路由为 `/{group}/{sub_command}`，与 CLI 的层级结构一一对应。所有接口在 Swagger 文档 `http://localhost:8080/docs` 中可查看。
+
 在 Web UI 中，子命令组以蓝色标题 `[组]` 展示，展开后列出每个子命令的参数表单。
+
+#### 组合多个 NbCmd 类为统一入口
+
+已有的多个 NbCmd 类可以通过 `sub_commands` 组合成一个"大一统"工具，共享同一个 Web UI / API 入口：
+
+```python
+from nb_cmd import NbCmd
+
+class MyTool(NbCmd):
+    """基础工具"""
+    def greet(self, name: str, times: int = 1):
+        """问好"""
+        for _ in range(times):
+            print('你好, {}!'.format(name))
+
+class DeployTool(NbCmd):
+    """部署工具"""
+    def deploy(self, host: str, port: int = 22):
+        """部署"""
+        print('部署到 {}:{}'.format(host, port))
+
+    def status(self):
+        """查看状态"""
+        print('当前状态: 运行中')
+
+class OneAllTool(NbCmd):
+    """综合工具，在一个网页运行所有NbCmd其他类"""
+
+    sub_commands = {
+        'mytool': MyTool,
+        'deploy-tool': DeployTool,
+    }
+
+if __name__ == '__main__':
+    OneAllTool().run()
+```
+
+```bash
+# CLI 用法
+$ python bigone.py mytool greet 张三 --times 3
+$ python bigone.py deploy-tool deploy web-01 --port 2222
+$ python bigone.py deploy-tool status
+```
+
+启动 Web 模式后，所有子类的命令统一暴露为 REST API：
+
+```bash
+$ python bigone.py --web --web-port 8025
+
+# mytool 组的 greet 命令
+$ curl -X POST http://localhost:8025/mytool/greet \
+    -H "Content-Type: application/json" \
+    -d '{"name": "张三", "times": 3}'
+
+# deploy-tool 组的 deploy 命令
+$ curl -X POST http://localhost:8025/deploy-tool/deploy \
+    -H "Content-Type: application/json" \
+    -d '{"host": "web-01", "port": 2222}'
+
+# deploy-tool 组的 status 命令（无参数）
+$ curl -X POST http://localhost:8025/deploy-tool/status
+```
+
+> 这样可以把团队中各个人写的 NbCmd 类"插拔式"地组合到一个统一入口，Web UI 中每个组独立折叠展示。
+
+#### sub_commands 支持传入实例
+
+如果子类的 `__init__` 有必填参数，直接传 class 会因为无法无参实例化而报错。此时可以传入**实例**，nb_cmd 会自动提取 init 参数用于后续重建实例：
+
+```python
+from nb_cmd import NbCmd, Arg
+
+class ServerTool(NbCmd):
+    def __init__(self, region: Arg(str, '机房区域')):
+        super().__init__()
+        self.region = region
+
+    def stats(self):
+        print('区域: {}'.format(self.region))
+
+class OneAllTool(NbCmd):
+    sub_commands = {
+        'mytool': MyTool,                    # 传 class（无 __init__ 参数）
+        'server': ServerTool('beijing'),     # 传实例（有 __init__ 参数）
+    }
+```
+
+> `sub_commands` 的 value 可以是 **class** 或 **instance**。传 instance 时，nb_cmd 从实例上提取 init 参数值，Web/API 模式下每次请求仍会新建隔离实例。
 
 ### 4. 内置输出工具（通过 cmdui 访问）
 
@@ -522,6 +670,8 @@ $ python my_tool.py exec "docker ps"
 $ python my_tool.py exec "ls -la"
 ```
 
+> **Web UI 智能路由：** 在 Web UI 的命令输入框中，输入非 NbCmd 命令（如 `python script.py`、`docker ps`、`ls -la`）会自动通过 `exec` 执行，无需手动加 `exec` 前缀。
+
 ```python
 class MyTool(NbCmd):
     def deploy(self, host: str):
@@ -573,6 +723,7 @@ class MyTool(NbCmd):
 | `serve_workers` | int | `1` | 工作进程数（规划中） |
 | `web_title` | str | `None` | Web UI 页面标题 |
 | `web_theme` | str | `'light'` | Web UI 主题（`'light'` / `'dark'`） |
+| `enable_exec` | bool | `True` | 是否暴露内置 `exec` 命令（设为 `False` 可防止恶意执行系统命令） |
 | `aliases` | dict | `{}` | 参数别名（推荐用 `Arg(alias=...)` 替代） |
 
 ### 10. 生命周期钩子
@@ -638,6 +789,21 @@ deploy — 部署服务到目标主机
 stats — 查看系统状态
 ```
 
+### 12. Web UI 交互特性
+
+以下功能在 `--web` 模式下自动可用，无需额外配置：
+
+| 功能 | 说明 |
+|------|------|
+| 实时流式输出 | WebSocket 推送，print() 实时显示在控制台，支持 ANSI 彩色渲染 |
+| 命令取消 | 长时间运行的命令可点击"停止"按钮随时取消（类似 Ctrl+C），执行中"执行"按钮自动置灰 |
+| 命令收藏 | 点击 ★ 按钮将常用命令保存到 SQLite，自动去重 |
+| 执行历史 | 每次执行自动记录到 SQLite，保留最近 1000 条 |
+| Select2 搜索 | 收藏和历史各有独立的 Select2 风格弹框，支持模糊搜索、键盘导航，点击即填入命令行 |
+| 智能路由 | 命令行输入非 NbCmd 命令时自动通过 exec 执行，可直接输入 `python xxx.py`、`docker ps` 等 |
+| 参数表单 | 根据方法签名自动推导控件（文本框、数字框、复选框、下拉选择等） |
+| 可拖拽布局 | 左右面板中间的分割条可自由拖动调整比例 |
+
 ---
 
 ## 完整 API 速查
@@ -684,136 +850,7 @@ from nb_cmd import NbCmd, Arg, NbCmdMeta, cmdui, validate
 
 ---
 
-## 从零到完整：渐进式示例
-
-展示如何从最简单的 class 逐步添加功能，每一步都是独立可运行的。
-
-### Level 1：最简 — 3 行代码
-
-```python
-from nb_cmd import NbCmd
-
-class Hi(NbCmd):
-    def say(self, name: str):
-        """打招呼"""
-        print('Hello, {}!'.format(name))
-
-if __name__ == '__main__':
-    Hi().run()
-```
-
-```bash
-$ python hi.py say 张三          # CLI
-$ python hi.py --web             # 一键变 Web UI + REST API
-```
-
-### Level 2：加 Arg 描述 + 短别名
-
-```python
-from nb_cmd import NbCmd, Arg, cmdui
-
-class Hi(NbCmd):
-    def say(self, name: Arg(str, '要问候的人', alias='n'),
-            times: Arg(int, '次数', alias='t') = 1):
-        """打招呼"""
-        for _ in range(times):
-            print('Hello, {}!'.format(name))
-        cmdui.success('完成!')
-
-if __name__ == '__main__':
-    Hi().run()
-```
-
-```bash
-$ python hi.py say -n 张三 -t 3
-```
-
-### Level 3：加全局参数 + Meta 配置
-
-```python
-from nb_cmd import NbCmd, Arg, NbCmdMeta, cmdui
-
-class ServerTool(NbCmd):
-    """服务器运维工具"""
-
-    class Meta(NbCmdMeta):
-        version = "2.0.0"
-        use_nb_log = True
-        web_theme = "dark"
-
-    def __init__(self, region: Arg(str, '机房区域', alias='r') = 'cn-east',
-                 timeout: Arg(int, '超时秒数') = 30):
-        super().__init__()
-        self.region = region
-        self.timeout = timeout
-
-    def deploy(self, host: str, port: int = 22):
-        """部署到远程服务器"""
-        self.shell('echo "部署到 {} (区域: {})"'.format(host, self.region))
-        cmdui.success('部署完成!')
-
-    def stats(self):
-        """查看状态"""
-        cmdui.kv({"区域": self.region, "超时": "{}s".format(self.timeout)})
-
-if __name__ == '__main__':
-    ServerTool().run()
-```
-
-```bash
-$ python server_tool.py --region shanghai deploy 10.0.0.1
-$ python server_tool.py --web --web-port 9000
-$ curl -X POST http://localhost:9000/stats \
-    -H "Content-Type: application/json" \
-    -d '{"init_params": {"region": "guangzhou"}}'
-```
-
-### Level 4：加继承 + 子命令组
-
-```python
-from nb_cmd import NbCmd, cmdui
-
-class BaseDeploy(NbCmd):
-    def deploy(self, host: str):
-        self._do_deploy(host)
-        cmdui.success('部署完成!')
-
-    def _do_deploy(self, host):
-        cmdui.info('基础部署到 {}'.format(host))
-
-class DockerDeploy(BaseDeploy):
-    """Docker 部署——只覆写一个方法"""
-    def _do_deploy(self, host):
-        cmdui.info('docker pull && docker-compose up -d on {}'.format(host))
-
-class K8sDeploy(BaseDeploy):
-    """K8s 部署——覆写 + 新增命令"""
-    def _do_deploy(self, host):
-        cmdui.info('kubectl apply on {}'.format(host))
-
-    def scale(self, replicas: int = 3):
-        """扩缩容"""
-        cmdui.info('kubectl scale --replicas={}'.format(replicas))
-```
-
----
-
 ## 和竞品对比
-
-### 功能矩阵
-
-| 功能 | argparse | click | typer | fire | **nb_cmd** |
-|------|:--------:|:-----:|:-----:|:----:|:----------:|
-| 零配置 | ✗ | ✗ | 部分 | ✓ | **✓** |
-| 类型驱动 | 手动 | 手动 | ✓ | ✗ | **✓** |
-| OOP 继承/覆写 | ✗ | ✗ | ✗ | 有限 | **✓** |
-| 自动生成 REST API | ✗ | ✗ | ✗ | ✗ | **✓** |
-| 自动生成 Web UI | ✗ | ✗ | ✗ | ✗ | **✓** |
-| 多层级子命令 | 手动 | ✓ | ✓ | 有限 | **✓** |
-| 进度条/表格/彩色 | ✗ | ✓ | ✓(rich) | ✗ | **✓** |
-| 生命周期钩子 | ✗ | 有限 | ✗ | ✗ | **✓** |
-| Swagger 文档 | ✗ | ✗ | ✗ | ✗ | **✓** |
-| 系统命令执行 | ✗ | ✗ | ✗ | ✗ | **✓** |
 
 ### 代码对比：实现同一个工具
 
@@ -892,77 +929,17 @@ python deploy.py --web --web-port 8080     # Web UI + REST API
 
 **核心差异：** argparse / click / typer 的世界观是"CLI 是终点"。nb_cmd 的世界观是"Class 是中心，接口是投影"——CLI、API、Web UI 只是同一份业务逻辑的不同表现形式。
 
----
+### vs 传统前后端开发
 
-## nb_cmd vs 传统前后端开发
-
-传统方式：**写后端 → 写接口 → 写文档 → 写前端 → 联调**，5 步缺一不可。
-
-### 传统方式：以实现一个"部署工具"为例
-
-**第 1 步：手写 API 接口（每个功能一个路由）**
-
-```python
-from fastapi import FastAPI
-app = FastAPI()
-
-@app.post("/api/deploy")
-async def deploy(host: str, port: int = 22, env: str = "dev"):
-    ...
-
-@app.post("/api/status")
-async def status():
-    ...
-
-# 10 个功能 = 10 个路由 + 10 个 Pydantic 模型
-```
-
-**第 2 步：手写前端表单（每个接口一套 HTML/JS）**
-
-```html
-<form id="deployForm">
-  <input name="host" required />
-  <input name="port" type="number" value="22" />
-  <select name="env">
-    <option value="dev">dev</option>
-    <option value="prod">prod</option>
-  </select>
-  <button>部署</button>
-</form>
-<script>
-  // 每个表单都要写 fetch + 结果展示 + 错误处理...
-</script>
-```
-
-**第 3 步：前后端联调**——参数名对不上？类型转换出错？文档过时？
-
-### nb_cmd 方式：只写 class
-
-```python
-class DeployTool(NbCmd):
-    def deploy(self, host: str, port: int = 22, env: Environment = Environment.DEV):
-        ...
-    def status(self):
-        ...
-```
-
-**然后你自动获得：**
+传统方式：**写后端 → 写接口 → 写文档 → 写前端 → 联调**，5 步缺一不可。nb_cmd 方式：只写 class，其余自动生成。
 
 | 能力 | 传统方式 | nb_cmd |
 |------|---------|--------|
 | REST API（含 Swagger） | 手写路由 + 模型 | **方法签名自动生成** |
 | Web UI（表单 + 控件） | 手写 HTML/CSS/JS | **类型注解自动推导控件** |
 | WebSocket 实时输出 | 手写 WS 端点 + 前端接收 | **print() 自动流式推送** |
-| ANSI 颜色渲染 | 不支持 | **自动转 HTML 彩色** |
 | 命令行 CLI | 另写 argparse | **同一份代码** |
 | 文档同步 | 手动维护 | **永远一致（同一个类）** |
-| 新增参数 | 改后端 + 改前端 + 改文档 | **加一个参数，三处自动更新** |
-
-### 工作量对比
-
-| | 传统前后端 | nb_cmd |
-|---|-----------|--------|
-| 10 个功能的工具 | **20-30 小时** | **加几行类型注解** |
 | 新增 1 个参数 | 改 3 处（后端/前端/文档） | **改 1 处（方法签名）** |
 | 前端开发者 | 需要 | **不需要** |
 

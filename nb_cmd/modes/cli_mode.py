@@ -21,7 +21,8 @@ def run_cli(instance, base_cls, args=None):
     args : list, optional  命令行参数列表，默认 sys.argv[1:]
     """
     meta = getattr(instance.__class__, 'Meta', type('Meta', (), {}))
-    commands = discover_commands(instance, base_cls)
+    _enable_exec = getattr(meta, 'enable_exec', True)
+    commands = discover_commands(instance, base_cls, enable_exec=_enable_exec)
     parser = build_parser(instance, commands, meta)
 
     parsed = parser.parse_args(args)
@@ -96,9 +97,10 @@ def _extract_kwargs(method, cmd_info, parsed):
 def _run_group_command(instance, group_info, parsed, base_cls):
     """执行子命令组中的命令"""
     group_cls = group_info['cls']
+    group_kwargs = group_info.get('init_kwargs', {})
 
     try:
-        group_instance = group_cls()
+        group_instance = group_cls(**group_kwargs) if group_kwargs else group_cls()
     except TypeError:
         group_instance = group_cls.__new__(group_cls)
 

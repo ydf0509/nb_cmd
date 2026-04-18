@@ -51,7 +51,8 @@ def start_api_server(instance, base_cls, host=None, port=None):
         allow_headers=["*"],
     )
 
-    commands = discover_commands(instance, base_cls)
+    _enable_exec = getattr(meta, 'enable_exec', True)
+    commands = discover_commands(instance, base_cls, enable_exec=_enable_exec)
     _register_routes(app, instance, commands, base_cls=base_cls)
 
     from fastapi.responses import RedirectResponse
@@ -114,7 +115,8 @@ def _register_routes(app, instance, commands, base_cls=None, prefix=''):
         if cmd_info.get('is_group'):
             if base_cls is not None:
                 group_cls = cmd_info['cls']
-                group_instance = group_cls()
+                group_kwargs = cmd_info.get('init_kwargs', {})
+                group_instance = group_cls(**group_kwargs) if group_kwargs else group_cls()
                 group_commands = discover_commands(group_instance, base_cls,
                                                    include_builtins=False)
                 group_prefix = '{}/{}'.format(prefix, cmd_name) if prefix else cmd_name
