@@ -72,7 +72,8 @@ nb_cmd — 万能接口生成器
 - `import json`
 - `import logging`
 - `import sys`
-- `from core.arg import Arg`
+- `from core.arg import Annotated`
+- `from core.arg import Param`
 - `from ui.colors import print_success`
 - `from ui.colors import print_warning`
 - `from ui.colors import print_error`
@@ -308,7 +309,7 @@ Entry Points (not imported by other project files):
 - [为什么用 nb_cmd？](#为什么用-nb_cmd)
 - [安装](#安装)
 - [5 分钟快速上手](#5-分钟快速上手)
-- [核心特性](#核心特性)（自动推导 / OOP 继承 / 多层级子命令 / cmdui 输出 / Arg 描述器 / 全局参数 / 参数校验 / 系统命令 / Meta 配置 / 生命周期钩子 / 帮助系统 / Web UI 交互）
+- [核心特性](#核心特性)（自动推导 / OOP 继承 / 多层级子命令 / cmdui 输出 / Annotated 参数描述 / 全局参数 / 参数校验 / 系统命令 / Meta 配置 / 生命周期钩子 / 帮助系统 / Web UI 交互）
 - [完整 API 速查](#完整-api-速查)
 - [和竞品对比](#和竞品对比)
 - [项目结构](#项目结构)
@@ -497,12 +498,12 @@ nb_cmd 通过 Python 方法签名自动生成 CLI 参数，零配置：
 |---|---|---|
 | 公有方法名 | 子命令名（`snake_case` → `kebab-case`） | `def show_users` → `show-users` |
 | 方法的 docstring | 子命令帮助文本 | `"""查看用户"""` → `--help` 里的描述 |
-| 无默认值的参数 | 位置参数（必填）；有 `alias` 时为 `--flag`（必填） | `name: str` → `greet 张三`；`name: Arg(str, alias='n')` → `-n 张三` |
+| 无默认值的参数 | 位置参数（必填）；有短别名时为 `--flag`（必填） | `name: str` → `greet 张三`；`name: Annotated[str, '', 'n']` → `-n 张三` |
 | 有默认值的参数 | 可选参数（`--xxx`） | `port: int = 22` → `--port 2222` |
 | `bool` 类型 | 开关参数（`--flag`） | `verbose: bool = False` → `--verbose` |
 | `int` / `float` 类型 | 自动类型转换和校验 | 输入非数字会报错 |
 | `Enum` 类型 | 自动生成选择项 | `env: Environment` → `{dev,staging,prod}` |
-| `Arg(type, desc, alias)` | 参数描述 + 短别名 | `name: Arg(str, '用户名', alias='n')` → `-n` |
+| `Annotated[type, desc, alias]` | 参数描述 + 短别名 | `name: Annotated[str, '用户名', 'n']` → `-n` |
 | `_` 开头的方法 | 不暴露为子命令 | `_helper()` → 内部方法 |
 
 ### 2. OOP 继承覆写
@@ -691,10 +692,12 @@ $ curl -X POST http://localhost:8025/deploy-tool/status
 如果子类的 `__init__` 有必填参数，直接传 class 会因为无法无参实例化而报错。此时可以传入**实例**，nb_cmd 会自动提取 init 参数用于后续重建实例：
 
 ```python
-from nb_cmd import NbCmd, Arg
+from typing import Annotated
+
+from nb_cmd import NbCmd
 
 class ServerTool(NbCmd):
-    def __init__(self, region: Arg(str, '机房区域')):
+    def __init__(self, region: Annotated[str, '机房区域']):
         super().__init__()
         self.region = region
 
@@ -782,19 +785,21 @@ class DbTool(NbCmd):
 [OK] 迁移完成!
 ```
 
-### 5. Arg 参数描述器
+### 5. Annotated 参数描述
 
-用 `Arg` 为参数添加描述和短别名，CLI `--help`、Web UI 输入框、Swagger 文档会同步显示：
+用 `typing.Annotated` 为参数添加描述和短别名，CLI `--help`、Web UI 输入框、Swagger 文档会同步显示：
 
 ```python
-from nb_cmd import NbCmd, Arg
+from typing import Annotated
+
+from nb_cmd import NbCmd
 
 class MyTool(NbCmd):
     """部署工具"""
 
-    def deploy(self, host: Arg(str, '服务器地址', alias='H'),
-               port: Arg(int, '端口号', alias='p') = 22,
-               verbose: Arg(bool, '详细模式', alias='v') = False):
+    def deploy(self, host: Annotated[str, '服务器地址', 'H'],
+               port: Annotated[int, '端口号', 'p'] = 22,
+               verbose: Annotated[bool, '详细模式', 'v'] = False):
         """部署到远程服务器"""
         ...
 ```
@@ -809,24 +814,35 @@ optional arguments:
 $ python my_tool.py deploy -H 10.0.0.1 -p 2222 -v
 ```
 
-`Arg` 的三个参数都是渐进式的——`desc` 和 `alias` 可选，不影响原有的 `name: str` 写法：
+`Annotated` 的元数据是渐进式的——描述与短别名可选，不影响原有的 `name: str` 写法：
 
 ```python
-name: str                              # 最简写法，完全兼容
-name: Arg(str, '用户名')               # 加描述
-name: Arg(str, '用户名', alias='n')    # 加描述 + 短别名
-name: Arg(str, alias='n')              # 只加短别名
+name: str                                    # 最简写法，完全兼容
+name: Annotated[str, '用户名']               # 加描述
+name: Annotated[str, '用户名', 'n']          # 加描述 + 短别名
+name: Annotated[str, '', 'n']                # 只加短别名
 ```
 
-> Web UI 中，`Arg` 的 `desc` 会显示在输入框旁边的灰色提示文字和 placeholder 中。
+也可以用 `Param` 对象获得关键字参数风格（IDE 可补全字段名）：
+
+```python
+from nb_cmd import Param
+
+name: Annotated[str, Param(desc='用户名', alias='n')]
+port: Annotated[int, Param(desc='端口号')] = 22
+```
+
+> `Param(desc, alias)` 和位置字符串完全等价。Web UI 中，描述会显示在输入框旁边的灰色提示文字和 placeholder 中。
 
 ### 6. 全局参数（`__init__` 参数）
 
 当多个子命令需要共享上下文（如机房区域、数据库连接、超时时间），把它们放到 `__init__` 中：
 
 ```python
-from nb_cmd import NbCmd, Arg, NbCmdMeta, cmdui
+from typing import Annotated
 from enum import Enum
+
+from nb_cmd import NbCmd, NbCmdMeta, cmdui
 
 class Environment(Enum):
     DEV = "dev"
@@ -840,8 +856,8 @@ class ServerTool(NbCmd):
         version = "1.0.0"
         use_nb_log = True
 
-    def __init__(self, region: Arg(str, '机房区域', alias='r'),
-                 timeout: Arg(int, '超时秒数') = 30):
+    def __init__(self, region: Annotated[str, '机房区域', 'r'],
+                 timeout: Annotated[int, '超时秒数'] = 30):
         super().__init__()
         self.region = region
         self.timeout = timeout
@@ -1022,7 +1038,7 @@ class MyTool(NbCmd):
 | `web_title` | str | `None` | Web UI 页面标题 |
 | `web_theme` | str | `'light'` | Web UI 主题（`'light'` / `'dark'`） |
 | `enable_exec` | bool | `True` | 是否暴露内置 `exec` 命令（设为 `False` 可防止恶意执行系统命令） |
-| `aliases` | dict | `{}` | 参数别名（推荐用 `Arg(alias=...)` 替代） |
+| `aliases` | dict | `{}` | 参数别名（推荐用 `Annotated[..., 'desc', 'a']` 指定短别名替代） |
 
 ### 10. 生命周期钩子
 
@@ -1109,7 +1125,8 @@ stats — 查看系统状态
 ### 导入
 
 ```python
-from nb_cmd import NbCmd, Arg, NbCmdMeta, cmdui, validate
+from typing import Annotated
+from nb_cmd import NbCmd, NbCmdMeta, Param, cmdui, validate
 ```
 
 ### cmdui（UI / 交互工具）
@@ -1138,13 +1155,24 @@ from nb_cmd import NbCmd, Arg, NbCmdMeta, cmdui, validate
 | `self.on_error(command, error)` | 钩子：子命令出错时调用 |
 | `exec <cmd>` (内置子命令) | 执行任意系统命令（CLI 和 Web UI 均可用） |
 
-### Arg 描述器
+### Annotated 参数描述
+
+两种等价写法：
+
+**位置字符串：** `Annotated[类型, '描述', '别名']`
+
+| 位置 | 必填 | 说明 |
+|------|------|------|
+| 第一个参数（类型） | 是 | 实际参数类型（`str`, `int`, `bool`, `Enum`, `List[str]` 等） |
+| 第二个参数（字符串） | 否 | 参数描述（`--help`、Web UI placeholder、Swagger 同步显示） |
+| 第三个参数（字符串） | 否 | 短别名（`'n'` → `-n`，`'host-name'` → `--host-name`） |
+
+**Param 对象：** `Annotated[类型, Param(desc='描述', alias='别名')]`
 
 | 参数 | 必填 | 说明 |
 |------|------|------|
-| `type_` | 是 | 参数类型（`str`, `int`, `bool`, `Enum`, `List[str]` 等） |
-| `desc` | 否 | 参数描述（`--help`、Web UI placeholder、Swagger 同步显示） |
-| `alias` | 否 | 短别名（`'n'` → `-n`，`'host-name'` → `--host-name`） |
+| `desc` | 否 | 参数描述 |
+| `alias` | 否 | 短别名 |
 
 ---
 
@@ -1251,7 +1279,7 @@ python deploy.py --web --web-port 8080     # Web UI + REST API
 nb_cmd/
 ├── __init__.py          # NbCmd 基类 + UIHelper
 ├── core/
-│   ├── arg.py           # Arg 参数描述器
+│   ├── arg.py           # Annotated 参数元数据解析
 │   ├── discovery.py     # 命令发现（反射 + 类型检查）
 │   ├── parser.py        # argparse 解析器构建
 │   ├── type_utils.py    # 类型工具（Enum/Optional/List 等）
@@ -1311,7 +1339,9 @@ setup(
     packages=find_packages(),
     package_data={'nb_cmd': ['ui/static/**/*']},
     python_requires='>=3.7',
-    install_requires=[],
+    install_requires=[
+        'typing_extensions>=3.7.4;python_version<"3.9"',
+    ],
     extras_require={
         'api': ['fastapi>=0.68.0', 'uvicorn>=0.15.0', 'pydantic>=1.8.0'],
         'web': ['fastapi>=0.68.0', 'uvicorn>=0.15.0', 'websockets>=10.0'],
@@ -1523,7 +1553,9 @@ import time
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
-from nb_cmd import NbCmd, Arg, NbCmdMeta, cmdui
+from typing import Annotated
+
+from nb_cmd import NbCmd, NbCmdMeta, cmdui
 from enum import Enum
 
 
@@ -1546,10 +1578,10 @@ class DeployTool(NbCmd):
         web_title = "部署工具"
 
     def deploy(self,
-               host: Arg(str, '目标服务器地址', alias='H'),
-               port: Arg(int, '端口号', alias='p') = 22,
-               env: Arg(Environment, '部署环境', alias='e') = Environment.DEV,
-               dry_run: Arg(bool, '试运行模式') = False,
+               host: Annotated[str, '目标服务器地址', 'H'],
+               port: Annotated[int, '端口号', 'p'] = 22,
+               env: Annotated[Environment, '部署环境', 'e'] = Environment.DEV,
+               dry_run: Annotated[bool, '试运行模式'] = False,
                ):
         """执行部署到指定服务器"""
         print('环境: {}'.format(env.value if hasattr(env, 'value') else env))
@@ -1636,21 +1668,23 @@ import sys
 import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
-from nb_cmd import NbCmd, Arg
+from typing import Annotated
+
+from nb_cmd import NbCmd
 
 
 class MyTool(NbCmd):
     """我的超级工具（自动变成CLI的description）"""
 
-    def greet(self, name: Arg(str, '要问候的人名', alias='n'),
-              times: Arg(int, '问候次数', alias='t') = 1):
+    def greet(self, name: Annotated[str, '要问候的人名', 'n'],
+              times: Annotated[int, '问候次数', 't'] = 1):
         """向某人问好（自动变成子命令的帮助信息）"""
         for _ in range(times):
             print('你好, {}!'.format(name))
 
-    def deploy(self, host: Arg(str, '服务器地址', alias='H'),
-               port: Arg(int, '端口号', alias='p') = 22,
-               verbose: Arg(bool, '详细模式', alias='v') = False):
+    def deploy(self, host: Annotated[str, '服务器地址', 'H'],
+               port: Annotated[int, '端口号', 'p'] = 22,
+               verbose: Annotated[bool, '详细模式', 'v'] = False):
         """部署到远程服务器"""
         if verbose:
             print('[详细模式] 正在部署到 {}:{} ...'.format(host, port))
@@ -1698,7 +1732,9 @@ import sys
 import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
-from nb_cmd import NbCmd, Arg, NbCmdMeta, cmdui
+from typing import Annotated
+
+from nb_cmd import NbCmd, NbCmdMeta, cmdui
 from enum import Enum
 
 
@@ -1715,9 +1751,9 @@ class DbTool(NbCmd):
         name = "dbtool"
         version = "1.0.0"
 
-    def query(self, sql: Arg(str, 'SQL查询语句'),
-              output: Arg(OutputFormat, '输出格式') = OutputFormat.TABLE,
-              limit: Arg(int, '返回行数上限') = 100):
+    def query(self, sql: Annotated[str, 'SQL查询语句'],
+              output: Annotated[OutputFormat, '输出格式'] = OutputFormat.TABLE,
+              limit: Annotated[int, '返回行数上限'] = 100):
         """执行SQL查询并展示结果"""
         cmdui.info('执行: {}'.format(sql))
         result = [
@@ -1735,8 +1771,8 @@ class DbTool(NbCmd):
             for row in result:
                 print(",".join(str(v) for v in row.values()))
 
-    def migrate(self, version: Arg(str, '目标版本号') = "latest",
-                dry_run: Arg(bool, '试运行，不实际执行') = False):
+    def migrate(self, version: Annotated[str, '目标版本号'] = "latest",
+                dry_run: Annotated[bool, '试运行，不实际执行'] = False):
         """执行数据库迁移"""
         if dry_run:
             cmdui.warning("试运行模式，不会实际执行")
@@ -1911,7 +1947,9 @@ import sys
 import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
-from nb_cmd import NbCmd, Arg, NbCmdMeta, cmdui
+from typing import Annotated
+
+from nb_cmd import NbCmd, NbCmdMeta, cmdui
 from enum import Enum
 
 
@@ -1934,8 +1972,8 @@ class ServerTool(NbCmd):
 
         web_theme = "dark"
 
-    def __init__(self, region: Arg(str, '机房区域', alias='r'),
-                 timeout: Arg(int, '超时秒数') = 30):
+    def __init__(self, region: Annotated[str, '机房区域', 'r'],
+                 timeout: Annotated[int, '超时秒数'] = 30):
         super().__init__()
         self.region = region
         self.timeout = timeout
@@ -2017,17 +2055,19 @@ import sys
 import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
-from nb_cmd import NbCmd, Arg
+from typing import Annotated
+
+from nb_cmd import NbCmd
 
 
 class GitRemote(NbCmd):
     """远程仓库管理"""
 
-    def add(self, name: Arg(str, '远程仓库名'), url: Arg(str, '仓库URL')):
+    def add(self, name: Annotated[str, '远程仓库名'], url: Annotated[str, '仓库URL']):
         """添加远程仓库"""
         print('git remote add {} {}'.format(name, url))
 
-    def remove(self, name: Arg(str, '要删除的远程名')):
+    def remove(self, name: Annotated[str, '要删除的远程名']):
         """删除远程仓库"""
         print('git remote remove {}'.format(name))
 
@@ -2039,13 +2079,13 @@ class GitRemote(NbCmd):
 class GitBranch(NbCmd):
     """分支管理"""
 
-    def create(self, name: Arg(str, '分支名'),
-               from_branch: Arg(str, '基于哪个分支') = "main"):
+    def create(self, name: Annotated[str, '分支名'],
+               from_branch: Annotated[str, '基于哪个分支'] = "main"):
         """创建分支"""
         print('git checkout -b {} {}'.format(name, from_branch))
 
-    def delete(self, name: Arg(str, '分支名'),
-               force: Arg(bool, '强制删除', alias='f') = False):
+    def delete(self, name: Annotated[str, '分支名'],
+               force: Annotated[bool, '强制删除', 'f'] = False):
         """删除分支"""
         flag = "-D" if force else "-d"
         print('git branch {} {}'.format(flag, name))
@@ -2069,8 +2109,8 @@ class GitTool(NbCmd):
         """查看状态"""
         print('当前分支: main')
 
-    def commit(self, message: Arg(str, '提交信息', alias='m'),
-               all: Arg(bool, '自动 add 所有文件', alias='a') = False):
+    def commit(self, message: Annotated[str, '提交信息', 'm'],
+               all: Annotated[bool, '自动 add 所有文件', 'a'] = False):
         """提交"""
         if all:
             print('git add -A')
@@ -2197,7 +2237,7 @@ import json
 import logging
 import sys
 
-from .core.arg import Arg  # noqa: F401
+from .core.arg import Annotated, Param  # noqa: F401
 # 模块级 cmdui 单例，在延后创建（类定义之后）
 from .ui.colors import print_success, print_warning, print_error, print_info
 from .ui.table import print_table, print_kv
@@ -2234,7 +2274,7 @@ class NbCmdMeta(object):
     web_title = None           # type: str   # Web UI 页面标题
     web_theme = 'light'        # type: str   # Web UI 主题 ('light' / 'dark')
     enable_exec = True         # type: bool  # 是否暴露内置 exec 命令（False 可防止恶意执行）
-    aliases = {}               # type: dict  # 参数别名（推荐用 Arg(alias=...) 替代）
+    aliases = {}               # type: dict  # 参数别名（推荐用 Annotated 替代）
 
 
 class UIHelper(object):
@@ -2508,35 +2548,60 @@ cmdui = UIHelper()
 `````python
 # -*- coding: utf-8 -*-
 """
-Arg —— 参数描述器，为方法参数附加描述和别名。
+参数描述器 —— 通过 Annotated 为方法参数附加描述和别名。
 
 用法::
 
-    from nb_cmd import NbCmd, Arg
+    from typing import Annotated  # Python 3.9+
+    from nb_cmd import NbCmd, Param
 
     class MyTool(NbCmd):
-        def greet(self, name: Arg(str, '要问候的人名', alias='n'),
-                  times: Arg(int, '问候次数', alias='t') = 1):
+        # 方式一：位置参数（简洁）
+        def greet(self, name: Annotated[str, '要问候的人名', 'n'],
+                  times: Annotated[int, '问候次数'] = 1):
             ...
+
+        # 方式二：Param 对象（关键字参数，清晰）
+        def deploy(self, host: Annotated[str, Param(desc='服务器地址', alias='H')],
+                   port: Annotated[int, Param(desc='端口号', alias='p')] = 22):
+            ...
+
+Annotated 规则:
+    Annotated[类型]                              → 纯类型，无描述无别名
+    Annotated[类型, '描述']                      → 有描述，无别名
+    Annotated[类型, '描述', '别名']              → 有描述 + 别名
+    Annotated[类型, Param(desc=..., alias=...)]  → 关键字风格
 """
+import sys
+
+if sys.version_info >= (3, 9):
+    from typing import Annotated, get_args, get_origin
+else:
+    try:
+        from typing_extensions import Annotated, get_args, get_origin
+    except ImportError:
+        Annotated = None
+
+        def get_args(tp):
+            return getattr(tp, '__args__', ())
+
+        def get_origin(tp):
+            return getattr(tp, '__origin__', None)
 
 
-class Arg(object):
+class Param(object):
     """
-    参数元数据描述器。
+    参数元数据描述器，用于 Annotated 内部。
 
     Parameters
     ----------
-    type_ : type
-        参数的真实类型（str, int, bool, Enum, List[str] 等）
     desc : str, optional
         参数描述，显示在 CLI --help 和 Web UI 输入框中
     alias : str or list, optional
         CLI 短参数别名，如 'n' 自动转为 '-n'，'host-name' 转为 '--host-name'
     """
 
-    def __init__(self, type_, desc=None, alias=None):
-        self.type = type_
+    def __init__(self, desc=None, alias=None):
         self.desc = desc
         if alias is None:
             self.aliases = []
@@ -2546,12 +2611,28 @@ class Arg(object):
             self.aliases = [_normalize_alias(alias)]
 
     def __repr__(self):
-        parts = [self.type.__name__ if hasattr(self.type, '__name__') else str(self.type)]
+        parts = []
         if self.desc:
             parts.append('desc={!r}'.format(self.desc))
         if self.aliases:
             parts.append('alias={!r}'.format(self.aliases))
-        return 'Arg({})'.format(', '.join(parts))
+        return 'Param({})'.format(', '.join(parts))
+
+
+class _ArgMeta(object):
+    """内部元数据容器，保存从 Annotated 中提取的描述和别名"""
+
+    def __init__(self, desc=None, aliases=None):
+        self.desc = desc
+        self.aliases = aliases or []
+
+    def __repr__(self):
+        parts = []
+        if self.desc:
+            parts.append('desc={!r}'.format(self.desc))
+        if self.aliases:
+            parts.append('alias={!r}'.format(self.aliases))
+        return '_ArgMeta({})'.format(', '.join(parts))
 
 
 def _normalize_alias(alias):
@@ -2566,11 +2647,34 @@ def _normalize_alias(alias):
 
 def unwrap_arg(hint):
     """
-    如果 hint 是 Arg 实例，返回 (real_type, arg_instance)；
-    否则返回 (hint, None)。
+    解析类型注解，提取真实类型和元数据。
+
+    支持:
+    - Annotated[str, '描述']                     → (str, _ArgMeta(desc='描述'))
+    - Annotated[str, '描述', 'n']                → (str, _ArgMeta(desc='描述', aliases=['-n']))
+    - Annotated[str, Param(desc='描述', alias='n')]  → 同上
+    - str                                        → (str, None)
     """
-    if isinstance(hint, Arg):
-        return hint.type, hint
+    if Annotated is not None and get_origin(hint) is Annotated:
+        args = get_args(hint)
+        real_type = args[0]
+
+        for meta in args[1:]:
+            if isinstance(meta, Param):
+                return real_type, _ArgMeta(desc=meta.desc, aliases=list(meta.aliases))
+
+        desc = None
+        alias_val = None
+        if len(args) > 1 and isinstance(args[1], str):
+            desc = args[1]
+        if len(args) > 2 and isinstance(args[2], str):
+            alias_val = args[2]
+
+        if desc is not None or alias_val is not None:
+            aliases = [_normalize_alias(alias_val)] if alias_val else []
+            return real_type, _ArgMeta(desc=desc, aliases=aliases)
+        return real_type, None
+
     return hint, None
 
 `````
@@ -2587,9 +2691,16 @@ def unwrap_arg(hint):
 """
 命令发现模块 —— 通过反射发现类中的所有公有方法，自动转换为子命令。
 """
+import sys
 import inspect
 
-from typing import get_type_hints
+if sys.version_info >= (3, 11):
+    from typing import get_type_hints
+else:
+    try:
+        from typing_extensions import get_type_hints
+    except ImportError:
+        from typing import get_type_hints
 
 from .arg import unwrap_arg
 
@@ -2633,7 +2744,7 @@ def discover_commands(instance, base_cls, include_builtins=True, enable_exec=Tru
         doc = inspect.getdoc(attr) or ""
 
         try:
-            hints = get_type_hints(attr)
+            hints = get_type_hints(attr, include_extras=True)
         except Exception:
             hints = {}
 
