@@ -273,20 +273,17 @@ Entry Points (not imported by other project files):
 `````
 
 ├── README.md
-├── pyproject.toml
-└── setup.py
+└── pyproject.toml
 
 `````
 
 ---
 
 
-## nb_cmd (relative dir: `.`)  Included Files (total: 3 files)
+## nb_cmd (relative dir: `.`)  Included Files (total: 2 files)
 
 
 - `README.md`
-
-- `setup.py`
 
 - `pyproject.toml`
 
@@ -307,6 +304,7 @@ Entry Points (not imported by other project files):
 ## 目录
 
 - [为什么用 nb_cmd？](#为什么用-nb_cmd)
+- [核心价值与典型场景](#核心价值与典型场景)
 - [安装](#安装)
 - [5 分钟快速上手](#5-分钟快速上手)
 - [核心特性](#核心特性)（自动推导 / OOP 继承 / 多层级子命令 / cmdui 输出 / Annotated 参数描述 / 全局参数 / 参数校验 / 系统命令 / Meta 配置 / 生命周期钩子 / 帮助系统 / Web UI 交互）
@@ -362,6 +360,174 @@ nb_cmd 换了一种思路：**Class 是中心，接口是投影。**
 | 多层级子命令 | 手动 | ✓ | ✓ | 有限 | **✓** |
 | Swagger 文档 | ✗ | ✗ | ✗ | ✗ | **✓** |
 | 进度条/表格/彩色 | ✗ | ✓ | ✓(rich) | ✗ | **✓** |
+
+---
+
+## 核心价值与典型场景
+
+### 打破企业内部工具开发的"死循环"
+
+在企业开发中，经常遇到这样的困境：
+
+```
+产品经理："这个工具不是公司核心业务，不立项"
+    ↓
+前端码农："没立项就没有需求排期，我不开发"
+    ↓
+Python 码农："我会写逻辑，但不会写前端"
+    ↓
+结果：工具永远停留在 CLI，只有技术人员能用
+    ↓
+测试/运营/产品："能不能给我们也用用？"
+    ↓
+Python 码农："等我学学 Vue/React..."（然后就没有然后了）
+   ↓
+最终：工具被遗忘，需求依然存在，问题继续存在
+```
+
+**nb_cmd 打破了这个死循环：**
+
+```
+Python 码农：写一个 class（30分钟）
+    ↓
+nb_cmd：自动生成 cli  + API +  Web UI
+    ↓
+测试/运营/产品：直接用网页操作
+    ↓
+前端人员：完全不需要介入！
+```
+
+### 效率对比
+
+**传统方式的成本：**
+```
+需求沟通：2小时
+前端开发：2-3天
+前后端联调：1天
+测试：0.5天
+总计：约 4-5 天
+```
+
+**用 nb_cmd 的成本：**
+```
+写 Python class：1小时
+启动 Web 模式：1分钟
+总计：约 1 小时
+```
+
+**效率提升：40-50 倍！**
+
+### 零成本优势
+
+#### 1. 零前端成本
+- 不需要懂 HTML/CSS/JavaScript
+- 不需要学 Vue/React/Angular
+- 不需要配置 webpack/vite
+- 不需要处理前后端联调，没有前后端跨团队联调的屁事。
+
+#### 2. 零立项成本
+- 产品经理不需要评估 ROI
+- 不需要排期会议
+- 不需要跨部门协调
+- Python 码农自己就能搞定
+
+#### 3. 零学习成本（对使用者）
+- 测试人员：打开网页，填表单，点按钮
+- 产品经理：看到的是专业的 UI，不是黑乎乎的命令行
+- 运维人员：可以用 API 集成到自动化流程
+
+### 典型应用场景
+
+#### 1. 数据处理工具
+```python
+class DataTool(NbCmd):
+    """数据处理工具"""
+    
+    def import_excel(self, file_path: str, sheet: str = "Sheet1"):
+        """导入 Excel 数据"""
+        # 测试人员不用找开发要数据库了
+        # 直接在网页上点按钮导入
+        pass
+    
+    def export_report(self, date: str = "today"):
+        """导出报表"""
+        # 产品经理自己就能跑报表
+        # 不用等数据分析师排期
+        pass
+```
+
+#### 2. 测试辅助工具
+```python
+class TestTool(NbCmd):
+    """测试辅助工具"""
+    
+    def create_test_user(self, name: str, role: str = "user"):
+        """创建测试用户"""
+        # 测试人员自助创建测试数据
+        pass
+    
+    def clean_test_data(self, days: int = 7):
+        """清理测试数据"""
+        # 定期清理，保持环境干净
+        pass
+```
+
+#### 3. 运维管理工具
+```python
+class DeployTool(NbCmd):
+    """部署管理工具"""
+    
+    def restart_service(self, service: str):
+        """重启服务"""
+        # 运维可以用 API 集成到监控告警
+        # 自动化运维不用写脚本了
+        pass
+    
+    def check_status(self, host: str):
+        """检查服务状态"""
+        # 一键查看，不用 SSH 登录
+        pass
+```
+
+#### 4. 配置管理工具
+```python
+class ConfigTool(NbCmd):
+    """配置管理工具"""
+    
+    def update_config(self, key: str, value: str):
+        """更新配置"""
+        # 运营人员自己改配置
+        # 不用找开发
+        pass
+    
+    def show_config(self):
+        """查看当前配置"""
+        # 可视化展示配置
+        pass
+```
+
+### 推广建议
+
+#### 内部推广话术
+> "以后你们要的小工具，我 1 小时就能给你们网页版，不用等产品立项，不用找前端排期"
+
+#### 快速演示流程
+```bash
+# 1 分钟启动一个测试工具
+python test_tool.py --web --web-port 8080
+# 发给测试团队：http://your-server:8080
+```
+
+### 真正的价值
+
+nb_cmd 的价值不在于"技术有多先进"，而在于：
+
+1. **解放了 Python 码农**：不用被迫学前端
+2. **解放了前端**：不用做"没价值"的内部工具
+3. **解放了产品经理**：不用为小工具立项
+4. **解放了测试/运营**：不用求人开发工具
+
+**这就是"神级"创意的定义：用最简单的方式，解决最痛的问题。**
 
 ---
 
@@ -1320,55 +1486,6 @@ MIT
 ---
 
 
---- **start of file: setup.py** (project: nb_cmd) --- 
-
-`````python
-# -*- coding: utf-8 -*-
-from setuptools import setup, find_packages
-
-setup(
-    name='nb-cmd',
-    version='0.1.0',
-    description='万能接口生成器——你写一个 Python class，自动获得 CLI + REST API + Web UI 三种接口',
-    long_description=open('README.md', encoding='utf-8').read(),
-    long_description_content_type='text/markdown',
-    author='ydf',
-    author_email='ydf0509@sohu.com',
-    url='https://github.com/ydf0509/nb_cmd',
-    license='MIT',
-    packages=find_packages(),
-    package_data={'nb_cmd': ['ui/static/**/*']},
-    python_requires='>=3.7',
-    install_requires=[
-        'typing_extensions>=3.7.4;python_version<"3.9"',
-    ],
-    extras_require={
-        'api': ['fastapi>=0.68.0', 'uvicorn>=0.15.0', 'pydantic>=1.8.0'],
-        'web': ['fastapi>=0.68.0', 'uvicorn>=0.15.0', 'websockets>=10.0'],
-        'all': ['fastapi>=0.68.0', 'uvicorn>=0.15.0', 'pydantic>=1.8.0', 'websockets>=10.0'],
-        'nb': ['nb_log'],
-    },
-    classifiers=[
-        'Development Status :: 3 - Alpha',
-        'Intended Audience :: Developers',
-        'License :: OSI Approved :: MIT License',
-        'Programming Language :: Python :: 3',
-        'Programming Language :: Python :: 3.7',
-        'Programming Language :: Python :: 3.8',
-        'Programming Language :: Python :: 3.9',
-        'Programming Language :: Python :: 3.10',
-        'Programming Language :: Python :: 3.11',
-        'Programming Language :: Python :: 3.12',
-    ],
-)
-
-`````
-
---- **end of file: setup.py** (project: nb_cmd) --- 
-
----
-
-
 --- **start of file: pyproject.toml** (project: nb_cmd) --- 
 
 `````text
@@ -1379,7 +1496,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "nb-cmd"
 version = "0.1.0"
-description = "万能接口生成器——你写一个 Python class，自动获得 CLI + REST API + Web UI 三种接口"
+description = "万能接口生成器——你写一个 Python class，自动获得 CLI + REST API + Web UI 三种操作方式，堪称python界低代码平台"
 readme = "README.md"
 license = {text = "MIT"}
 requires-python = ">=3.7"
@@ -1398,6 +1515,9 @@ classifiers = [
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+
     "Topic :: Software Development :: Libraries :: Python Modules",
     "Topic :: Utilities",
 ]
@@ -1671,6 +1791,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 from typing import Annotated
 
 from nb_cmd import NbCmd
+import asyncio
 
 
 class MyTool(NbCmd):
@@ -1682,12 +1803,18 @@ class MyTool(NbCmd):
         for _ in range(times):
             print('你好, {}!'.format(name))
 
-    def deploy(self, host: Annotated[str, '服务器地址', 'H'],
+    async def deploy(self, host: Annotated[str, '服务器地址', 'H'],
                port: Annotated[int, '端口号', 'p'] = 22,
                verbose: Annotated[bool, '详细模式', 'v'] = False):
         """部署到远程服务器"""
+        # 这个函数是测试asyncio函数的运行
         if verbose:
             print('[详细模式] 正在部署到 {}:{} ...'.format(host, port))
+        await asyncio.sleep(1)
+        print('部署到 {}:{} 开始'.format(host, port))
+        await asyncio.sleep(1)
+        print('部署到 {}:{} 进行中'.format(host, port))
+        await asyncio.sleep(1)
         print('部署到 {}:{} 完成'.format(host, port))
 
     def _private_helper(self):
@@ -3844,7 +3971,23 @@ def _make_route(app, path, summary, cmd_name, instance, request_model, type_hint
                 converted[k] = v
         return converted
 
-    def _exec(fresh_inst, kwargs):
+    _method = getattr(_cls, _cmd_name, None)
+    _is_async = inspect.iscoroutinefunction(_method) if _method else False
+
+    async def _exec_async(fresh_inst, kwargs):
+        old_stdout = sys.stdout
+        old_stderr = sys.stderr
+        sys.stdout = captured_out = io.StringIO()
+        sys.stderr = captured_err = io.StringIO()
+        try:
+            method = getattr(fresh_inst, _cmd_name)
+            result = await method(**_convert_kwargs(kwargs))
+        finally:
+            sys.stdout = old_stdout
+            sys.stderr = old_stderr
+        return result, captured_out.getvalue(), captured_err.getvalue()
+
+    def _exec_sync(fresh_inst, kwargs):
         old_stdout = sys.stdout
         old_stderr = sys.stderr
         sys.stdout = captured_out = io.StringIO()
@@ -3860,13 +4003,17 @@ def _make_route(app, path, summary, cmd_name, instance, request_model, type_hint
     if request_model is not None:
         @app.post('/{}'.format(path), summary=summary)
         async def endpoint(request: request_model):
+            import asyncio
             start = time.time()
             kwargs = request.dict() if hasattr(request, 'dict') else request.model_dump()
             raw_init = kwargs.pop('init_params', None)
             fresh_inst = _fresh(raw_init)
             fresh_inst.before_run()
             try:
-                result, stdout_output, stderr_output = _exec(fresh_inst, kwargs)
+                if _is_async:
+                    result, stdout_output, stderr_output = await _exec_async(fresh_inst, kwargs)
+                else:
+                    result, stdout_output, stderr_output = await asyncio.to_thread(_exec_sync, fresh_inst, kwargs)
                 api_result = handle_api_result(result)
                 duration_ms = int((time.time() - start) * 1000)
                 return {
@@ -3888,12 +4035,16 @@ def _make_route(app, path, summary, cmd_name, instance, request_model, type_hint
     else:
         @app.post('/{}'.format(path), summary=summary)
         async def endpoint(request: dict = {}):
+            import asyncio
             start = time.time()
             raw_init = request.pop('init_params', None)
             fresh_inst = _fresh(raw_init)
             fresh_inst.before_run()
             try:
-                result, stdout_output, stderr_output = _exec(fresh_inst, request)
+                if _is_async:
+                    result, stdout_output, stderr_output = await _exec_async(fresh_inst, request)
+                else:
+                    result, stdout_output, stderr_output = await asyncio.to_thread(_exec_sync, fresh_inst, request)
                 api_result = handle_api_result(result)
                 duration_ms = int((time.time() - start) * 1000)
                 return {
@@ -3927,12 +4078,21 @@ def _make_route(app, path, summary, cmd_name, instance, request_model, type_hint
 """
 CLI 模式 —— 默认的命令行交互模式。
 """
+import asyncio
 import inspect
 
 from ..core.discovery import discover_commands
 from ..core.parser import build_parser
 from ..core.type_utils import convert_value
 from ..core.result_handler import handle_cli_result
+
+
+def _run_method(method, kwargs):
+    """执行方法，自动处理同步和异步函数"""
+    result = method(**kwargs)
+    if inspect.iscoroutine(result):
+        result = asyncio.run(result)
+    return result
 
 
 def run_cli(instance, base_cls, args=None):
@@ -3975,7 +4135,7 @@ def run_cli(instance, base_cls, args=None):
 
     instance.before_run()
     try:
-        result = method(**kwargs)
+        result = _run_method(method, kwargs)
         handle_cli_result(result)
     except Exception as e:
         instance.on_error(command_name, e)
@@ -4051,7 +4211,7 @@ def _run_group_command(instance, group_info, parsed, base_cls):
 
     group_instance.before_run()
     try:
-        result = method(**kwargs)
+        result = _run_method(method, kwargs)
         handle_cli_result(result)
     except Exception as e:
         group_instance.on_error(sub_command, e)
@@ -4362,6 +4522,8 @@ def start_web_server(instance, base_cls, host=None, port=None):
                 try:
                     target_inst.before_run()
                     r = method(**kwargs)
+                    if inspect.iscoroutine(r):
+                        r = asyncio.run(r)
                     result_holder['result'] = handle_api_result(r)
                 except KeyboardInterrupt:
                     result_holder['cancelled'] = True
@@ -4680,7 +4842,7 @@ body { font-family: -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif;
 .console-label { padding: 8px 16px; font-size: 13px; color: var(--info); background: var(--card-bg);
                   border-bottom: 1px solid var(--border); }
 .console-output { flex: 1; background: var(--console-bg); color: #a8e6cf; font-family: "Consolas","Courier New",monospace;
-                   font-size: 13px; padding: 12px 16px; overflow-y: auto; white-space: pre-wrap; word-break: break-all; }
+                   font-size: 13px; line-height: 1.6; padding: 12px 16px; overflow-y: auto; white-space: pre-wrap; word-break: break-all; }
 .console-output .ts { color: #636e72; }
 .console-output .cmd-echo { color: var(--primary); }
 .console-output .err { color: var(--error); }
@@ -4720,8 +4882,11 @@ body { font-family: -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif;
 .s2-item .s2-idel:hover { color: var(--error); }
 .s2-empty { padding: 10px; font-size: 11px; color: #636e72; text-align: center; }
 button:disabled, .form-actions button:disabled { opacity: 0.4; cursor: not-allowed; }
-.stop-btn { display: none; background: var(--error); color: #fff; border: none; padding: 4px 14px;
-            border-radius: 4px; cursor: pointer; font-size: 12px; margin-left: 12px; }
+.clear-btn { background: transparent; color: #888; border: 1px solid var(--border); padding: 2px 10px;
+             border-radius: 4px; cursor: pointer; font-size: 12px; margin-left: 12px; }
+.clear-btn:hover { color: #fff; background: var(--error); border-color: var(--error); }
+.stop-btn { display: none; background: var(--error); color: #fff; border: none; padding: 2px 10px;
+            border-radius: 4px; cursor: pointer; font-size: 12px; margin-left: 8px; }
 .stop-btn:hover { opacity: 0.85; }
 .stop-btn.visible { display: inline-block; }
 </style>
@@ -4776,13 +4941,13 @@ button:disabled, .form-actions button:disabled { opacity: 0.4; cursor: not-allow
   <div class="resizer" id="resizer"></div>
   <div class="right-panel">
     <div class="console-area">
-      <div class="console-label">&#128203; 实时控制台输出</div>
+      <div class="console-label">&#128203; 实时控制台输出<button class="clear-btn" onclick="clearConsole()" title="清空控制台">&#128465; 清空</button><button class="stop-btn" id="stopBtn" onclick="cancelExecution()" title="停止执行">&#9632; 停止</button></div>
       <div class="console-output" id="consoleOutput"></div>
     </div>
   </div>
 </div>
 <div class="status-bar">
-  <span><span id="statusText">状态: 就绪</span><button class="stop-btn" id="stopBtn" onclick="cancelExecution()">&#9632; 停止</button></span>
+  <span id="statusText">状态: 就绪</span>
   <span id="execCount">执行次数: 0</span>
 </div>
 
@@ -4808,6 +4973,10 @@ function cancelExecution() {
   if (activeWs && activeWs.readyState === WebSocket.OPEN) {
     activeWs.send(JSON.stringify({action: 'cancel'}));
   }
+}
+
+function clearConsole() {
+  document.getElementById('consoleOutput').innerHTML = '';
 }
 
 function esc(s) { var d=document.createElement('div'); d.textContent=String(s); return d.innerHTML; }
@@ -5074,7 +5243,6 @@ async function executeFromInput() {
     argStart = 1;
   } else if (enableExec) {
     await doExecute('exec', {cmd: raw});
-    input.value = '';
     return;
   } else {
     appendLog('[错误] 未知命令: ' + parts[0], 'error');
@@ -5107,7 +5275,6 @@ async function executeFromInput() {
   }
   var overrideInit = Object.keys(inputInitP).length > 0 ? inputInitP : null;
   await doExecute(routePath, kwargs, overrideInit);
-  input.value = '';
 }
 
 function doExecute(routePath, kwargs, initParamsOverride) {
