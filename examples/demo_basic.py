@@ -16,6 +16,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 from typing import Annotated
 
 from nb_cmd import NbCmd
+import asyncio
 
 
 class MyTool(NbCmd):
@@ -27,12 +28,18 @@ class MyTool(NbCmd):
         for _ in range(times):
             print('你好, {}!'.format(name))
 
-    def deploy(self, host: Annotated[str, '服务器地址', 'H'],
+    async def deploy(self, host: Annotated[str, '服务器地址', 'H'],
                port: Annotated[int, '端口号', 'p'] = 22,
                verbose: Annotated[bool, '详细模式', 'v'] = False):
         """部署到远程服务器"""
+        # 这个函数是测试asyncio函数的运行
         if verbose:
             print('[详细模式] 正在部署到 {}:{} ...'.format(host, port))
+        await asyncio.sleep(1)
+        print('部署到 {}:{} 开始'.format(host, port))
+        await asyncio.sleep(1)
+        print('部署到 {}:{} 进行中'.format(host, port))
+        await asyncio.sleep(1)
         print('部署到 {}:{} 完成'.format(host, port))
 
     def _private_helper(self):

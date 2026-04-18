@@ -94,7 +94,7 @@ Python 码农："等我学学 Vue/React..."（然后就没有然后了）
 ```
 Python 码农：写一个 class（30分钟）
     ↓
-nb_cmd：自动生成 Web UI + API
+nb_cmd：自动生成 cli  + API +  Web UI
     ↓
 测试/运营/产品：直接用网页操作
     ↓

@@ -609,7 +609,7 @@ body { font-family: -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif;
 .console-label { padding: 8px 16px; font-size: 13px; color: var(--info); background: var(--card-bg);
                   border-bottom: 1px solid var(--border); }
 .console-output { flex: 1; background: var(--console-bg); color: #a8e6cf; font-family: "Consolas","Courier New",monospace;
-                   font-size: 13px; padding: 12px 16px; overflow-y: auto; white-space: pre-wrap; word-break: break-all; }
+                   font-size: 13px; line-height: 1.6; padding: 12px 16px; overflow-y: auto; white-space: pre-wrap; word-break: break-all; }
 .console-output .ts { color: #636e72; }
 .console-output .cmd-echo { color: var(--primary); }
 .console-output .err { color: var(--error); }
@@ -649,8 +649,11 @@ body { font-family: -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif;
 .s2-item .s2-idel:hover { color: var(--error); }
 .s2-empty { padding: 10px; font-size: 11px; color: #636e72; text-align: center; }
 button:disabled, .form-actions button:disabled { opacity: 0.4; cursor: not-allowed; }
-.stop-btn { display: none; background: var(--error); color: #fff; border: none; padding: 4px 14px;
-            border-radius: 4px; cursor: pointer; font-size: 12px; margin-left: 12px; }
+.clear-btn { background: transparent; color: #888; border: 1px solid var(--border); padding: 2px 10px;
+             border-radius: 4px; cursor: pointer; font-size: 12px; margin-left: 12px; }
+.clear-btn:hover { color: #fff; background: var(--error); border-color: var(--error); }
+.stop-btn { display: none; background: var(--error); color: #fff; border: none; padding: 2px 10px;
+            border-radius: 4px; cursor: pointer; font-size: 12px; margin-left: 8px; }
 .stop-btn:hover { opacity: 0.85; }
 .stop-btn.visible { display: inline-block; }
 </style>
@@ -705,13 +708,13 @@ button:disabled, .form-actions button:disabled { opacity: 0.4; cursor: not-allow
   <div class="resizer" id="resizer"></div>
   <div class="right-panel">
     <div class="console-area">
-      <div class="console-label">&#128203; 实时控制台输出</div>
+      <div class="console-label">&#128203; 实时控制台输出<button class="clear-btn" onclick="clearConsole()" title="清空控制台">&#128465; 清空</button><button class="stop-btn" id="stopBtn" onclick="cancelExecution()" title="停止执行">&#9632; 停止</button></div>
       <div class="console-output" id="consoleOutput"></div>
     </div>
   </div>
 </div>
 <div class="status-bar">
-  <span><span id="statusText">状态: 就绪</span><button class="stop-btn" id="stopBtn" onclick="cancelExecution()">&#9632; 停止</button></span>
+  <span id="statusText">状态: 就绪</span>
   <span id="execCount">执行次数: 0</span>
 </div>
 
@@ -737,6 +740,10 @@ function cancelExecution() {
   if (activeWs && activeWs.readyState === WebSocket.OPEN) {
     activeWs.send(JSON.stringify({action: 'cancel'}));
   }
+}
+
+function clearConsole() {
+  document.getElementById('consoleOutput').innerHTML = '';
 }
 
 function esc(s) { var d=document.createElement('div'); d.textContent=String(s); return d.innerHTML; }
@@ -1003,7 +1010,6 @@ async function executeFromInput() {
     argStart = 1;
   } else if (enableExec) {
     await doExecute('exec', {cmd: raw});
-    input.value = '';
     return;
   } else {
     appendLog('[错误] 未知命令: ' + parts[0], 'error');
@@ -1036,7 +1042,6 @@ async function executeFromInput() {
   }
   var overrideInit = Object.keys(inputInitP).length > 0 ? inputInitP : null;
   await doExecute(routePath, kwargs, overrideInit);
-  input.value = '';
 }
 
 function doExecute(routePath, kwargs, initParamsOverride) {

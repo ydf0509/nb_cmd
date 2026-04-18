@@ -246,7 +246,23 @@ def _make_route(app, path, summary, cmd_name, instance, request_model, type_hint
                 converted[k] = v
         return converted
 
-    def _exec(fresh_inst, kwargs):
+    _method = getattr(_cls, _cmd_name, None)
+    _is_async = inspect.iscoroutinefunction(_method) if _method else False
+
+    async def _exec_async(fresh_inst, kwargs):
+        old_stdout = sys.stdout
+        old_stderr = sys.stderr
+        sys.stdout = captured_out = io.StringIO()
+        sys.stderr = captured_err = io.StringIO()
+        try:
+            method = getattr(fresh_inst, _cmd_name)
+            result = await method(**_convert_kwargs(kwargs))
+        finally:
+            sys.stdout = old_stdout
+            sys.stderr = old_stderr
+        return result, captured_out.getvalue(), captured_err.getvalue()
+
+    def _exec_sync(fresh_inst, kwargs):
         old_stdout = sys.stdout
         old_stderr = sys.stderr
         sys.stdout = captured_out = io.StringIO()
@@ -262,13 +278,17 @@ def _make_route(app, path, summary, cmd_name, instance, request_model, type_hint
     if request_model is not None:
         @app.post('/{}'.format(path), summary=summary)
         async def endpoint(request: request_model):
+            import asyncio
             start = time.time()
             kwargs = request.dict() if hasattr(request, 'dict') else request.model_dump()
             raw_init = kwargs.pop('init_params', None)
             fresh_inst = _fresh(raw_init)
             fresh_inst.before_run()
             try:
-                result, stdout_output, stderr_output = _exec(fresh_inst, kwargs)
+                if _is_async:
+                    result, stdout_output, stderr_output = await _exec_async(fresh_inst, kwargs)
+                else:
+                    result, stdout_output, stderr_output = await asyncio.to_thread(_exec_sync, fresh_inst, kwargs)
                 api_result = handle_api_result(result)
                 duration_ms = int((time.time() - start) * 1000)
                 return {
@@ -290,12 +310,16 @@ def _make_route(app, path, summary, cmd_name, instance, request_model, type_hint
     else:
         @app.post('/{}'.format(path), summary=summary)
         async def endpoint(request: dict = {}):
+            import asyncio
             start = time.time()
             raw_init = request.pop('init_params', None)
             fresh_inst = _fresh(raw_init)
             fresh_inst.before_run()
             try:
-                result, stdout_output, stderr_output = _exec(fresh_inst, request)
+                if _is_async:
+                    result, stdout_output, stderr_output = await _exec_async(fresh_inst, request)
+                else:
+                    result, stdout_output, stderr_output = await asyncio.to_thread(_exec_sync, fresh_inst, request)
                 api_result = handle_api_result(result)
                 duration_ms = int((time.time() - start) * 1000)
                 return {
