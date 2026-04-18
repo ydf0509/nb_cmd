@@ -6,6 +6,30 @@ tags: []
 
 # nb_cmd 重大设计修改记录
 
+## 2026-04-18: asyncio.to_thread 兼容性修复（Python 3.7/3.8）
+
+**问题**: `api_mode.py` 使用了 `asyncio.to_thread()`，该函数在 Python 3.9 才引入。项目声明支持 Python 3.7+，在 3.7/3.8 上会 AttributeError。
+
+**方案**: 新增 `_run_in_thread()` 兼容函数，使用 `loop.run_in_executor(None, functools.partial(func, *args))` 实现等价功能。
+
+**影响文件**: `nb_cmd/modes/api_mode.py`
+
+## 2026-04-18: 子命令组实例化 TypeError 保护
+
+**问题**: `api_mode.py` 和 `web_mode.py` 中子命令组实例化缺少 `try/except TypeError` 保护。当子命令组的 `__init__` 有必填参数且通过 class（非 instance）传入时，`group_cls()` 会失败。`parser.py` 和 `cli_mode.py` 有此保护，但 api_mode 和 web_mode 遗漏了。
+
+**修复**: 对 api_mode 和 web_mode 的 3 处子命令组实例化添加 TypeError fallback（`__new__`）。
+
+**影响文件**: `nb_cmd/modes/api_mode.py`, `nb_cmd/modes/web_mode.py`
+
+## 2026-04-18: discovery.py get_type_hints fallback 安全
+
+**问题**: Python 3.7/3.8 中如果 `typing_extensions` 未安装，fallback 到 `typing.get_type_hints`，但它不接受 `include_extras` 参数，调用时会 TypeError。
+
+**修复**: fallback 分支中包装 `get_type_hints`，自动丢弃 `include_extras` 参数。
+
+**影响文件**: `nb_cmd/core/discovery.py`
+
 ## 2026-04-17: 线程安全 stdout 分发器（并发串流修复）
 
 **问题**: web_mode 和 api_mode 中，每个请求直接替换 `sys.stdout`，并发时互相覆盖导致输出串流到错误的前端。

@@ -7,11 +7,17 @@ import inspect
 
 if sys.version_info >= (3, 11):
     from typing import get_type_hints
+elif sys.version_info >= (3, 9):
+    from typing import get_type_hints
 else:
     try:
         from typing_extensions import get_type_hints
     except ImportError:
-        from typing import get_type_hints
+        from typing import get_type_hints as _get_type_hints
+
+        def get_type_hints(func, **kwargs):
+            kwargs.pop('include_extras', None)
+            return _get_type_hints(func, **kwargs)
 
 from .arg import unwrap_arg
 

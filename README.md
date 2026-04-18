@@ -5,13 +5,19 @@
 [![Python](https://img.shields.io/badge/python-3.7%2B-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
 
+## why nb_cmd?
+
+为什么要用nb_cmd?nb_cmd是不是装逼？是不是重复造轮子？抛开nb_cmd自带低代码平台的气质，只看命令行最本质的功能本身，比较下nb_cmd对其他顶流命令行框架的碾压优势。
+
+> 详细的多维度对比（含多层级子命令 + 全局参数的完整代码对比）请看：[nb_cmd vs click vs typer vs fire](https://github.com/ydf0509/nb_cmd/blob/main/nb_cmd_vs_click_vs_typer.md)
+
 ## 目录
 
 - [为什么用 nb_cmd？](#为什么用-nb_cmd)
 - [核心价值与典型场景](#核心价值与典型场景)
 - [安装](#安装)
 - [5 分钟快速上手](#5-分钟快速上手)
-- [核心特性](#核心特性)（自动推导 / OOP 继承 / 多层级子命令 / cmdui 输出 / Annotated 参数描述 / 全局参数 / 参数校验 / 系统命令 / Meta 配置 / 生命周期钩子 / 帮助系统 / Web UI 交互）
+- [核心特性](#核心特性)
 - [完整 API 速查](#完整-api-速查)
 - [和竞品对比](#和竞品对比)
 - [项目结构](#项目结构)
@@ -26,7 +32,7 @@
 
 - 你写了一个 CLI 工具 → 产品说"加个 Web 页面"
 - 你写了一个 CLI 工具 → 运维说"要通过 API 远程调用"
-- 你写了一个 CLI 工具 → 老板说"能在手机上点个按钮就执行"
+- 你写了一个 CLI 工具 → 老板说"能让不懂命令行的人也能用吗"
 
 **每次都是重写。**
 
@@ -127,7 +133,7 @@ nb_cmd：自动生成 cli  + API +  Web UI
 - 不需要懂 HTML/CSS/JavaScript
 - 不需要学 Vue/React/Angular
 - 不需要配置 webpack/vite
-- 不需要处理前后端联调，没有前后端跨团队联调的屁事。
+- 不需要处理前后端联调
 
 #### 2. 零立项成本
 - 产品经理不需要评估 ROI
@@ -142,96 +148,12 @@ nb_cmd：自动生成 cli  + API +  Web UI
 
 ### 典型应用场景
 
-#### 1. 数据处理工具
-```python
-class DataTool(NbCmd):
-    """数据处理工具"""
-    
-    def import_excel(self, file_path: str, sheet: str = "Sheet1"):
-        """导入 Excel 数据"""
-        # 测试人员不用找开发要数据库了
-        # 直接在网页上点按钮导入
-        pass
-    
-    def export_report(self, date: str = "today"):
-        """导出报表"""
-        # 产品经理自己就能跑报表
-        # 不用等数据分析师排期
-        pass
-```
+- **数据处理** — 导入 Excel、导出报表，测试和产品经理自己就能跑
+- **测试辅助** — 创建测试用户、清理测试数据，测试人员自助操作
+- **运维管理** — 重启服务、检查状态，运维用 API 集成到监控告警
+- **配置管理** — 更新配置、查看配置，运营人员不用找开发
 
-#### 2. 测试辅助工具
-```python
-class TestTool(NbCmd):
-    """测试辅助工具"""
-    
-    def create_test_user(self, name: str, role: str = "user"):
-        """创建测试用户"""
-        # 测试人员自助创建测试数据
-        pass
-    
-    def clean_test_data(self, days: int = 7):
-        """清理测试数据"""
-        # 定期清理，保持环境干净
-        pass
-```
-
-#### 3. 运维管理工具
-```python
-class DeployTool(NbCmd):
-    """部署管理工具"""
-    
-    def restart_service(self, service: str):
-        """重启服务"""
-        # 运维可以用 API 集成到监控告警
-        # 自动化运维不用写脚本了
-        pass
-    
-    def check_status(self, host: str):
-        """检查服务状态"""
-        # 一键查看，不用 SSH 登录
-        pass
-```
-
-#### 4. 配置管理工具
-```python
-class ConfigTool(NbCmd):
-    """配置管理工具"""
-    
-    def update_config(self, key: str, value: str):
-        """更新配置"""
-        # 运营人员自己改配置
-        # 不用找开发
-        pass
-    
-    def show_config(self):
-        """查看当前配置"""
-        # 可视化展示配置
-        pass
-```
-
-### 推广建议
-
-#### 内部推广话术
-> "以后你们要的小工具，我 1 小时就能给你们网页版，不用等产品立项，不用找前端排期"
-
-#### 快速演示流程
-```bash
-# 1 分钟启动一个测试工具
-python test_tool.py --web --web-port 8080
-# 发给测试团队：http://your-server:8080
-```
-
-### 真正的价值
-
-nb_cmd 的价值不在于"技术有多先进"，而在于：
-
-1. **解放了 Python 码农**：不用被迫学前端
-2. **解放了前端**：不用做"没价值"的内部工具
-3. **解放了产品经理**：不用为小工具立项
-4. **解放了测试/运营**：不用求人开发工具
-
-**这就是"神级"创意的定义：用最简单的方式，解决最痛的问题。**
+每个场景只需写一个 NbCmd 子类，`--web` 启动后发给团队即可使用。
 
 ---
 
@@ -1048,6 +970,8 @@ from nb_cmd import NbCmd, NbCmdMeta, Param, cmdui, validate
 
 ## 和竞品对比
 
+> 详细的多维度对比（含多层级子命令 + 全局参数的完整代码对比）请看：[nb_cmd vs click vs typer vs fire](https://github.com/ydf0509/nb_cmd/blob/main/nb_cmd_vs_click_vs_typer.md)
+
 ### 代码对比：实现同一个工具
 
 **argparse（30+ 行样板代码）：**
@@ -1147,24 +1071,25 @@ python deploy.py --web --web-port 8080     # Web UI + REST API
 
 ```
 nb_cmd/
-├── __init__.py          # NbCmd 基类 + UIHelper
+├── __init__.py            # NbCmd 基类 + UIHelper + cmdui
 ├── core/
-│   ├── arg.py           # Annotated 参数元数据解析
-│   ├── discovery.py     # 命令发现（反射 + 类型检查）
-│   ├── parser.py        # argparse 解析器构建
-│   ├── type_utils.py    # 类型工具（Enum/Optional/List 等）
-│   └── result_handler.py # 返回值自动处理
+│   ├── arg.py             # Annotated / Param 参数元数据解析
+│   ├── discovery.py       # 命令发现（反射 + 类型检查）
+│   ├── parser.py          # argparse 解析器构建
+│   ├── type_utils.py      # 类型工具（Enum/Optional/List 等）
+│   ├── result_handler.py  # 返回值自动处理
+│   └── _io_dispatch.py    # 线程安全的 stdout/stderr 分发器
 ├── modes/
-│   ├── cli_mode.py      # CLI 执行引擎
-│   ├── api_mode.py      # REST API 路由生成（FastAPI）
-│   └── web_mode.py      # Web UI 页面生成 + API
+│   ├── cli_mode.py        # CLI 执行引擎
+│   ├── api_mode.py        # REST API 路由生成（FastAPI）
+│   └── web_mode.py        # Web UI 页面生成 + WebSocket 实时输出
 ├── ui/
-│   ├── colors.py        # ANSI 彩色输出
-│   ├── table.py         # 表格 / 键值对输出
-│   └── progress.py      # 进度条
+│   ├── colors.py          # ANSI 彩色输出
+│   ├── table.py           # 表格 / 键值对输出
+│   └── progress.py        # 进度条
 └── utils/
-    ├── validators.py    # @validate 装饰器
-    └── config.py        # 配置持久化
+    ├── validators.py      # @validate 装饰器
+    └── config.py          # 配置持久化
 ```
 
 ---

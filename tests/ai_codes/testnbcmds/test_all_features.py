@@ -17,10 +17,10 @@ except ImportError:
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
 
-from nb_cmd import NbCmd, NbCmdMeta, cmdui, Param
+from nb_cmd import NbCmd, NbCmdMeta, cmdui, Param, validate
 from nb_cmd.core.discovery import discover_commands
 from nb_cmd.core.parser import build_parser
-from nb_cmd.core.type_utils import convert_value
+from nb_cmd.core.type_utils import convert_value, is_optional, unwrap_optional, is_list_type
 from nb_cmd.core.result_handler import handle_cli_result, handle_api_result
 from nb_cmd.modes.cli_mode import run_cli, _run_method
 from nb_cmd.ui.colors import print_success, print_warning, print_error, print_info
@@ -789,6 +789,305 @@ def test_edge_cases():
     print('test_edge_cases passed!')
 
 
+# ==================== 16. enable_exec=False 过滤测试 ====================
+
+class TestExecDisabled(NbCmd):
+    """禁用 exec 测试"""
+    class Meta(NbCmdMeta):
+        enable_exec = False
+
+    def hello(self):
+        """你好"""
+        return 'hello'
+
+
+def test_enable_exec_false():
+    """测试 enable_exec=False 时 exec 被过滤"""
+    tool = TestExecDisabled()
+    cmds = discover_commands(tool, NbCmd, enable_exec=False)
+    assert 'exec' not in cmds, 'enable_exec=False 时不应有 exec 命令'
+    assert 'hello' in cmds
+
+    cmds_with_exec = discover_commands(tool, NbCmd, enable_exec=True)
+    assert 'exec' in cmds_with_exec, 'enable_exec=True 时应有 exec 命令'
+
+    print('test_enable_exec_false passed!')
+
+
+# ==================== 17. sub_commands 传实例测试 ====================
+
+class ServerTool(NbCmd):
+    """服务器工具"""
+    def __init__(self, region: str = 'beijing'):
+        super().__init__()
+        self.region = region
+
+    def stats(self):
+        """查看状态"""
+        return {'region': self.region}
+
+
+class InstanceSubCmdTool(NbCmd):
+    """sub_commands 传实例"""
+    sub_commands = {
+        'server': ServerTool('shanghai'),
+    }
+
+
+def test_sub_commands_instance():
+    """测试 sub_commands 传实例时 init_kwargs 被正确提取"""
+    tool = InstanceSubCmdTool()
+    cmds = discover_commands(tool, NbCmd)
+
+    assert 'server' in cmds
+    assert cmds['server']['is_group'] == True
+    assert cmds['server']['init_kwargs'] == {'region': 'shanghai'}
+
+    print('test_sub_commands_instance passed!')
+
+
+# ==================== 18. validate 装饰器测试 ====================
+
+class TestValidateTool(NbCmd):
+    """validate 装饰器测试"""
+    @validate(port=lambda x: 1 <= x <= 65535,
+              name=lambda x: len(x) >= 2)
+    def deploy(self, name: str, port: int = 22):
+        """部署"""
+        return {'name': name, 'port': port}
+
+
+def test_validate_decorator():
+    """测试 validate 装饰器"""
+    tool = TestValidateTool()
+
+    result = tool.deploy('web-01', port=8080)
+    assert result == {'name': 'web-01', 'port': 8080}
+
+    try:
+        tool.deploy('web-01', port=99999)
+        assert False, '应该抛出 ValueError'
+    except ValueError as e:
+        assert 'port' in str(e)
+
+    try:
+        tool.deploy('a', port=22)
+        assert False, '应该抛出 ValueError'
+    except ValueError as e:
+        assert 'name' in str(e)
+
+    print('test_validate_decorator passed!')
+
+
+# ==================== 19. Optional/List 类型测试 ====================
+
+class TestOptionalListTool(NbCmd):
+    """Optional/List 类型测试"""
+    def search(self, keyword: str,
+               tags: List[str] = None,
+               limit: Optional[int] = None):
+        """搜索"""
+        return {'keyword': keyword, 'tags': tags, 'limit': limit}
+
+
+def test_optional_list_types():
+    """测试 Optional 和 List 类型处理"""
+    tool = TestOptionalListTool()
+    cmds = discover_commands(tool, NbCmd)
+
+    search_info = cmds['search']
+    hints = search_info['type_hints']
+    assert hints['keyword'] is str
+    limit_type = hints.get('limit')
+    assert limit_type is int or is_optional(limit_type)
+    tags_type = hints.get('tags')
+    assert tags_type is not None
+
+    result = tool.search('test', tags=['a', 'b'], limit=10)
+    assert result['keyword'] == 'test'
+    assert result['tags'] == ['a', 'b']
+    assert result['limit'] == 10
+
+    result = tool.search('test')
+    assert result['tags'] is None
+    assert result['limit'] is None
+
+    print('test_optional_list_types passed!')
+
+
+def test_optional_list_cli():
+    """测试 Optional/List 参数 CLI 执行"""
+    tool = TestOptionalListTool()
+
+    old_stdout = sys.stdout
+    sys.stdout = captured = io.StringIO()
+    try:
+        run_cli(tool, NbCmd, ['search', 'hello', '--tags', 'python', 'web'])
+    finally:
+        sys.stdout = old_stdout
+
+    output = captured.getvalue()
+    assert 'hello' in output
+
+    print('test_optional_list_cli passed!')
+
+
+# ==================== 20. 子命令组 CLI 执行测试 ====================
+
+def test_subcommands_nested_cli():
+    """测试子命令组嵌套 CLI 执行"""
+    git = GitTool()
+
+    old_stdout = sys.stdout
+    sys.stdout = captured = io.StringIO()
+    try:
+        run_cli(git, NbCmd, ['remote', 'add', 'origin', 'https://example.com'])
+    finally:
+        sys.stdout = old_stdout
+
+    output = captured.getvalue()
+    assert 'origin' in output
+
+    print('test_subcommands_nested_cli passed!')
+
+
+# ==================== 21. _io_dispatch 线程安全测试 ====================
+
+def test_io_dispatch():
+    """测试 _io_dispatch 线程安全分发"""
+    import threading
+    import queue
+
+    from nb_cmd.core._io_dispatch import _tls, install, _DispatchWriter
+
+    install()
+
+    results = {}
+
+    def worker(name, q):
+        _tls.output_queue = q
+        try:
+            print('msg from {}'.format(name))
+        finally:
+            _tls.output_queue = None
+
+    q1 = queue.Queue()
+    q2 = queue.Queue()
+    t1 = threading.Thread(target=worker, args=('thread1', q1))
+    t2 = threading.Thread(target=worker, args=('thread2', q2))
+    t1.start()
+    t2.start()
+    t1.join()
+    t2.join()
+
+    out1 = []
+    while not q1.empty():
+        out1.append(q1.get())
+    out2 = []
+    while not q2.empty():
+        out2.append(q2.get())
+
+    out1_text = ''.join(item[1] for item in out1)
+    out2_text = ''.join(item[1] for item in out2)
+    assert 'thread1' in out1_text, 'thread1 输出应在 q1 中'
+    assert 'thread2' in out2_text, 'thread2 输出应在 q2 中'
+    assert 'thread2' not in out1_text, 'thread2 输出不应串到 q1'
+    assert 'thread1' not in out2_text, 'thread1 输出不应串到 q2'
+
+    print('test_io_dispatch passed!')
+
+
+# ==================== 22. _run_in_thread 兼容测试 ====================
+
+def test_run_in_thread():
+    """测试 _run_in_thread 兼容函数"""
+    from nb_cmd.modes.api_mode import _run_in_thread
+
+    def add(a, b):
+        return a + b
+
+    async def _test_sync():
+        return await _run_in_thread(add, 3, 4)
+
+    result = asyncio.run(_test_sync())
+    assert result == 7
+
+    async def async_add(a, b):
+        return a + b
+
+    def run_async_in_thread(a, b):
+        return asyncio.run(async_add(a, b))
+
+    async def _test_async():
+        return await _run_in_thread(run_async_in_thread, 5, 6)
+
+    result = asyncio.run(_test_async())
+    assert result == 11
+
+    print('test_run_in_thread passed!')
+
+
+# ==================== 23. TypeError 保护测试 ====================
+
+class RequiredInitTool(NbCmd):
+    """有必填 __init__ 参数"""
+    def __init__(self, required_param: str):
+        super().__init__()
+        self.required_param = required_param
+
+    def cmd(self):
+        """命令"""
+        return self.required_param
+
+
+class ParentWithRequired(NbCmd):
+    """sub_commands 传 class（有必填参数，但不传实例）"""
+    sub_commands = {
+        'sub': RequiredInitTool,
+    }
+
+
+def test_typename_error_protection():
+    """测试子命令组实例化 TypeError 保护"""
+    tool = ParentWithRequired()
+    cmds = discover_commands(tool, NbCmd)
+
+    assert 'sub' in cmds
+    assert cmds['sub']['is_group'] == True
+    assert cmds['sub']['init_kwargs'] == {}
+
+    sub_cls = cmds['sub']['cls']
+    sub_kwargs = cmds['sub']['init_kwargs']
+    try:
+        inst = sub_cls(**sub_kwargs) if sub_kwargs else sub_cls()
+        assert False, '应该 TypeError（缺少 required_param）'
+    except TypeError:
+        inst = sub_cls.__new__(sub_cls)
+        sub_cmds = discover_commands(inst, NbCmd, include_builtins=False)
+        assert 'cmd' in sub_cmds
+
+    print('test_typename_error_protection passed!')
+
+
+# ==================== 24. 缺少类型注解报错测试 ====================
+
+def test_missing_type_annotation():
+    """测试缺少类型注解时的报错"""
+    class BadTool(NbCmd):
+        def bad_method(self, name):
+            pass
+
+    tool = BadTool()
+    try:
+        discover_commands(tool, NbCmd)
+        assert False, '应该抛出 TypeError'
+    except TypeError as e:
+        assert 'name' in str(e)
+        assert '类型注解' in str(e)
+
+    print('test_missing_type_annotation passed!')
+
+
 # ==================== 主测试入口 ====================
 
 def run_all_tests():
@@ -813,6 +1112,15 @@ def run_all_tests():
         ('13. 组合工具', [test_combined_tool]),
         ('14. 结果处理', [test_result_handler]),
         ('15. 边界情况', [test_edge_cases]),
+        ('16. enable_exec 过滤', [test_enable_exec_false]),
+        ('17. sub_commands 传实例', [test_sub_commands_instance]),
+        ('18. validate 装饰器', [test_validate_decorator]),
+        ('19. Optional/List 类型', [test_optional_list_types, test_optional_list_cli]),
+        ('20. 子命令组嵌套 CLI', [test_subcommands_nested_cli]),
+        ('21. io_dispatch 线程安全', [test_io_dispatch]),
+        ('22. _run_in_thread 兼容', [test_run_in_thread]),
+        ('23. TypeError 保护', [test_typename_error_protection]),
+        ('24. 缺少类型注解报错', [test_missing_type_annotation]),
     ]
     
     passed = 0

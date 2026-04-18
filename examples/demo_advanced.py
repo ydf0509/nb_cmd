@@ -71,9 +71,9 @@ class DeployTool(NbCmd):
             time.sleep(0.1)
         cmdui.success("处理完成!")
     
-    def many_print(self):
+    def many_print(self, num: int = 30):
         """持续打印多行（用于测试 WebSocket 实时流式输出）"""
-        for i in range(10):
+        for i in range(num):
             time.sleep(1)
             print('print {}'.format(i))
             self.logger.debug('logger debug {}'.format(i))

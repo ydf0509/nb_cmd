@@ -3,12 +3,20 @@
 REST API 模式 —— 自动将 NbCmd 类的方法生成 FastAPI 路由。
 需要安装: pip install fastapi uvicorn
 """
+import asyncio
+import functools
 import inspect
 import io
 import time
 
 from ..core.discovery import discover_commands
 from ..core.result_handler import handle_api_result
+
+
+async def _run_in_thread(func, *args):
+    """asyncio.to_thread 的 Python 3.7+ 兼容版"""
+    loop = asyncio.get_event_loop()
+    return await loop.run_in_executor(None, functools.partial(func, *args))
 
 
 def start_api_server(instance, base_cls, host=None, port=None):
@@ -115,7 +123,10 @@ def _register_routes(app, instance, commands, base_cls=None, prefix=''):
             if base_cls is not None:
                 group_cls = cmd_info['cls']
                 group_kwargs = cmd_info.get('init_kwargs', {})
-                group_instance = group_cls(**group_kwargs) if group_kwargs else group_cls()
+                try:
+                    group_instance = group_cls(**group_kwargs) if group_kwargs else group_cls()
+                except TypeError:
+                    group_instance = group_cls.__new__(group_cls)
                 group_commands = discover_commands(group_instance, base_cls,
                                                    include_builtins=False)
                 group_prefix = '{}/{}'.format(prefix, cmd_name) if prefix else cmd_name
@@ -267,14 +278,13 @@ def _make_route(app, path, summary, cmd_name, instance, request_model, type_hint
     if request_model is not None:
         @app.post('/{}'.format(path), summary=summary)
         async def endpoint(request: request_model):
-            import asyncio
             start = time.time()
             kwargs = request.dict() if hasattr(request, 'dict') else request.model_dump()
             raw_init = kwargs.pop('init_params', None)
             fresh_inst = _fresh(raw_init)
             fresh_inst.before_run()
             try:
-                result, stdout_output, stderr_output = await asyncio.to_thread(
+                result, stdout_output, stderr_output = await _run_in_thread(
                     _exec_in_thread, fresh_inst, kwargs)
                 api_result = handle_api_result(result)
                 duration_ms = int((time.time() - start) * 1000)
@@ -297,13 +307,12 @@ def _make_route(app, path, summary, cmd_name, instance, request_model, type_hint
     else:
         @app.post('/{}'.format(path), summary=summary)
         async def endpoint(request: dict = {}):
-            import asyncio
             start = time.time()
             raw_init = request.pop('init_params', None)
             fresh_inst = _fresh(raw_init)
             fresh_inst.before_run()
             try:
-                result, stdout_output, stderr_output = await asyncio.to_thread(
+                result, stdout_output, stderr_output = await _run_in_thread(
                     _exec_in_thread, fresh_inst, request)
                 api_result = handle_api_result(result)
                 duration_ms = int((time.time() - start) * 1000)

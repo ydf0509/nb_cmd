@@ -70,7 +70,10 @@ def start_web_server(instance, base_cls, host=None, port=None):
             if info.get('is_group'):
                 g_cls = info['cls']
                 g_kwargs = info.get('init_kwargs', {})
-                g_inst = g_cls(**g_kwargs) if g_kwargs else g_cls()
+                try:
+                    g_inst = g_cls(**g_kwargs) if g_kwargs else g_cls()
+                except TypeError:
+                    g_inst = g_cls.__new__(g_cls)
                 g_cmds = discover_commands(g_inst, base_cls, include_builtins=False)
                 result[name] = {
                     'type': 'group',
@@ -227,7 +230,10 @@ def start_web_server(instance, base_cls, host=None, port=None):
                 if info.get('is_group'):
                     g_cls = info['cls']
                     g_kwargs = info.get('init_kwargs', {})
-                    current_inst = g_cls(**g_kwargs) if g_kwargs else g_cls()
+                    try:
+                        current_inst = g_cls(**g_kwargs) if g_kwargs else g_cls()
+                    except TypeError:
+                        current_inst = g_cls.__new__(g_cls)
                     current_cmds = discover_commands(current_inst, base_cls,
                                                      include_builtins=False)
                 elif i == len(parts) - 1 and current_inst is not None:
