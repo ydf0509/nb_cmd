@@ -113,6 +113,82 @@ def start_web_server(instance, base_cls, host=None, port=None):
         }
 
     import queue as _queue
+    import sqlite3 as _sqlite3
+
+    _db_path = os.path.join(os.getcwd(), 'nb_cmd_web.db')
+
+    def _get_db():
+        conn = _sqlite3.connect(_db_path)
+        conn.execute('CREATE TABLE IF NOT EXISTS saved_commands '
+                     '(id INTEGER PRIMARY KEY AUTOINCREMENT, '
+                     'command TEXT UNIQUE NOT NULL, '
+                     'created_at TEXT DEFAULT CURRENT_TIMESTAMP)')
+        conn.execute('CREATE TABLE IF NOT EXISTS command_history '
+                     '(id INTEGER PRIMARY KEY AUTOINCREMENT, '
+                     'command TEXT NOT NULL, '
+                     'executed_at TEXT DEFAULT CURRENT_TIMESTAMP)')
+        return conn
+
+    _get_db().close()
+
+    @app.get('/api/saved-commands', summary='获取收藏命令列表')
+    async def get_saved_commands():
+        conn = _get_db()
+        rows = conn.execute(
+            'SELECT id, command, created_at FROM saved_commands ORDER BY id DESC'
+        ).fetchall()
+        conn.close()
+        return [{'id': r[0], 'command': r[1], 'created_at': r[2]} for r in rows]
+
+    @app.post('/api/save-command', summary='收藏命令（去重）')
+    async def save_command(body: dict):
+        cmd = body.get('command', '').strip()
+        if not cmd:
+            return {'status': 'error', 'message': '命令不能为空'}
+        conn = _get_db()
+        try:
+            conn.execute('INSERT OR IGNORE INTO saved_commands (command) VALUES (?)', (cmd,))
+            conn.commit()
+        finally:
+            conn.close()
+        return {'status': 'ok'}
+
+    @app.delete('/api/save-command', summary='取消收藏命令')
+    async def delete_saved_command(body: dict):
+        cmd = body.get('command', '').strip()
+        conn = _get_db()
+        try:
+            conn.execute('DELETE FROM saved_commands WHERE command = ?', (cmd,))
+            conn.commit()
+        finally:
+            conn.close()
+        return {'status': 'ok'}
+
+    @app.get('/api/history', summary='获取命令执行历史（最近1000条）')
+    async def get_history():
+        conn = _get_db()
+        rows = conn.execute(
+            'SELECT id, command, executed_at FROM command_history '
+            'ORDER BY id DESC LIMIT 1000'
+        ).fetchall()
+        conn.close()
+        return [{'id': r[0], 'command': r[1], 'executed_at': r[2]} for r in rows]
+
+    @app.post('/api/history', summary='记录一条执行历史')
+    async def post_history(body: dict):
+        cmd = body.get('command', '').strip()
+        if not cmd:
+            return {'status': 'error'}
+        conn = _get_db()
+        try:
+            conn.execute('INSERT INTO command_history (command) VALUES (?)', (cmd,))
+            conn.execute(
+                'DELETE FROM command_history WHERE id NOT IN '
+                '(SELECT id FROM command_history ORDER BY id DESC LIMIT 1000)')
+            conn.commit()
+        finally:
+            conn.close()
+        return {'status': 'ok'}
 
     def _make_instance(raw_init_params=None):
         """每次请求创建一个新的用户类实例，彼此隔离"""
@@ -164,9 +240,18 @@ def start_web_server(instance, base_cls, host=None, port=None):
         def isatty(self):
             return True
 
+    def _cancel_thread(tid):
+        """向指定线程注入 KeyboardInterrupt，模拟 Ctrl+C"""
+        import ctypes
+        res = ctypes.pythonapi.PyThreadState_SetAsyncExc(
+            ctypes.c_ulong(tid), ctypes.py_object(KeyboardInterrupt))
+        return res == 1
+
     @app.websocket('/ws/execute')
     async def ws_execute(websocket: WebSocket):
         await websocket.accept()
+        cancel_event = threading.Event()
+        worker_thread = None
         try:
             msg = await websocket.receive_json()
             route_path = msg.get('command', '')
@@ -183,7 +268,7 @@ def start_web_server(instance, base_cls, host=None, port=None):
 
             kwargs = _convert_request_params(raw_kwargs, cmd_info)
             output_q = _queue.Queue()
-            result_holder = {'result': None, 'error': None}
+            result_holder = {'result': None, 'error': None, 'cancelled': False}
 
             def _run():
                 old_out, old_err = sys.stdout, sys.stderr
@@ -202,9 +287,14 @@ def start_web_server(instance, base_cls, host=None, port=None):
                     target_inst.before_run()
                     r = method(**kwargs)
                     result_holder['result'] = handle_api_result(r)
+                except KeyboardInterrupt:
+                    result_holder['cancelled'] = True
                 except Exception as exc:
-                    result_holder['error'] = str(exc)
-                    target_inst.on_error(route_path, exc)
+                    if cancel_event.is_set():
+                        result_holder['cancelled'] = True
+                    else:
+                        result_holder['error'] = str(exc)
+                        target_inst.on_error(route_path, exc)
                 finally:
                     for h, orig in saved_streams:
                         h.stream = orig
@@ -213,13 +303,32 @@ def start_web_server(instance, base_cls, host=None, port=None):
                     output_q.put(None)
 
             t = threading.Thread(target=_run, daemon=True)
+            worker_thread = t
             start_ts = time.time()
             t.start()
 
+            async def _listen_cancel():
+                """后台监听客户端的取消消息"""
+                try:
+                    while not cancel_event.is_set():
+                        client_msg = await asyncio.wait_for(
+                            websocket.receive_json(), timeout=0.1)
+                        if client_msg.get('action') == 'cancel':
+                            cancel_event.set()
+                            if t.is_alive() and t.ident:
+                                _cancel_thread(t.ident)
+                            return
+                except asyncio.TimeoutError:
+                    pass
+                except (WebSocketDisconnect, Exception):
+                    cancel_event.set()
+
             while True:
+                listen_task = asyncio.ensure_future(_listen_cancel())
                 try:
                     item = output_q.get(timeout=0.05)
                     if item is None:
+                        listen_task.cancel()
                         break
                     stream_type, data = item
                     await websocket.send_json({'type': stream_type, 'data': data})
@@ -232,13 +341,22 @@ def start_web_server(instance, base_cls, host=None, port=None):
                             await websocket.send_json({
                                 'type': item[0], 'data': item[1]
                             })
+                        listen_task.cancel()
                         break
                     await asyncio.sleep(0.02)
+                finally:
+                    if not listen_task.done():
+                        listen_task.cancel()
 
-            t.join(timeout=1)
+            t.join(timeout=2)
             duration = int((time.time() - start_ts) * 1000)
 
-            if result_holder['error']:
+            if result_holder['cancelled'] or cancel_event.is_set():
+                await websocket.send_json({
+                    'type': 'cancelled',
+                    'duration_ms': duration,
+                })
+            elif result_holder['error']:
                 await websocket.send_json({
                     'type': 'error',
                     'error': result_holder['error'],
@@ -251,7 +369,9 @@ def start_web_server(instance, base_cls, host=None, port=None):
                     'duration_ms': duration,
                 })
         except WebSocketDisconnect:
-            pass
+            cancel_event.set()
+            if worker_thread and worker_thread.is_alive() and worker_thread.ident:
+                _cancel_thread(worker_thread.ident)
         except Exception:
             pass
 
@@ -489,24 +609,45 @@ body { font-family: -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif;
 .console-output .cmd-echo { color: var(--primary); }
 .console-output .err { color: var(--error); }
 .console-output .ok { color: var(--success); }
-.history-area { max-height: 200px; overflow-y: auto; border-top: 1px solid var(--border);
-                 background: var(--card-bg); }
-.history-area .history-label { padding: 6px 16px; font-size: 13px; color: var(--info);
-                                border-bottom: 1px solid var(--border); }
-.history-item { padding: 6px 16px; cursor: pointer; font-family: monospace; font-size: 13px;
-                 border-bottom: 1px solid var(--border); display: flex; align-items: center;
-                 justify-content: space-between; }
-.history-item:hover { background: var(--hover-bg); }
-.history-item .hist-text { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.history-item .copy-btn { flex-shrink: 0; margin-left: 8px; padding: 2px 8px; font-size: 11px;
-                          border: 1px solid var(--border); border-radius: 3px; cursor: pointer;
-                          background: var(--card-bg); color: var(--text); opacity: 0;
-                          transition: opacity 0.15s; }
-.history-item:hover .copy-btn { opacity: 1; }
-.history-item .copy-btn:hover { background: var(--primary); color: #fff; border-color: var(--primary); }
 .status-bar { padding: 6px 16px; font-size: 12px; border-top: 1px solid var(--border);
                background: var(--card-bg); display: flex; justify-content: space-between; color: #888; }
 .arrow { transition: transform 0.2s; } .arrow.open { transform: rotate(90deg); }
+.save-cmd-btn { background: transparent; color: #888; border: none; font-size: 18px; cursor: pointer;
+               padding: 4px 8px; margin-left: 4px; line-height: 1; }
+.save-cmd-btn:hover { color: #ffd740; }
+.s2-wrap { display: flex; flex-direction: column; gap: 6px; padding: 6px 16px; background: var(--card-bg); border-bottom: 1px solid var(--border); }
+.s2-box { position: relative; flex: 1; }
+.s2-trigger { display: flex; align-items: center; gap: 6px; padding: 7px 10px; border: 1px solid var(--border);
+              border-radius: 4px; background: var(--input-bg); cursor: pointer; font-size: 13px;
+              transition: border-color 0.15s; user-select: none; }
+.s2-trigger:hover { border-color: var(--primary); }
+.s2-box.open .s2-trigger { border-color: var(--primary); border-radius: 4px 4px 0 0; }
+.s2-icon { flex-shrink: 0; font-size: 14px; }
+.s2-label { flex-shrink: 0; font-size: 13px; }
+.s2-count { font-size: 11px; color: #888; background: var(--bg); padding: 0 6px; border-radius: 8px; margin-left: auto; }
+.s2-arrow { flex-shrink: 0; font-size: 10px; color: #888; transition: transform 0.2s; }
+.s2-box.open .s2-arrow { transform: rotate(180deg); }
+.s2-drop { display: none; position: absolute; top: 100%; left: 0; right: 0; z-index: 1000;
+           background: var(--card-bg); border: 1px solid var(--primary); border-top: none;
+           border-radius: 0 0 4px 4px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
+.s2-box.open .s2-drop { display: block; }
+.s2-search { width: 100%; padding: 7px 10px; border: none; border-bottom: 1px solid var(--border);
+             outline: none; background: var(--input-bg); color: var(--text); font-size: 12px; box-sizing: border-box; }
+.s2-list { max-height: 200px; overflow-y: auto; }
+.s2-item { padding: 6px 10px; cursor: pointer; font-family: monospace; font-size: 12px;
+           display: flex; align-items: center; white-space: nowrap; overflow: hidden; }
+.s2-item:hover { background: var(--hover-bg); }
+.s2-item .s2-iico { margin-right: 6px; flex-shrink: 0; font-size: 11px; }
+.s2-item .s2-itxt { flex: 1; overflow: hidden; text-overflow: ellipsis; }
+.s2-item .s2-idel { flex-shrink: 0; margin-left: 6px; color: #888; cursor: pointer;
+                     border: none; background: none; font-size: 13px; padding: 0 4px; }
+.s2-item .s2-idel:hover { color: var(--error); }
+.s2-empty { padding: 10px; font-size: 11px; color: #636e72; text-align: center; }
+button:disabled, .form-actions button:disabled { opacity: 0.4; cursor: not-allowed; }
+.stop-btn { display: none; background: var(--error); color: #fff; border: none; padding: 4px 14px;
+            border-radius: 4px; cursor: pointer; font-size: 12px; margin-left: 12px; }
+.stop-btn:hover { opacity: 0.85; }
+.stop-btn.visible { display: inline-block; }
 </style>
 </head>
 <body>
@@ -522,6 +663,33 @@ body { font-family: -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif;
         <span class="prompt">$</span>
         <input id="cmdInput" type="text" placeholder="输入命令..." autofocus autocomplete="off" />
         <button onclick="executeFromInput()">执行</button>
+        <button class="save-cmd-btn" onclick="saveCurrentCmd()" onmousedown="event.preventDefault()" title="收藏当前命令">&#9733;</button>
+      </div>
+    </div>
+    <div class="s2-wrap">
+      <div class="s2-box" id="s2Saved">
+        <div class="s2-trigger" onclick="toggleS2('s2Saved')">
+          <span class="s2-icon" style="color:#ffd740;">&#9733;</span>
+          <span class="s2-label">收藏</span>
+          <span class="s2-count" id="savedCount">0</span>
+          <span class="s2-arrow">&#9662;</span>
+        </div>
+        <div class="s2-drop" onmousedown="event.stopPropagation()">
+          <input class="s2-search" id="savedSearch" type="text" placeholder="搜索收藏..." oninput="renderSaved()" />
+          <div class="s2-list" id="savedBody"></div>
+        </div>
+      </div>
+      <div class="s2-box" id="s2Hist">
+        <div class="s2-trigger" onclick="toggleS2('s2Hist')">
+          <span class="s2-icon" style="color:#82b1ff;">&#128339;</span>
+          <span class="s2-label">历史</span>
+          <span class="s2-count" id="histCount">0</span>
+          <span class="s2-arrow">&#9662;</span>
+        </div>
+        <div class="s2-drop" onmousedown="event.stopPropagation()">
+          <input class="s2-search" id="histSearch" type="text" placeholder="搜索历史..." oninput="renderHist()" />
+          <div class="s2-list" id="histBody"></div>
+        </div>
       </div>
     </div>
     <div id="initParamsArea" style="display:none;"></div>
@@ -535,23 +703,35 @@ body { font-family: -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif;
       <div class="console-label">&#128203; 实时控制台输出</div>
       <div class="console-output" id="consoleOutput"></div>
     </div>
-    <div class="history-area">
-      <div class="history-label">&#128220; 命令历史</div>
-      <div id="historyList"></div>
-    </div>
   </div>
 </div>
 <div class="status-bar">
-  <span id="statusText">状态: 就绪</span>
+  <span><span id="statusText">状态: 就绪</span><button class="stop-btn" id="stopBtn" onclick="cancelExecution()">&#9632; 停止</button></span>
   <span id="execCount">执行次数: 0</span>
 </div>
 
 <script>
 let commands = {};
 let initParamNames = [];
-let history = JSON.parse(localStorage.getItem('nb_cmd_history') || '[]');
+let history = [];
 let historyIdx = -1;
 let execCount = 0;
+let isExecuting = false;
+let activeWs = null;
+
+function setExecuting(running) {
+  isExecuting = running;
+  var btns = document.querySelectorAll('.form-actions button.primary, .cmd-input-wrapper button');
+  btns.forEach(function(b) { b.disabled = running; });
+  var stopBtn = document.getElementById('stopBtn');
+  if (running) { stopBtn.classList.add('visible'); } else { stopBtn.classList.remove('visible'); }
+}
+
+function cancelExecution() {
+  if (activeWs && activeWs.readyState === WebSocket.OPEN) {
+    activeWs.send(JSON.stringify({action: 'cancel'}));
+  }
+}
 
 function esc(s) { var d=document.createElement('div'); d.textContent=String(s); return d.innerHTML; }
 
@@ -842,6 +1022,8 @@ async function executeFromInput() {
 }
 
 function doExecute(routePath, kwargs, initParamsOverride) {
+  if (isExecuting) return;
+  setExecuting(true);
   var consoleEl = document.getElementById('consoleOutput');
   var ts = new Date().toLocaleTimeString();
   var initP = initParamsOverride || getInitParams();
@@ -851,6 +1033,12 @@ function doExecute(routePath, kwargs, initParamsOverride) {
     else cmdStr += ' --' + e[0].replace(/_/g,'-') + ' ' + e[1];
   });
 
+  function _finish(statusMsg) {
+    setExecuting(false);
+    activeWs = null;
+    document.getElementById('statusText').innerText = statusMsg;
+  }
+
   consoleEl.innerHTML += '<span class="ts">[' + ts + ']</span> <span class="cmd-echo">$ ' + cmdStr + '</span>\\n';
   document.getElementById('statusText').innerText = '状态: 执行中... ' + cmdStr;
 
@@ -859,6 +1047,7 @@ function doExecute(routePath, kwargs, initParamsOverride) {
 
   try {
     var ws = new WebSocket(wsUrl);
+    activeWs = ws;
     ws.onopen = function() {
       var payload = {command: routePath, args: kwargs};
       if (initP) payload.init_params = initP;
@@ -879,18 +1068,25 @@ function doExecute(routePath, kwargs, initParamsOverride) {
         consoleEl.innerHTML += '<span class="ok">[完成] ' + (msg.duration_ms||0) + 'ms</span>\\n\\n';
         execCount++;
         document.getElementById('execCount').innerText = '执行次数: ' + execCount;
-        document.getElementById('statusText').innerText = '状态: 就绪  |  最后执行: ' + cmdStr + ' ' + ts;
+        _finish('状态: 就绪  |  最后执行: ' + cmdStr + ' ' + ts);
+      } else if (msg.type === 'cancelled') {
+        consoleEl.innerHTML += '<span class="err">[已取消] ' + (msg.duration_ms||0) + 'ms</span>\\n\\n';
+        _finish('状态: 就绪  |  已取消: ' + cmdStr);
       } else if (msg.type === 'error') {
         consoleEl.innerHTML += '<span class="err">[错误] ' + esc(msg.error||'未知错误') + '</span>\\n\\n';
-        document.getElementById('statusText').innerText = '状态: 就绪  |  出错: ' + cmdStr;
+        _finish('状态: 就绪  |  出错: ' + cmdStr);
       }
       consoleEl.scrollTop = consoleEl.scrollHeight;
     };
     ws.onerror = function() {
+      setExecuting(false); activeWs = null;
       _doExecuteFallback(routePath, kwargs, cmdStr, ts);
     };
-    ws.onclose = function() {};
+    ws.onclose = function() {
+      if (isExecuting) { setExecuting(false); activeWs = null; }
+    };
   } catch(e) {
+    setExecuting(false); activeWs = null;
     _doExecuteFallback(routePath, kwargs, cmdStr, ts);
   }
   addHistory(cmdStr);
@@ -922,50 +1118,138 @@ function _doExecuteFallback(routePath, kwargs, cmdStr, ts) {
   });
 }
 
+let savedCmds = [];
+
 function addHistory(cmd) {
   history.unshift(cmd);
-  if (history.length > 50) history.pop();
-  localStorage.setItem('nb_cmd_history', JSON.stringify(history));
-  renderHistory();
+  if (history.length > 100) history.pop();
+  fetch('/api/history', {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({command: cmd})
+  }).catch(function(){});
+  renderSaved(); renderHist();
 }
 
-function renderHistory() {
-  const el = document.getElementById('historyList');
-  el.innerHTML = '';
-  history.forEach(function(cmd, i) {
-    const div = document.createElement('div');
-    div.className = 'history-item';
-    var span = document.createElement('span');
-    span.className = 'hist-text';
-    span.textContent = (i+1) + '. ' + cmd;
-    span.onclick = function() { document.getElementById('cmdInput').value = cmd; };
-    div.appendChild(span);
-    var btn = document.createElement('button');
-    btn.className = 'copy-btn';
-    btn.textContent = '复制';
-    btn.onclick = function(e) {
-      e.stopPropagation();
-      navigator.clipboard.writeText(cmd).then(function() {
-        btn.textContent = '已复制';
-        setTimeout(function() { btn.textContent = '复制'; }, 1500);
-      });
-    };
-    div.appendChild(btn);
-    el.appendChild(div);
-  });
+async function loadHistory() {
+  try {
+    var resp = await fetch('/api/history');
+    var data = await resp.json();
+    history = data.map(function(d){ return d.command; });
+  } catch(e) { console.error(e); }
 }
+
+async function saveCurrentCmd() {
+  var cmd = document.getElementById('cmdInput').value.trim();
+  if (!cmd) return;
+  await fetch('/api/save-command', {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({command: cmd})
+  });
+  await loadSavedCmds();
+  renderSaved();
+}
+
+async function deleteSavedCmd(cmd, ev) {
+  if (ev) ev.stopPropagation();
+  await fetch('/api/save-command', {
+    method: 'DELETE', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({command: cmd})
+  });
+  await loadSavedCmds();
+  renderSaved();
+}
+
+async function loadSavedCmds() {
+  try {
+    var resp = await fetch('/api/saved-commands');
+    savedCmds = await resp.json();
+  } catch(e) { console.error(e); }
+}
+
+function fuzzyMatch(query, text) {
+  if (!query) return true;
+  var q = query.toLowerCase();
+  var t = text.toLowerCase();
+  if (t.indexOf(q) >= 0) return true;
+  var qi = 0;
+  for (var ti = 0; ti < t.length && qi < q.length; ti++) {
+    if (t[ti] === q[qi]) qi++;
+  }
+  return qi === q.length;
+}
+
+function renderSaved() {
+  var body = document.getElementById('savedBody');
+  var q = document.getElementById('savedSearch').value.trim();
+  var filtered = savedCmds.filter(function(s) { return fuzzyMatch(q, s.command); });
+  document.getElementById('savedCount').textContent = savedCmds.length;
+  var html = '';
+  if (filtered.length > 0) {
+    filtered.forEach(function(s) {
+      html += '<div class="s2-item" onclick="fillCmd(\\''+s.command.replace(/'/g,"\\\\'")+'\\')">';
+      html += '<span class="s2-iico" style="color:#ffd740;">&#9733;</span>';
+      html += '<span class="s2-itxt">' + esc(s.command) + '</span>';
+      html += '<button class="s2-idel" onclick="deleteSavedCmd(\\''+s.command.replace(/'/g,"\\\\'")+'\\'  ,event)" title="取消收藏">&times;</button>';
+      html += '</div>';
+    });
+  } else {
+    html += '<div class="s2-empty">' + (q ? '无匹配' : '点击 ★ 收藏命令') + '</div>';
+  }
+  body.innerHTML = html;
+}
+
+function renderHist() {
+  var body = document.getElementById('histBody');
+  var q = document.getElementById('histSearch').value.trim();
+  var seen = {};
+  var filtered = [];
+  history.forEach(function(h) {
+    if (!seen[h] && fuzzyMatch(q, h)) { filtered.push(h); seen[h]=true; }
+  });
+  document.getElementById('histCount').textContent = history.length;
+  var html = '';
+  if (filtered.length > 0) {
+    filtered.forEach(function(h) {
+      html += '<div class="s2-item" onclick="fillCmd(\\''+h.replace(/'/g,"\\\\'")+'\\')">';
+      html += '<span class="s2-iico" style="color:#82b1ff;">&#128339;</span>';
+      html += '<span class="s2-itxt">' + esc(h) + '</span>';
+      html += '</div>';
+    });
+  } else {
+    html += '<div class="s2-empty">' + (q ? '无匹配' : '执行命令后自动记录') + '</div>';
+  }
+  body.innerHTML = html;
+}
+
+function fillCmd(cmd) {
+  document.getElementById('cmdInput').value = cmd;
+  document.getElementById('cmdInput').focus();
+  document.querySelectorAll('.s2-box.open').forEach(function(b) { b.classList.remove('open'); });
+}
+
+function toggleS2(id) {
+  var el = document.getElementById(id);
+  var wasOpen = el.classList.contains('open');
+  document.querySelectorAll('.s2-box.open').forEach(function(b) { b.classList.remove('open'); });
+  if (!wasOpen) {
+    el.classList.add('open');
+    var si = el.querySelector('.s2-search');
+    if (si) { si.value = ''; si.focus(); }
+    if (id === 's2Saved') renderSaved();
+    else renderHist();
+  }
+}
+
+document.addEventListener('mousedown', function(e) {
+  document.querySelectorAll('.s2-box.open').forEach(function(box) {
+    if (!box.contains(e.target)) box.classList.remove('open');
+  });
+});
 
 const cmdInput = document.getElementById('cmdInput');
 cmdInput.addEventListener('keydown', function(e) {
   if (e.key === 'Enter') { executeFromInput(); }
-  else if (e.key === 'ArrowUp') {
-    e.preventDefault();
-    if (historyIdx < history.length - 1) { historyIdx++; cmdInput.value = history[historyIdx]; }
-  } else if (e.key === 'ArrowDown') {
-    e.preventDefault();
-    if (historyIdx > 0) { historyIdx--; cmdInput.value = history[historyIdx]; }
-    else { historyIdx = -1; cmdInput.value = ''; }
-  } else if (e.key === 'Tab') {
+  else if (e.key === 'Tab') {
     e.preventDefault();
     var val = cmdInput.value.trim();
     var allNames = [];
@@ -975,7 +1259,7 @@ cmdInput.addEventListener('keydown', function(e) {
   }
 });
 
-renderHistory();
+Promise.all([loadHistory(), loadSavedCmds()]).then(function() { renderSaved(); renderHist(); });
 loadCommands();
 loadInitParams();
 
