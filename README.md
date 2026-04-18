@@ -1077,8 +1077,10 @@ python deploy.py --web --web-port 8080     # Web UI + REST API
 
 ```
 nb_cmd/
-├── __init__.py            # NbCmd 基类 + UIHelper + cmdui
+├── __init__.py            # 统一导出（from nb_cmd import ...）
 ├── core/
+│   ├── base.py            # NbCmd 基类
+│   ├── meta.py            # NbCmdMeta 配置基类
 │   ├── arg.py             # Annotated / Param 参数元数据解析
 │   ├── discovery.py       # 命令发现（反射 + 类型检查）
 │   ├── parser.py          # argparse 解析器构建
@@ -1090,6 +1092,7 @@ nb_cmd/
 │   ├── api_mode.py        # REST API 路由生成（FastAPI）
 │   └── web_mode.py        # Web UI 页面生成 + WebSocket 实时输出
 ├── ui/
+│   ├── helper.py          # UIHelper（cmdui 单例）
 │   ├── colors.py          # ANSI 彩色输出
 │   ├── table.py           # 表格 / 键值对输出
 │   └── progress.py        # 进度条

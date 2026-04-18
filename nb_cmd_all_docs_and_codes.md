@@ -44,6 +44,9 @@
 
 ### the project nb_cmd most core source code files as follows: 
 - `nb_cmd/__init__.py`
+- `nb_cmd/core/base.py`
+- `nb_cmd/core/meta.py`
+- `nb_cmd/ui/helper.py`
 
 
 ### 📄 Python File Metadata: `nb_cmd/__init__.py`
@@ -61,7 +64,7 @@ nb_cmd — 万能接口生成器
     class MyTool(NbCmd):
         def greet(self, name: str, times: int = 1):
             for _ in range(times):
-                print(f"你好, {name}!")
+                print('你好, {}!'.format(name))
 
     if __name__ == '__main__':
         MyTool().run()
@@ -69,103 +72,43 @@ nb_cmd — 万能接口生成器
 
 #### 📦 Imports
 
-- `import json`
-- `import logging`
-- `import sys`
+- `from core.base import NbCmd`
+- `from core.meta import NbCmdMeta`
 - `from core.arg import Annotated`
 - `from core.arg import Param`
-- `from ui.colors import print_success`
-- `from ui.colors import print_warning`
-- `from ui.colors import print_error`
-- `from ui.colors import print_info`
-- `from ui.table import print_table`
-- `from ui.table import print_kv`
-- `from ui.progress import progress as _progress_iter`
+- `from ui.helper import UIHelper`
+- `from ui.helper import cmdui`
 - `from utils.validators import validate`
+
+
+---
+
+
+
+
+### 📄 Python File Metadata: `nb_cmd/core/base.py`
+
+#### 📝 Module Docstring
+
+`````
+NbCmd 基类 —— 所有命令行工具的父类。
+`````
+
+#### 📦 Imports
+
+- `import logging`
+- `import sys`
+- `from meta import NbCmdMeta`
 - `import subprocess`
 - `from modes.cli_mode import run_cli`
 - `from modes.web_mode import start_web_server`
-- `from core.parser import print_full_help`
+- `from parser import print_full_help`
 - `import nb_log`
 
-#### 🏛️ Classes (3)
-
-##### 📌 `class NbCmdMeta(object)`
-*Line: 33*
-
-**Docstring:**
-`````
-NbCmd 的 Meta 配置基类。
-
-子类继承后可覆盖任意字段，IDE 可自动补全所有可用选项。
-
-用法::
-
-    from nb_cmd import NbCmd, NbCmdMeta
-
-    class MyTool(NbCmd):
-        class Meta(NbCmdMeta):
-            name = "my-tool"
-            use_nb_log = True
-`````
-
-**Class Variables (15):**
-- `name = None`
-- `version = '0.0.1'`
-- `description = None`
-- `use_nb_log = False`
-- `log_level = 'INFO'`
-- `log_file = None`
-- `auto_save_last_args = False`
-- `config_file = None`
-- `serve_host = '0.0.0.0'`
-- `serve_port = 8080`
-- `serve_workers = 1`
-- `web_title = None`
-- `web_theme = 'light'`
-- `enable_exec = True`
-- `aliases = {}`
-
-##### 📌 `class UIHelper(object)`
-*Line: 65*
-
-**Docstring:**
-`````
-NbCmd 的 UI 工具方法集合。
-
-通过 ``from nb_cmd import cmdui`` 导入使用，避免与用户自定义的子命令方法名冲突。
-包含: 输出(table/kv/tree/json_print)、彩色(success/warning/error/info)、
-      交互(confirm/prompt/select)、进度(progress) 等工具。
-`````
-
-**Public Methods (12):**
-- `def table(self, data, headers = None)`
-  - *表格输出*
-- `def kv(self, data)`
-  - *键值对输出*
-- `def tree(self, data, prefix = '', is_last = True)`
-  - *树形输出*
-- `def json_print(self, data)`
-  - *JSON美化输出*
-- `def progress(self, iterable, desc = None, total = None)`
-  - *进度条迭代器*
-- `def confirm(self, message)`
-  - *确认提示，返回 True/False*
-- `def prompt(self, message, default = None)`
-  - *输入提示*
-- `def select(self, message, choices)`
-  - *选择提示*
-- `def success(self, msg)`
-  - *绿色成功信息*
-- `def warning(self, msg)`
-  - *黄色警告信息*
-- `def error(self, msg)`
-  - *红色错误信息*
-- `def info(self, msg)`
-  - *蓝色信息*
+#### 🏛️ Classes (1)
 
 ##### 📌 `class NbCmd(object)`
-*Line: 155*
+*Line: 11*
 
 **Docstring:**
 `````
@@ -241,6 +184,127 @@ NbCmd 基类 —— 所有命令行工具的父类。
 
 
 
+
+### 📄 Python File Metadata: `nb_cmd/core/meta.py`
+
+#### 📝 Module Docstring
+
+`````
+NbCmd Meta 配置基类。
+
+用法::
+
+    from nb_cmd import NbCmd, NbCmdMeta
+
+    class MyTool(NbCmd):
+        class Meta(NbCmdMeta):
+            name = "my-tool"
+            version = "1.0.0"
+            use_nb_log = True
+`````
+
+#### 🏛️ Classes (1)
+
+##### 📌 `class NbCmdMeta(object)`
+*Line: 17*
+
+**Docstring:**
+`````
+NbCmd 的 Meta 配置基类。
+
+子类继承后可覆盖任意字段，IDE 可自动补全所有可用选项。
+`````
+
+**Class Variables (15):**
+- `name = None`
+- `version = '0.0.1'`
+- `description = None`
+- `use_nb_log = False`
+- `log_level = 'INFO'`
+- `log_file = None`
+- `auto_save_last_args = False`
+- `config_file = None`
+- `serve_host = '0.0.0.0'`
+- `serve_port = 8080`
+- `serve_workers = 1`
+- `web_title = None`
+- `web_theme = 'light'`
+- `enable_exec = True`
+- `aliases = {}`
+
+
+---
+
+
+
+
+### 📄 Python File Metadata: `nb_cmd/ui/helper.py`
+
+#### 📝 Module Docstring
+
+`````
+UI 工具方法集合 —— cmdui 单例的实现。
+
+通过 ``from nb_cmd import cmdui`` 导入使用。
+`````
+
+#### 📦 Imports
+
+- `import json`
+- `import sys`
+- `from colors import print_success`
+- `from colors import print_warning`
+- `from colors import print_error`
+- `from colors import print_info`
+- `from table import print_table`
+- `from table import print_kv`
+- `from progress import progress as _progress_iter`
+
+#### 🏛️ Classes (1)
+
+##### 📌 `class UIHelper(object)`
+*Line: 15*
+
+**Docstring:**
+`````
+NbCmd 的 UI 工具方法集合。
+
+通过 ``from nb_cmd import cmdui`` 导入使用，避免与用户自定义的子命令方法名冲突。
+包含: 输出(table/kv/tree/json_print)、彩色(success/warning/error/info)、
+      交互(confirm/prompt/select)、进度(progress) 等工具。
+`````
+
+**Public Methods (12):**
+- `def table(self, data, headers = None)`
+  - *表格输出*
+- `def kv(self, data)`
+  - *键值对输出*
+- `def tree(self, data, prefix = '', is_last = True)`
+  - *树形输出*
+- `def json_print(self, data)`
+  - *JSON美化输出*
+- `def progress(self, iterable, desc = None, total = None)`
+  - *进度条迭代器*
+- `def confirm(self, message)`
+  - *确认提示，返回 True/False*
+- `def prompt(self, message, default = None)`
+  - *输入提示*
+- `def select(self, message, choices)`
+  - *选择提示*
+- `def success(self, msg)`
+  - *绿色成功信息*
+- `def warning(self, msg)`
+  - *黄色警告信息*
+- `def error(self, msg)`
+  - *红色错误信息*
+- `def info(self, msg)`
+  - *蓝色信息*
+
+
+---
+
+
+
 ## 🔗 nb_cmd Some File Dependencies Analysis
 
 以下是项目文件之间的依赖关系，帮助 AI 理解代码结构：
@@ -248,12 +312,49 @@ NbCmd 基类 —— 所有命令行工具的父类。
 ### 📊 Internal Dependencies Graph
 
 `````
-Entry Points (not imported by other project files):
-  ★ nb_cmd/__init__.py
+Core Files (imported by other files, sorted by import count):
+  ◆ nb_cmd/__init__.py (imported by 2 files)
+  ◆ nb_cmd/core/meta.py (imported by 2 files)
+  ◆ nb_cmd/core/base.py (imported by 1 files)
+  ◆ nb_cmd/ui/helper.py (imported by 1 files)
 
 `````
 
 ### 📋 Detailed Dependencies
+
+#### `nb_cmd/__init__.py`
+
+**Imports from project:**
+- `nb_cmd/core/base.py`
+- `nb_cmd/core/meta.py`
+- `nb_cmd/ui/helper.py`
+
+**Imported by:**
+- `nb_cmd/core/base.py`
+- `nb_cmd/ui/helper.py`
+
+#### `nb_cmd/core/base.py`
+
+**Imports from project:**
+- `nb_cmd/__init__.py`
+- `nb_cmd/core/meta.py`
+
+**Imported by:**
+- `nb_cmd/__init__.py`
+
+#### `nb_cmd/core/meta.py`
+
+**Imported by:**
+- `nb_cmd/__init__.py`
+- `nb_cmd/core/base.py`
+
+#### `nb_cmd/ui/helper.py`
+
+**Imports from project:**
+- `nb_cmd/__init__.py`
+
+**Imported by:**
+- `nb_cmd/__init__.py`
 
 ### 📦 Third-party Dependencies
 
@@ -301,13 +402,19 @@ Entry Points (not imported by other project files):
 [![Python](https://img.shields.io/badge/python-3.7%2B-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
 
+## why nb_cmd?
+
+为什么要用nb_cmd?nb_cmd是不是装逼？是不是重复造轮子？抛开nb_cmd自带低代码平台的气质，只看命令行最本质的功能本身，比较下nb_cmd对其他顶流命令行框架的碾压优势。
+
+> 详细的多维度对比（含多层级子命令 + 全局参数的完整代码对比）请看：[nb_cmd vs click vs typer vs fire](https://github.com/ydf0509/nb_cmd/blob/main/nb_cmd_vs_click_vs_typer.md)
+
 ## 目录
 
 - [为什么用 nb_cmd？](#为什么用-nb_cmd)
 - [核心价值与典型场景](#核心价值与典型场景)
 - [安装](#安装)
 - [5 分钟快速上手](#5-分钟快速上手)
-- [核心特性](#核心特性)（自动推导 / OOP 继承 / 多层级子命令 / cmdui 输出 / Annotated 参数描述 / 全局参数 / 参数校验 / 系统命令 / Meta 配置 / 生命周期钩子 / 帮助系统 / Web UI 交互）
+- [核心特性](#核心特性)
 - [完整 API 速查](#完整-api-速查)
 - [和竞品对比](#和竞品对比)
 - [项目结构](#项目结构)
@@ -322,7 +429,7 @@ Entry Points (not imported by other project files):
 
 - 你写了一个 CLI 工具 → 产品说"加个 Web 页面"
 - 你写了一个 CLI 工具 → 运维说"要通过 API 远程调用"
-- 你写了一个 CLI 工具 → 老板说"能在手机上点个按钮就执行"
+- 你写了一个 CLI 工具 → 老板说"能让不懂命令行的人也能用吗"
 
 **每次都是重写。**
 
@@ -423,7 +530,7 @@ nb_cmd：自动生成 cli  + API +  Web UI
 - 不需要懂 HTML/CSS/JavaScript
 - 不需要学 Vue/React/Angular
 - 不需要配置 webpack/vite
-- 不需要处理前后端联调，没有前后端跨团队联调的屁事。
+- 不需要处理前后端联调
 
 #### 2. 零立项成本
 - 产品经理不需要评估 ROI
@@ -438,96 +545,12 @@ nb_cmd：自动生成 cli  + API +  Web UI
 
 ### 典型应用场景
 
-#### 1. 数据处理工具
-```python
-class DataTool(NbCmd):
-    """数据处理工具"""
-    
-    def import_excel(self, file_path: str, sheet: str = "Sheet1"):
-        """导入 Excel 数据"""
-        # 测试人员不用找开发要数据库了
-        # 直接在网页上点按钮导入
-        pass
-    
-    def export_report(self, date: str = "today"):
-        """导出报表"""
-        # 产品经理自己就能跑报表
-        # 不用等数据分析师排期
-        pass
-```
+- **数据处理** — 导入 Excel、导出报表，测试和产品经理自己就能跑
+- **测试辅助** — 创建测试用户、清理测试数据，测试人员自助操作
+- **运维管理** — 重启服务、检查状态，运维用 API 集成到监控告警
+- **配置管理** — 更新配置、查看配置，运营人员不用找开发
 
-#### 2. 测试辅助工具
-```python
-class TestTool(NbCmd):
-    """测试辅助工具"""
-    
-    def create_test_user(self, name: str, role: str = "user"):
-        """创建测试用户"""
-        # 测试人员自助创建测试数据
-        pass
-    
-    def clean_test_data(self, days: int = 7):
-        """清理测试数据"""
-        # 定期清理，保持环境干净
-        pass
-```
-
-#### 3. 运维管理工具
-```python
-class DeployTool(NbCmd):
-    """部署管理工具"""
-    
-    def restart_service(self, service: str):
-        """重启服务"""
-        # 运维可以用 API 集成到监控告警
-        # 自动化运维不用写脚本了
-        pass
-    
-    def check_status(self, host: str):
-        """检查服务状态"""
-        # 一键查看，不用 SSH 登录
-        pass
-```
-
-#### 4. 配置管理工具
-```python
-class ConfigTool(NbCmd):
-    """配置管理工具"""
-    
-    def update_config(self, key: str, value: str):
-        """更新配置"""
-        # 运营人员自己改配置
-        # 不用找开发
-        pass
-    
-    def show_config(self):
-        """查看当前配置"""
-        # 可视化展示配置
-        pass
-```
-
-### 推广建议
-
-#### 内部推广话术
-> "以后你们要的小工具，我 1 小时就能给你们网页版，不用等产品立项，不用找前端排期"
-
-#### 快速演示流程
-```bash
-# 1 分钟启动一个测试工具
-python test_tool.py --web --web-port 8080
-# 发给测试团队：http://your-server:8080
-```
-
-### 真正的价值
-
-nb_cmd 的价值不在于"技术有多先进"，而在于：
-
-1. **解放了 Python 码农**：不用被迫学前端
-2. **解放了前端**：不用做"没价值"的内部工具
-3. **解放了产品经理**：不用为小工具立项
-4. **解放了测试/运营**：不用求人开发工具
-
-**这就是"神级"创意的定义：用最简单的方式，解决最痛的问题。**
+每个场景只需写一个 NbCmd 子类，`--web` 启动后发给团队即可使用。
 
 ---
 
@@ -545,6 +568,12 @@ pip install nb-cmd[all]
 ```
 
 ---
+
+## nb_cmd 网页截图
+
+> `nb_cmd` 只要你写了一个继承 `NbCmd` 的类，就自动生成 FastAPI 接口和接口文档，自动生成前端输入框和按钮。让你只写普通的类，无需接触 Web 后端接口开发，更无需接触前端界面开发，更无需接触 WebSocket 实时输出——你的方法中的任何普通的日志和 `print` 都会自动实时推送到 Web 前端页面上。
+
+![nb_cmd 网页截图](https://github.com/ydf0509/nb_cmd/blob/main/docs/images/nb_cmd_web.png)
 
 ## 5 分钟快速上手
 
@@ -1344,6 +1373,8 @@ from nb_cmd import NbCmd, NbCmdMeta, Param, cmdui, validate
 
 ## 和竞品对比
 
+> 详细的多维度对比（含多层级子命令 + 全局参数的完整代码对比）请看：[nb_cmd vs click vs typer vs fire](https://github.com/ydf0509/nb_cmd/blob/main/nb_cmd_vs_click_vs_typer.md)
+
 ### 代码对比：实现同一个工具
 
 **argparse（30+ 行样板代码）：**
@@ -1443,24 +1474,28 @@ python deploy.py --web --web-port 8080     # Web UI + REST API
 
 ```
 nb_cmd/
-├── __init__.py          # NbCmd 基类 + UIHelper
+├── __init__.py            # 统一导出（from nb_cmd import ...）
 ├── core/
-│   ├── arg.py           # Annotated 参数元数据解析
-│   ├── discovery.py     # 命令发现（反射 + 类型检查）
-│   ├── parser.py        # argparse 解析器构建
-│   ├── type_utils.py    # 类型工具（Enum/Optional/List 等）
-│   └── result_handler.py # 返回值自动处理
+│   ├── base.py            # NbCmd 基类
+│   ├── meta.py            # NbCmdMeta 配置基类
+│   ├── arg.py             # Annotated / Param 参数元数据解析
+│   ├── discovery.py       # 命令发现（反射 + 类型检查）
+│   ├── parser.py          # argparse 解析器构建
+│   ├── type_utils.py      # 类型工具（Enum/Optional/List 等）
+│   ├── result_handler.py  # 返回值自动处理
+│   └── _io_dispatch.py    # 线程安全的 stdout/stderr 分发器
 ├── modes/
-│   ├── cli_mode.py      # CLI 执行引擎
-│   ├── api_mode.py      # REST API 路由生成（FastAPI）
-│   └── web_mode.py      # Web UI 页面生成 + API
+│   ├── cli_mode.py        # CLI 执行引擎
+│   ├── api_mode.py        # REST API 路由生成（FastAPI）
+│   └── web_mode.py        # Web UI 页面生成 + WebSocket 实时输出
 ├── ui/
-│   ├── colors.py        # ANSI 彩色输出
-│   ├── table.py         # 表格 / 键值对输出
-│   └── progress.py      # 进度条
+│   ├── helper.py          # UIHelper（cmdui 单例）
+│   ├── colors.py          # ANSI 彩色输出
+│   ├── table.py           # 表格 / 键值对输出
+│   └── progress.py        # 进度条
 └── utils/
-    ├── validators.py    # @validate 装饰器
-    └── config.py        # 配置持久化
+    ├── validators.py      # @validate 装饰器
+    └── config.py          # 配置持久化
 ```
 
 ---
@@ -1495,7 +1530,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "nb-cmd"
-version = "0.1.0"
+version = "0.2.0"
 description = "万能接口生成器——你写一个 Python class，自动获得 CLI + REST API + Web UI 三种操作方式，堪称python界低代码平台"
 readme = "README.md"
 license = {text = "MIT"}
@@ -1540,6 +1575,716 @@ nb_cmd = ["ui/static/**/*"]
 `````
 
 --- **end of file: pyproject.toml** (project: nb_cmd) --- 
+
+---
+
+# markdown content namespace: nb_cmd 和其他顶流命令行框架例如click typer fire对比 
+
+
+## nb_cmd File Tree (relative dir: `.`)
+
+
+`````
+
+└── nb_cmd_vs_click_vs_typer.md
+
+`````
+
+---
+
+
+## nb_cmd (relative dir: `.`)  Included Files (total: 1 files)
+
+
+- `nb_cmd_vs_click_vs_typer.md`
+
+
+---
+
+
+--- **start of file: nb_cmd_vs_click_vs_typer.md** (project: nb_cmd) --- 
+
+`````markdown
+# nb_cmd vs click vs typer vs fire：谁用法更简单？
+
+> 从 Python 码农的实际体验出发，逐维度对比四大 CLI 框架的**简洁性**、**功能**和**扩展能力**。
+
+---
+
+## 一、同一个需求，四种写法
+
+### 需求：部署工具
+
+- 两个子命令：`deploy`（部署）和 `status`（查看状态）
+- `deploy` 有三个参数：`host`（必填）、`port`（默认 22）、`verbose`（开关）
+- `status` 无参数
+
+---
+
+### 1. argparse（30+ 行样板代码）
+
+```python
+import argparse
+
+parser = argparse.ArgumentParser(description='部署工具')
+subparsers = parser.add_subparsers(dest='command')
+
+deploy_parser = subparsers.add_parser('deploy', help='部署服务')
+deploy_parser.add_argument('host', type=str, help='目标主机')
+deploy_parser.add_argument('--port', type=int, default=22, help='端口')
+deploy_parser.add_argument('--verbose', action='store_true', help='详细输出')
+
+status_parser = subparsers.add_parser('status', help='查看状态')
+
+args = parser.parse_args()
+if args.command == 'deploy':
+    print('部署到 {}:{}'.format(args.host, args.port))
+elif args.command == 'status':
+    print('当前状态: 运行中')
+```
+
+**痛点：** 参数定义和业务逻辑分离，每加一个参数要改两处地方（定义 + 分发）。
+
+---
+
+### 2. click（装饰器堆叠）
+
+```python
+import click
+
+@click.group()
+def cli():
+    """部署工具"""
+    pass
+
+@cli.command()
+@click.argument('host')
+@click.option('--port', default=22, type=int, help='端口')
+@click.option('--verbose', is_flag=True, help='详细输出')
+def deploy(host, port, verbose):
+    """部署服务"""
+    if verbose:
+        click.echo('正在部署...')
+    click.echo('部署到 {}:{}'.format(host, port))
+
+@cli.command()
+def status():
+    """查看状态"""
+    click.echo('当前状态: 运行中')
+
+if __name__ == '__main__':
+    cli()
+```
+
+**痛点：** 每个参数需要一个 `@click.option` / `@click.argument` 装饰器，3 个参数就 3 层装饰器。子命令间共享上下文需要用 `ctx.obj`，不直观。
+
+---
+
+### 3. typer（类型驱动，更简洁）
+
+```python
+import typer
+
+app = typer.Typer(help='部署工具')
+
+@app.command()
+def deploy(host: str, port: int = 22, verbose: bool = False):
+    """部署服务"""
+    if verbose:
+        print('正在部署...')
+    print('部署到 {}:{}'.format(host, port))
+
+@app.command()
+def status():
+    """查看状态"""
+    print('当前状态: 运行中')
+
+if __name__ == '__main__':
+    app()
+```
+
+**优点：** 利用类型注解代替了 click 的装饰器堆叠。  
+**痛点：** 仍然是函数式 + 装饰器，子命令间共享状态需要全局变量或 callback。无法继承覆写。
+
+---
+
+### 4. fire（零配置，最懒）
+
+```python
+import fire
+
+class DeployTool:
+    """部署工具"""
+    def deploy(self, host, port=22, verbose=False):
+        """部署服务"""
+        if verbose:
+            print('正在部署...')
+        print('部署到 {}:{}'.format(host, port))
+
+    def status(self):
+        """查看状态"""
+        print('当前状态: 运行中')
+
+if __name__ == '__main__':
+    fire.Fire(DeployTool)
+```
+
+**优点：** 代码最少，直接把 class 传给 `fire.Fire()`。  
+**痛点：** 不强制类型注解，参数全是字符串需要手动转换；无法生成 API 和 Web UI；`--help` 信息简陋。
+
+---
+
+### 5. nb_cmd（写一次，三种接口）
+
+```python
+from nb_cmd import NbCmd
+
+class DeployTool(NbCmd):
+    """部署工具"""
+
+    def deploy(self, host: str, port: int = 22, verbose: bool = False):
+        """部署服务"""
+        if verbose:
+            print('正在部署...')
+        print('部署到 {}:{}'.format(host, port))
+
+    def status(self):
+        """查看状态"""
+        print('当前状态: 运行中')
+
+if __name__ == '__main__':
+    DeployTool().run()
+```
+
+```bash
+python deploy.py deploy web-01 --port 2222 --verbose   # CLI
+python deploy.py --web                                   # Web UI + REST API
+```
+
+**优点：** 代码量和 fire 接近，但强制类型注解、自动类型校验、支持三种接口模式。
+
+---
+
+## 二、逐维度详细对比
+
+### 1. 代码行数（实现同一需求）
+
+| 框架 | 行数 | 装饰器数 | 分发逻辑 |
+|------|------|---------|---------|
+| argparse | 15+ | 0 | 手动 if/elif |
+| click | 18 | 5 | 自动 |
+| typer | 14 | 2 | 自动 |
+| fire | 12 | 0 | 自动 |
+| **nb_cmd** | **12** | **0** | **自动** |
+
+nb_cmd 和 fire 的行数几乎一样，但 nb_cmd 多了类型注解带来的自动校验。
+
+---
+
+### 2. 参数定义方式
+
+| 框架 | 参数定义位置 | 类型校验 | 枚举支持 |
+|------|------------|---------|---------|
+| argparse | 独立的 `add_argument()` | 手动 `type=int` | 手动 `choices=[...]` |
+| click | 装饰器 `@click.option()` | 手动 `type=int` | `type=click.Choice(...)` |
+| typer | **函数签名** | **自动** | `typer.Option(..., case_sensitive=False)` |
+| fire | 函数签名（无注解） | **无** | **无** |
+| **nb_cmd** | **方法签名** | **自动** | **自动**（`Enum` 子类） |
+
+nb_cmd 和 typer 都利用类型注解自动推导，但 nb_cmd 还自动支持 `Enum` → 选择项。
+
+---
+
+### 3. 子命令共享上下文（全局参数）
+
+场景：多个子命令需要共享 `region`（机房区域）。
+
+**click：**
+```python
+@click.group()
+@click.option('--region', default='beijing')
+@click.pass_context
+def cli(ctx, region):
+    ctx.ensure_object(dict)
+    ctx.obj['region'] = region
+
+@cli.command()
+@click.pass_context
+def deploy(ctx):
+    region = ctx.obj['region']  # 通过 ctx 传递
+```
+
+**typer：**
+```python
+app = typer.Typer()
+state = {"region": "beijing"}  # 全局变量
+
+@app.callback()
+def main(region: str = "beijing"):
+    state["region"] = region
+
+@app.command()
+def deploy():
+    region = state["region"]   # 通过全局变量
+```
+
+**nb_cmd：**
+```python
+class MyTool(NbCmd):
+    def __init__(self, region: str = 'beijing'):
+        super().__init__()
+        self.region = region
+
+    def deploy(self):
+        print(self.region)   # 直接用 self
+```
+
+**nb_cmd 最自然**——`__init__` 就是全局参数，`self` 就是上下文。OOP 开发者零学习成本。
+
+---
+
+### 4. OOP 继承与覆写
+
+| 框架 | 支持继承 | 支持覆写 | 模板方法模式 |
+|------|---------|---------|-----------|
+| argparse | ✗ | ✗ | ✗ |
+| click | ✗ | ✗ | ✗ |
+| typer | ✗ | ✗ | ✗ |
+| fire | 有限 | 有限 | ✗ |
+| **nb_cmd** | **✓** | **✓** | **✓** |
+
+click 和 typer 用装饰器绑定函数，函数无法被子类覆写。nb_cmd 基于 class 继承，天然支持模板方法模式。
+
+---
+
+### 5. 多层级子命令
+
+需求：`git remote add origin https://...`
+
+**click：**
+```python
+@click.group()
+def cli(): pass
+
+@cli.group()
+def remote(): pass
+
+@remote.command()
+@click.argument('name')
+@click.argument('url')
+def add(name, url):
+    print('git remote add {} {}'.format(name, url))
+```
+
+**typer：**
+```python
+app = typer.Typer()
+remote_app = typer.Typer()
+app.add_typer(remote_app, name="remote")
+
+@remote_app.command()
+def add(name: str, url: str):
+    print('git remote add {} {}'.format(name, url))
+```
+
+**nb_cmd：**
+```python
+class GitRemote(NbCmd):
+    def add(self, name: str, url: str):
+        print('git remote add {} {}'.format(name, url))
+
+class GitTool(NbCmd):
+    sub_commands = {'remote': GitRemote}
+```
+
+nb_cmd 用 `sub_commands` dict 声明，最简洁。click 需要嵌套 `@group()`，typer 需要 `add_typer()`。
+
+---
+
+### 6. 接口模式对比（核心差异）
+
+| 能力 | argparse | click | typer | fire | **nb_cmd** |
+|------|:--------:|:-----:|:-----:|:----:|:----------:|
+| CLI | ✓ | ✓ | ✓ | ✓ | **✓** |
+| REST API | ✗ | ✗ | ✗ | ✗ | **自动生成** |
+| Web UI | ✗ | ✗ | ✗ | ✗ | **自动生成** |
+| Swagger 文档 | ✗ | ✗ | ✗ | ✗ | **自动生成** |
+| WebSocket 实时输出 | ✗ | ✗ | ✗ | ✗ | **✓** |
+| 命令取消（停止按钮） | ✗ | ✗ | ✗ | ✗ | **✓** |
+| 多用户并发隔离 | ✗ | ✗ | ✗ | ✗ | **✓** |
+
+**这是 nb_cmd 的独家优势。** 其他框架的世界观是"CLI 是终点"，nb_cmd 是"Class 是中心，CLI/API/Web UI 是投影"。
+
+---
+
+### 7. 新增一个参数的改动量
+
+假设要给 `deploy` 新增一个 `timeout: int = 30` 参数：
+
+| 框架 | 需要改的地方 | 改动量 |
+|------|------------|-------|
+| argparse | `add_argument` + `if/elif` 分发 | 2 处 |
+| click | `@click.option` 装饰器 + 函数签名 | 2 处 |
+| typer | 函数签名 | **1 处** |
+| fire | 函数签名 | **1 处** |
+| **nb_cmd** | 方法签名 | **1 处** |
+
+typer、fire、nb_cmd 都只需改方法签名。但 nb_cmd 改完后，CLI + API + Web UI 三处同步更新。
+
+---
+
+### 8. 参数描述与别名
+
+**click：**
+```python
+@click.option('--host', '-H', help='服务器地址', required=True)
+```
+
+**typer：**
+```python
+def deploy(host: Annotated[str, typer.Argument(help='服务器地址')]):
+```
+
+**nb_cmd：**
+```python
+def deploy(self, host: Annotated[str, '服务器地址', 'H']):
+```
+
+nb_cmd 的 Annotated 写法最紧凑：类型、描述、别名写在一行。
+
+---
+
+## 三、纯 CLI 场景的真实对比（多层级子命令 + 全局参数）
+
+抛开 Web/API 不谈，**纯 CLI 场景下**，一旦需求稍微复杂（多层级子命令 + 全局参数），nb_cmd 的优势就非常明显。
+
+### 需求
+
+- 全局参数：`region`（机房区域，必填）、`timeout`（超时，默认 30）
+- 子命令组 `remote`：`add`（添加远程仓库）、`remove`（删除远程仓库）
+- 子命令组 `branch`：`create`（创建分支）、`delete`（删除分支）
+- 一级命令 `status`：查看状态
+- 所有子命令都需要访问 `region`
+
+用法：
+```bash
+python tool.py --region shanghai remote add origin https://...
+python tool.py --region beijing branch create feature-x
+python tool.py --region beijing status
+```
+
+---
+
+### click 实现（约 60 行）
+
+光看这一坨装饰器就头皮发麻——`@click.group()` 套 `@click.pass_context` 套 `@click.option()` 套 `@click.argument()`，一个子命令 4 层装饰器起步。你写的不是业务逻辑，你写的是装饰器俄罗斯套娃。半年后回来看自己的代码，第一反应是"这谁写的"。很多 Python 码农看到 click 的写法，转头就回去抱 argparse 了——至少 argparse 虽然笨，但看得懂。
+
+```python
+import click
+
+@click.group()
+@click.option('--region', '-r', required=True, help='机房区域')
+@click.option('--timeout', default=30, type=int, help='超时秒数')
+@click.pass_context
+def cli(ctx, region, timeout):
+    """Git 风格工具"""
+    ctx.ensure_object(dict)
+    ctx.obj['region'] = region
+    ctx.obj['timeout'] = timeout
+
+@cli.command()
+@click.pass_context
+def status(ctx):
+    """查看状态"""
+    print('区域: {}'.format(ctx.obj['region']))
+
+# ---------- remote 子命令组 ----------
+@cli.group()
+@click.pass_context
+def remote(ctx):
+    """远程仓库管理"""
+    pass
+
+@remote.command()
+@click.argument('name')
+@click.argument('url')
+@click.pass_context
+def add(ctx, name, url):
+    """添加远程仓库"""
+    print('[{}] git remote add {} {}'.format(ctx.obj['region'], name, url))
+
+@remote.command()
+@click.argument('name')
+@click.pass_context
+def remove(ctx, name):
+    """删除远程仓库"""
+    print('[{}] git remote remove {}'.format(ctx.obj['region'], name))
+
+# ---------- branch 子命令组 ----------
+@cli.group()
+@click.pass_context
+def branch(ctx):
+    """分支管理"""
+    pass
+
+@branch.command()
+@click.argument('name')
+@click.option('--from-branch', default='main', help='基于哪个分支')
+@click.pass_context
+def create(ctx, name, from_branch):
+    """创建分支"""
+    print('[{}] git branch {} from {}'.format(ctx.obj['region'], name, from_branch))
+
+@branch.command()
+@click.argument('name')
+@click.option('--force', '-f', is_flag=True, help='强制删除')
+@click.pass_context
+def delete(ctx, name, force):
+    """删除分支"""
+    flag = ' --force' if force else ''
+    print('[{}] git branch -d{} {}'.format(ctx.obj['region'], flag, name))
+
+if __name__ == '__main__':
+    cli()
+```
+
+**痛点：**
+- **`@click.pass_context` 到处传递**：每个子命令都要加 `@click.pass_context` + `ctx` 参数，才能访问全局参数
+- **装饰器累积**：`remote add` 一个命令就要 3 个装饰器（`@remote.command()` + `@click.argument('name')` + `@click.argument('url')`），还要加 `@click.pass_context`
+- **函数散落各处**：`add` 和 `remove` 是裸函数，和 `remote` 组的关系只靠装饰器维持
+- **无法继承复用**：如果要做一个类似的工具（比如换成 SVN），整个文件要复制一遍
+
+---
+
+### typer 实现（约 50 行）
+
+typer 号称"现代版 click"，确实少了一堆装饰器。但一遇到全局参数，立刻露馅——你得搞一个全局字典 `state = {}` 在模块顶部晃荡，每个子命令函数里 `state["region"]` 这么取值。这不就是 Java 码农最鄙视的"全局变量传参"吗？Python 写成这样，OOP 祖师爷看了都摇头。
+
+而且如果多层级子命令太多的时候，需要精确的使用不同的 `typer.Typer()` 实例来区分不同的子命令组，你的装饰器千万不能用错了app，必须使用 `@精准的app.command()`,这个写法简直是太反人类了。
+而NbCmd的多层级子命令，压根不需要关心自身处在哪个层级这个问题。
+
+```python
+import typer
+from typing import Annotated
+
+app = typer.Typer(help='Git 风格工具')
+state = {"region": "", "timeout": 30}
+
+@app.callback()
+def main(region: Annotated[str, typer.Option('-r', help='机房区域')],
+         timeout: int = 30):
+    state["region"] = region
+    state["timeout"] = timeout
+
+@app.command()
+def status():
+    """查看状态"""
+    print('区域: {}'.format(state["region"]))
+
+# ---------- remote 子命令组 ----------
+remote_app = typer.Typer(help='远程仓库管理')
+app.add_typer(remote_app, name="remote")
+
+@remote_app.command()
+def add(name: str, url: str):
+    """添加远程仓库"""
+    print('[{}] git remote add {} {}'.format(state["region"], name, url))
+
+@remote_app.command()
+def remove(name: str):
+    """删除远程仓库"""
+    print('[{}] git remote remove {}'.format(state["region"], name))
+
+# ---------- branch 子命令组 ----------
+branch_app = typer.Typer(help='分支管理')
+app.add_typer(branch_app, name="branch")
+
+@branch_app.command()
+def create(name: str, from_branch: str = "main"):
+    """创建分支"""
+    print('[{}] git branch {} from {}'.format(state["region"], name, from_branch))
+
+@branch_app.command()
+def delete(name: str, force: bool = False):
+    """删除分支"""
+    flag = ' --force' if force else ''
+    print('[{}] git branch -d{} {}'.format(state["region"], flag, name))
+
+if __name__ == '__main__':
+    app()
+```
+
+**比 click 好的地方：** 类型注解代替装饰器，参数定义更简洁。  
+**仍然的痛点：**
+- **全局参数用全局变量 `state` 传递**：不够优雅，不是 OOP 风格
+- **`add_typer()` 连接子命令组**：每个子组需要 `typer.Typer()` + `app.add_typer()`，两步操作
+- **函数仍然散落**：`add` 函数和 `remote_app` 的关系靠 `@remote_app.command()` 装饰器维持
+- **无法继承覆写**：同样无法做模板方法
+
+---
+
+### nb_cmd 实现（约 30 行）
+
+看完上面那两坨代码，再看 nb_cmd——你会有一种"回家了"的感觉。没有装饰器、没有全局变量、没有 `ctx.obj`。就是正常写 Python class，该怎么写怎么写，`self` 就是上下文，`__init__` 就是全局参数。任何会写 class 的 Python 码农，不用看文档就能上手。
+
+```python
+from typing import Annotated
+from nb_cmd import NbCmd
+
+class GitRemote(NbCmd):
+    """远程仓库管理"""
+    def add(self, name: str, url: str):
+        """添加远程仓库"""
+        print('[{}] git remote add {} {}'.format(self._parent.region, name, url))
+
+    def remove(self, name: str):
+        """删除远程仓库"""
+        print('[{}] git remote remove {}'.format(self._parent.region, name))
+
+class GitBranch(NbCmd):
+    """分支管理"""
+    def create(self, name: str, from_branch: str = "main"):
+        """创建分支"""
+        print('git branch {} from {}'.format(name, from_branch))
+
+    def delete(self, name: str, force: bool = False):
+        """删除分支"""
+        flag = ' --force' if force else ''
+        print('git branch -d{} {}'.format(flag, name))
+
+class GitTool(NbCmd):
+    """Git 风格工具"""
+    sub_commands = {'remote': GitRemote, 'branch': GitBranch}
+
+    def __init__(self, region: Annotated[str, '机房区域', 'r'],
+                 timeout: Annotated[int, '超时秒数'] = 30):
+        super().__init__()
+        self.region = region
+        self.timeout = timeout
+
+    def status(self):
+        """查看状态"""
+        print('区域: {}, 超时: {}s'.format(self.region, self.timeout))
+
+if __name__ == '__main__':
+    GitTool('beijing').run()
+```
+
+**nb_cmd 的优势（纯 CLI 角度）：**
+
+1. **全局参数就是 `__init__`**：`self.region` 是自然的实例属性，不需要 `ctx.obj` 也不需要全局变量 `state`
+2. **子命令组就是 class**：`sub_commands = {'remote': GitRemote}` 一行搞定，不需要 `app.add_typer()` 或嵌套 `@group()`
+3. **每个子命令组是独立的 class**：可以单独测试、单独复用、单独继承
+4. **零装饰器**：方法签名即定义，不需要任何 `@command()` 或 `@option()`
+5. **支持继承覆写**：做一个 `SvnTool(GitTool)` 只需要覆写几个方法，click/typer 做不到
+
+---
+
+### 代码行数对比
+
+| 框架 | 纯业务代码行数 | 框架样板代码 | 全局参数传递方式 | 子命令组定义 |
+|------|-------------|------------|---------------|------------|
+| click | ~60 行 | `@click.pass_context` × 6 | `ctx.obj['region']` | `@cli.group()` 嵌套 |
+| typer | ~50 行 | `app.add_typer()` × 2 | `state["region"]` 全局变量 | `typer.Typer()` + `add_typer()` |
+| **nb_cmd** | **~30 行** | **无** | **`self.region`** | **`sub_commands = {...}`** |
+
+**即使纯 CLI 场景，nb_cmd 的代码量也只有 click 的一半、typer 的 60%。**
+
+差距的核心原因：
+- click/typer 是**函数式**的，子命令间共享状态需要额外机制（ctx 或全局变量）
+- nb_cmd 是**OOP** 的，`self` 天然就是共享上下文
+
+---
+
+## 四、适用场景建议
+
+| 场景 | 推荐框架 | 原因 |
+|------|---------|------|
+| 简单脚本（1-2 个命令，无全局参数） | fire / typer / **nb_cmd** | 代码量几乎一样少 |
+| 多层级子命令 + 全局参数 | **nb_cmd** | `self` + `sub_commands` 比 ctx/全局变量简洁得多 |
+| 需要继承覆写（模板方法） | **nb_cmd** | 独家支持，click/typer 做不到 |
+| 多人协作的大型工具集 | **nb_cmd** | OOP 继承 + sub_commands 组合 |
+| 正式发行包（需要 shell 补全） | typer | shell 补全开箱即用 |
+| 需要额外 Web UI / API 的场景 | **nb_cmd** | 自动生成，额外的加分项 |
+
+---
+
+## 五、总结
+
+| 维度 | 最简 | 说明 |
+|------|------|------|
+| 简单场景代码量 | fire ≈ **nb_cmd** ≈ typer | 都只需 12-14 行，nb_cmd 不比任何框架多 |
+| 复杂场景代码量 | **nb_cmd** | 多层级 + 全局参数场景下，代码量只有 click 的一半 |
+| 类型安全 | typer ≈ **nb_cmd** | 都利用类型注解 |
+| 全局参数传递 | **nb_cmd** | `self.xxx` 最自然，click 用 ctx，typer 用全局变量 |
+| 子命令组定义 | **nb_cmd** | `sub_commands = {...}` 一行，click/typer 需要多步 |
+| OOP 继承/覆写 | **nb_cmd** | 独家支持，其他框架做不到 |
+| 多接口模式 | **nb_cmd** | CLI + API + Web UI 三合一（额外加分） |
+| Shell 补全 | typer | 开箱即用 |
+| 生态成熟度 | click | 社区最大、插件最多 |
+
+**一句话总结：**
+
+- 简单场景 → nb_cmd 代码量和 fire/typer 一样少，没有额外负担
+- **复杂场景（多层级子命令 + 全局参数 + 代码复用）**→ nb_cmd 的 OOP 模型比 click/typer 的函数式模型**简洁一倍**，这个优势跟 Web/API 无关
+- Web/API 是额外的加分项，不是 nb_cmd 的唯一卖点
+
+---
+
+## 六、nb_cmd 在多层级命令下的碾压优势
+
+多层级子命令是 CLI 框架的试金石——简单工具看不出差距，一旦子命令层级加深、全局参数需要穿透，各框架的设计哲学差距就彻底暴露出来。
+
+### click/typer 的致命设计缺陷
+
+**每个子命令都要"知道自己在哪"。**
+
+click 里，`add` 函数必须通过 `@remote.command()` 才知道自己属于 `remote` 组。你有 `remote`、`branch`、`tag` 三个组，就有 `remote_app`、`branch_app`、`tag_app` 三个实例在模块顶部晃荡。写多了根本分不清哪个函数挂在哪个 app 下面。
+
+typer 更离谱——你必须在文件头部创建 `remote_app = typer.Typer()`，然后 `app.add_typer(remote_app, name="remote")`，接着在下面的函数上 `@remote_app.command()`。一个子命令组就要**三步操作**：创建实例 → 注册到父级 → 装饰器绑定。搞 5 个子命令组你头都晕了。
+
+更致命的是：**装饰器用错了 app 实例，命令就跑到错误的层级去了。** 这种 bug 极其隐蔽——代码不报错，`--help` 里命令位置不对，你得挨个排查每个装饰器绑的是哪个 app。
+
+### nb_cmd 的设计：子命令不需要知道自己在哪
+
+```python
+class GitRemote(NbCmd):
+    """远程仓库管理"""
+    def add(self, name: str, url: str):
+        print('git remote add {} {}'.format(name, url))
+```
+
+`GitRemote` 写的时候完全不知道自己会被挂在哪里——它是独立的 class，可以单独运行、单独测试。直到父级声明 `sub_commands = {'remote': GitRemote}`，它才被"挂载"到命令树上。
+
+这意味着：
+- **同一个 NbCmd 子类可以复用到不同的父级下**，不需要修改一行代码
+- **层级关系是声明式的**，一眼就看出 `{'remote': GitRemote, 'branch': GitBranch}` 这棵树长什么样
+- **不可能挂错层级**，因为根本没有装饰器可以用错
+
+### 用数据说话
+
+当子命令组数量增加时，各框架的代码膨胀率：
+
+| 子命令组数量 | click 额外代码 | typer 额外代码 | nb_cmd 额外代码 |
+|:---:|:---:|:---:|:---:|
+| 1 组 | +8 行 (`@group` + `@pass_context` × N) | +3 行 (`Typer()` + `add_typer()` + 函数) | +1 行 (`sub_commands` 加一项) |
+| 3 组 | +24 行 | +9 行 | +3 行 |
+| 5 组 | +40 行 | +15 行 | +5 行 |
+| 10 组 | +80 行 | +30 行 | +10 行 |
+
+**nb_cmd 的膨胀率是 click 的 1/8、typer 的 1/3。** 子命令组越多，差距越大。
+
+### 核心结论
+
+> **nb_cmd 的多层级子命令不是"也能做到"——而是"碾压性地简洁"。**
+>
+> click 和 typer 的函数式设计在多层级场景下会产生大量样板代码（装饰器绑定、上下文传递、实例注册），而 nb_cmd 的 OOP 模型让这些统统变成了一行 dict 声明。
+>
+> 这个优势**纯粹是 CLI 层面的**，跟 Web/API 完全无关。
+
+`````
+
+--- **end of file: nb_cmd_vs_click_vs_typer.md** (project: nb_cmd) --- 
 
 ---
 
@@ -1736,21 +2481,21 @@ class DeployTool(NbCmd):
             time.sleep(0.1)
         cmdui.success("处理完成!")
     
-    def many_print(self):
+    def many_print(self, num: int = 30):
         """持续打印多行（用于测试 WebSocket 实时流式输出）"""
-        for i in range(10):
+        for i in range(num):
             time.sleep(1)
-            print(f'print {i}')
-            self.logger.debug(f'logger debug {i}')
-            self.logger.info(f'logger info {i}')
-            self.logger.warning(f'logger warning {i}')
-            self.logger.error(f'logger error {i}')
-            self.logger.critical(f'logger critical {i}')
+            print('print {}'.format(i))
+            self.logger.debug('logger debug {}'.format(i))
+            self.logger.info('logger info {}'.format(i))
+            self.logger.warning('logger warning {}'.format(i))
+            self.logger.error('logger error {}'.format(i))
+            self.logger.critical('logger critical {}'.format(i))
 
-            cmdui.info(f'ui info {i}')
-            cmdui.success(f'ui success {i}')
-            cmdui.error(f'ui error {i}')
-            cmdui.warning(f'ui warning {i}')
+            cmdui.info('ui info {}'.format(i))
+            cmdui.success('ui success {}'.format(i))
+            cmdui.error('ui error {}'.format(i))
+            cmdui.warning('ui warning {}'.format(i))
 
 
 
@@ -1779,9 +2524,8 @@ nb_cmd 基础用法 demo —— 对应设计文档 4.1 最简示例
 
 用法:
     python demo_basic.py --help
-    python demo_basic.py greet 张三 --times 3
     python demo_basic.py greet -n 张三 -t 3
-    python demo_basic.py deploy 192.168.1.1 --port 2222 --verbose
+    python demo_basic.py deploy -H 192.168.1.1 -p 2222 -v
     python demo_basic.py deploy --help
 """
 import sys
@@ -2269,8 +3013,11 @@ if __name__ == '__main__':
     ├── __init__.py
     ├── core
     │   ├── __init__.py
+    │   ├── _io_dispatch.py
     │   ├── arg.py
+    │   ├── base.py
     │   ├── discovery.py
+    │   ├── meta.py
     │   ├── parser.py
     │   ├── result_handler.py
     │   └── type_utils.py
@@ -2282,6 +3029,7 @@ if __name__ == '__main__':
     ├── ui
     │   ├── __init__.py
     │   ├── colors.py
+    │   ├── helper.py
     │   ├── progress.py
     │   └── table.py
     └── utils
@@ -2294,20 +3042,26 @@ if __name__ == '__main__':
 ---
 
 
-## nb_cmd (relative dir: `nb_cmd`)  Included Files (total: 18 files)
+## nb_cmd (relative dir: `nb_cmd`)  Included Files (total: 22 files)
 
 
 - `nb_cmd/__init__.py`
 
 - `nb_cmd/core/arg.py`
 
+- `nb_cmd/core/base.py`
+
 - `nb_cmd/core/discovery.py`
+
+- `nb_cmd/core/meta.py`
 
 - `nb_cmd/core/parser.py`
 
 - `nb_cmd/core/result_handler.py`
 
 - `nb_cmd/core/type_utils.py`
+
+- `nb_cmd/core/_io_dispatch.py`
 
 - `nb_cmd/core/__init__.py`
 
@@ -2320,6 +3074,8 @@ if __name__ == '__main__':
 - `nb_cmd/modes/__init__.py`
 
 - `nb_cmd/ui/colors.py`
+
+- `nb_cmd/ui/helper.py`
 
 - `nb_cmd/ui/progress.py`
 
@@ -2352,7 +3108,7 @@ nb_cmd — 万能接口生成器
     class MyTool(NbCmd):
         def greet(self, name: str, times: int = 1):
             for _ in range(times):
-                print(f"你好, {name}!")
+                print('你好, {}!'.format(name))
 
     if __name__ == '__main__':
         MyTool().run()
@@ -2360,308 +3116,11 @@ nb_cmd — 万能接口生成器
 
 __version__ = '0.1.0'
 
-import json
-import logging
-import sys
-
+from .core.base import NbCmd  # noqa: F401
+from .core.meta import NbCmdMeta  # noqa: F401
 from .core.arg import Annotated, Param  # noqa: F401
-# 模块级 cmdui 单例，在延后创建（类定义之后）
-from .ui.colors import print_success, print_warning, print_error, print_info
-from .ui.table import print_table, print_kv
-from .ui.progress import progress as _progress_iter
+from .ui.helper import UIHelper, cmdui  # noqa: F401
 from .utils.validators import validate  # noqa: F401
-
-
-class NbCmdMeta(object):
-    """
-    NbCmd 的 Meta 配置基类。
-
-    子类继承后可覆盖任意字段，IDE 可自动补全所有可用选项。
-
-    用法::
-
-        from nb_cmd import NbCmd, NbCmdMeta
-
-        class MyTool(NbCmd):
-            class Meta(NbCmdMeta):
-                name = "my-tool"
-                use_nb_log = True
-    """
-    name = None               # type: str   # CLI/API 名称（默认用类名）
-    version = '0.0.1'         # type: str   # 版本号（--version 显示）
-    description = None        # type: str   # 描述（默认用类的 docstring）
-    use_nb_log = False         # type: bool  # 启用 nb_log 增强日志
-    log_level = 'INFO'         # type: str   # 日志级别
-    log_file = None            # type: str   # 日志文件路径
-    auto_save_last_args = False  # type: bool  # 自动保存上次参数
-    config_file = None         # type: str   # 配置持久化文件路径
-    serve_host = '0.0.0.0'    # type: str   # Web/API 绑定地址
-    serve_port = 8080          # type: int   # Web/API 默认端口
-    serve_workers = 1          # type: int   # 工作进程数
-    web_title = None           # type: str   # Web UI 页面标题
-    web_theme = 'light'        # type: str   # Web UI 主题 ('light' / 'dark')
-    enable_exec = True         # type: bool  # 是否暴露内置 exec 命令（False 可防止恶意执行）
-    aliases = {}               # type: dict  # 参数别名（推荐用 Annotated 替代）
-
-
-class UIHelper(object):
-    """
-    NbCmd 的 UI 工具方法集合。
-
-    通过 ``from nb_cmd import cmdui`` 导入使用，避免与用户自定义的子命令方法名冲突。
-    包含: 输出(table/kv/tree/json_print)、彩色(success/warning/error/info)、
-          交互(confirm/prompt/select)、进度(progress) 等工具。
-    """
-
-    def table(self, data, headers=None):
-        """表格输出"""
-        print_table(data, headers)
-
-    def kv(self, data):
-        """键值对输出"""
-        print_kv(data)
-
-    def tree(self, data, prefix='', is_last=True):
-        """树形输出"""
-        if isinstance(data, dict):
-            items = list(data.items())
-            for i, (key, value) in enumerate(items):
-                last = (i == len(items) - 1)
-                connector = '└── ' if last else '├── '
-                if isinstance(value, dict):
-                    sys.stdout.write('{}{}{}\n'.format(prefix, connector, key))
-                    extension = '    ' if last else '│   '
-                    self.tree(value, prefix + extension, last)
-                else:
-                    sys.stdout.write('{}{}{}: {}\n'.format(prefix, connector, key, value))
-
-    def json_print(self, data):
-        """JSON美化输出"""
-        sys.stdout.write(json.dumps(data, ensure_ascii=False, indent=2, default=str) + '\n')
-        sys.stdout.flush()
-
-    def progress(self, iterable, desc=None, total=None):
-        """进度条迭代器"""
-        return _progress_iter(iterable, desc=desc, total=total)
-
-    def confirm(self, message):
-        """确认提示，返回 True/False"""
-        try:
-            answer = input('{} [y/N]: '.format(message)).strip().lower()
-            return answer in ('y', 'yes')
-        except (EOFError, KeyboardInterrupt):
-            return False
-
-    def prompt(self, message, default=None):
-        """输入提示"""
-        try:
-            if default is not None:
-                answer = input('{} [{}]: '.format(message, default)).strip()
-                return answer if answer else default
-            else:
-                return input('{}: '.format(message)).strip()
-        except (EOFError, KeyboardInterrupt):
-            return default
-
-    def select(self, message, choices):
-        """选择提示"""
-        sys.stdout.write(message + '\n')
-        for i, choice in enumerate(choices):
-            sys.stdout.write('  {}. {}\n'.format(i + 1, choice))
-        sys.stdout.flush()
-        try:
-            idx = int(input('请选择 [1-{}]: '.format(len(choices))).strip()) - 1
-            if 0 <= idx < len(choices):
-                return choices[idx]
-        except (ValueError, EOFError, KeyboardInterrupt):
-            pass
-        return choices[0] if choices else None
-
-    def success(self, msg):
-        """绿色成功信息"""
-        print_success(msg)
-
-    def warning(self, msg):
-        """黄色警告信息"""
-        print_warning(msg)
-
-    def error(self, msg):
-        """红色错误信息"""
-        print_error(msg)
-
-    def info(self, msg):
-        """蓝色信息"""
-        print_info(msg)
-
-
-class NbCmd(object):
-    """
-    NbCmd 基类 —— 所有命令行工具的父类。
-
-    用法:
-        1. 继承 NbCmd
-        2. 定义公有方法（自动成为子命令）
-        3. 调用 .run() 启动
-
-    功能:
-        - 公有方法 → 子命令
-        - 方法签名 → 参数自动推导
-        - 支持 CLI / REST API / Web UI 三种模式
-        - 支持 OOP 继承覆写
-        - 支持多层级子命令（sub_commands）
-
-    工具方法通过 cmdui 模块级单例访问（from nb_cmd import cmdui）:
-        cmdui.table()  cmdui.kv()  cmdui.tree()  cmdui.json_print()
-        cmdui.success() cmdui.warning() cmdui.error() cmdui.info()
-        cmdui.progress() cmdui.confirm() cmdui.prompt() cmdui.select()
-    """
-
-    sub_commands = {}
-
-    Meta = NbCmdMeta
-
-    def __init__(self):
-        self._logger = None
-        self._setup_logging()
-
-    def _setup_logging(self):
-        """设置日志"""
-        meta = self._get_meta()
-        use_nb_log = getattr(meta, 'use_nb_log', False)
-        log_level = getattr(meta, 'log_level', 'INFO')
-
-        if use_nb_log:
-            try:
-                import nb_log
-                self._logger = nb_log.get_logger(
-                    self.__class__.__name__,
-                    log_level_int=getattr(logging, log_level, logging.INFO),
-                    log_filename=getattr(meta, 'log_file', None),
-                )
-                return
-            except ImportError:
-                pass
-
-        self._logger = logging.getLogger(self.__class__.__name__)
-        self._logger.setLevel(getattr(logging, log_level, logging.INFO))
-        if not self._logger.handlers:
-            handler = logging.StreamHandler()
-            handler.setFormatter(logging.Formatter(
-                '%(asctime)s [%(name)s] %(levelname)s: %(message)s',
-                datefmt='%Y-%m-%d %H:%M:%S'
-            ))
-            self._logger.addHandler(handler)
-
-    def _get_meta(self):
-        """获取 Meta 配置类"""
-        return getattr(self.__class__, 'Meta', NbCmd.Meta)
-
-    @property
-    def logger(self):
-        """日志器"""
-        return self._logger
-
-    # ==================== 生命周期钩子 ====================
-
-    def before_run(self):
-        """所有子命令执行前的钩子，子类可覆写"""
-        pass
-
-    def after_run(self):
-        """所有子命令执行后的钩子，子类可覆写"""
-        pass
-
-    def on_error(self, command, error):
-        """子命令执行出错时的钩子，子类可覆写"""
-        if self._logger:
-            self._logger.error('命令 {} 执行失败: {}'.format(command, error))
-
-    # ==================== 系统命令工具 ====================
-
-    def shell(self, cmd, capture=False, check=False):
-        """
-        执行系统命令。
-
-        Parameters
-        ----------
-        cmd : str  要执行的命令
-        capture : bool  是否捕获输出（True 返回 stdout 字符串，False 通过 print 输出）
-        check : bool  命令失败时是否抛出异常
-
-        Returns
-        -------
-        str (capture=True 时返回 stdout) 或 None
-        """
-        import subprocess
-        result = subprocess.run(
-            cmd, shell=True, capture_output=True, text=True,
-        )
-        if check and result.returncode != 0:
-            raise RuntimeError(
-                '命令执行失败 (exit {}): {}\n{}'.format(
-                    result.returncode, cmd, result.stderr
-                )
-            )
-        if capture:
-            return result.stdout.strip()
-        else:
-            if result.stdout:
-                print(result.stdout, end='')
-            if result.stderr:
-                print(result.stderr, end='', file=sys.stderr)
-
-    def exec(self, cmd: str):
-        """执行任意系统命令"""
-        self.shell(cmd)
-
-    # ==================== 主入口 ====================
-
-    def run(self, args=None):
-        """
-        主入口方法。根据参数决定运行模式。
-
-        Parameters
-        ----------
-        args : list, optional
-            命令行参数列表，默认使用 sys.argv[1:]
-        """
-        raw_args = args if args is not None else sys.argv[1:]
-
-        if '--full-help' in raw_args or '-fh' in raw_args:
-            from .core.parser import print_full_help
-            return print_full_help(self, NbCmd)
-
-        if '--web' in raw_args:
-            return self._start_web_server(raw_args)
-
-        from .modes.cli_mode import run_cli
-        return run_cli(self, NbCmd, args)
-
-    def _start_web_server(self, raw_args):
-        """启动 Web UI 服务"""
-        port = self._extract_port(raw_args)
-        meta = self._get_meta()
-        host = getattr(meta, 'serve_host', '0.0.0.0')
-        if port is None:
-            port = getattr(meta, 'serve_port', 8080)
-
-        from .modes.web_mode import start_web_server
-        start_web_server(self, NbCmd, host=host, port=port)
-
-    @staticmethod
-    def _extract_port(raw_args):
-        """从参数列表中提取 --web-port 的值"""
-        if '--web-port' in raw_args:
-            idx = raw_args.index('--web-port')
-            if idx + 1 < len(raw_args):
-                try:
-                    return int(raw_args[idx + 1])
-                except ValueError:
-                    pass
-        return None
-
-
-cmdui = UIHelper()
 
 `````
 
@@ -2811,6 +3270,192 @@ def unwrap_arg(hint):
 ---
 
 
+--- **start of file: nb_cmd/core/base.py** (project: nb_cmd) --- 
+
+`````python
+# -*- coding: utf-8 -*-
+"""
+NbCmd 基类 —— 所有命令行工具的父类。
+"""
+import logging
+import sys
+
+from .meta import NbCmdMeta
+
+
+class NbCmd(object):
+    """
+    NbCmd 基类 —— 所有命令行工具的父类。
+
+    用法:
+        1. 继承 NbCmd
+        2. 定义公有方法（自动成为子命令）
+        3. 调用 .run() 启动
+
+    功能:
+        - 公有方法 → 子命令
+        - 方法签名 → 参数自动推导
+        - 支持 CLI / REST API / Web UI 三种模式
+        - 支持 OOP 继承覆写
+        - 支持多层级子命令（sub_commands）
+
+    工具方法通过 cmdui 模块级单例访问（from nb_cmd import cmdui）:
+        cmdui.table()  cmdui.kv()  cmdui.tree()  cmdui.json_print()
+        cmdui.success() cmdui.warning() cmdui.error() cmdui.info()
+        cmdui.progress() cmdui.confirm() cmdui.prompt() cmdui.select()
+    """
+
+    sub_commands = {}
+
+    Meta = NbCmdMeta
+
+    def __init__(self):
+        self._logger = None
+        self._setup_logging()
+
+    def _setup_logging(self):
+        """设置日志"""
+        meta = self._get_meta()
+        use_nb_log = getattr(meta, 'use_nb_log', False)
+        log_level = getattr(meta, 'log_level', 'INFO')
+
+        if use_nb_log:
+            try:
+                import nb_log
+                self._logger = nb_log.get_logger(
+                    self.__class__.__name__,
+                    log_level_int=getattr(logging, log_level, logging.INFO),
+                    log_filename=getattr(meta, 'log_file', None),
+                )
+                return
+            except ImportError:
+                pass
+
+        self._logger = logging.getLogger(self.__class__.__name__)
+        self._logger.setLevel(getattr(logging, log_level, logging.INFO))
+        if not self._logger.handlers:
+            handler = logging.StreamHandler()
+            handler.setFormatter(logging.Formatter(
+                '%(asctime)s [%(name)s] %(levelname)s: %(message)s',
+                datefmt='%Y-%m-%d %H:%M:%S'
+            ))
+            self._logger.addHandler(handler)
+
+    def _get_meta(self):
+        """获取 Meta 配置类"""
+        return getattr(self.__class__, 'Meta', NbCmd.Meta)
+
+    @property
+    def logger(self):
+        """日志器"""
+        return self._logger
+
+    # ==================== 生命周期钩子 ====================
+
+    def before_run(self):
+        """所有子命令执行前的钩子，子类可覆写"""
+        pass
+
+    def after_run(self):
+        """所有子命令执行后的钩子，子类可覆写"""
+        pass
+
+    def on_error(self, command, error):
+        """子命令执行出错时的钩子，子类可覆写"""
+        if self._logger:
+            self._logger.error('命令 {} 执行失败: {}'.format(command, error))
+
+    # ==================== 系统命令工具 ====================
+
+    def shell(self, cmd, capture=False, check=False):
+        """
+        执行系统命令。
+
+        Parameters
+        ----------
+        cmd : str  要执行的命令
+        capture : bool  是否捕获输出（True 返回 stdout 字符串，False 通过 print 输出）
+        check : bool  命令失败时是否抛出异常
+
+        Returns
+        -------
+        str (capture=True 时返回 stdout) 或 None
+        """
+        import subprocess
+        result = subprocess.run(
+            cmd, shell=True, capture_output=True, text=True,
+        )
+        if check and result.returncode != 0:
+            raise RuntimeError(
+                '命令执行失败 (exit {}): {}\n{}'.format(
+                    result.returncode, cmd, result.stderr
+                )
+            )
+        if capture:
+            return result.stdout.strip()
+        else:
+            if result.stdout:
+                print(result.stdout, end='')
+            if result.stderr:
+                print(result.stderr, end='', file=sys.stderr)
+
+    def exec(self, cmd: str):
+        """执行任意系统命令"""
+        self.shell(cmd)
+
+    # ==================== 主入口 ====================
+
+    def run(self, args=None):
+        """
+        主入口方法。根据参数决定运行模式。
+
+        Parameters
+        ----------
+        args : list, optional
+            命令行参数列表，默认使用 sys.argv[1:]
+        """
+        raw_args = args if args is not None else sys.argv[1:]
+
+        if '--full-help' in raw_args or '-fh' in raw_args:
+            from .parser import print_full_help
+            return print_full_help(self, NbCmd)
+
+        if '--web' in raw_args:
+            return self._start_web_server(raw_args)
+
+        from ..modes.cli_mode import run_cli
+        return run_cli(self, NbCmd, args)
+
+    def _start_web_server(self, raw_args):
+        """启动 Web UI 服务"""
+        port = self._extract_port(raw_args)
+        meta = self._get_meta()
+        host = getattr(meta, 'serve_host', '0.0.0.0')
+        if port is None:
+            port = getattr(meta, 'serve_port', 8080)
+
+        from ..modes.web_mode import start_web_server
+        start_web_server(self, NbCmd, host=host, port=port)
+
+    @staticmethod
+    def _extract_port(raw_args):
+        """从参数列表中提取 --web-port 的值"""
+        if '--web-port' in raw_args:
+            idx = raw_args.index('--web-port')
+            if idx + 1 < len(raw_args):
+                try:
+                    return int(raw_args[idx + 1])
+                except ValueError:
+                    pass
+        return None
+
+`````
+
+--- **end of file: nb_cmd/core/base.py** (project: nb_cmd) --- 
+
+---
+
+
 --- **start of file: nb_cmd/core/discovery.py** (project: nb_cmd) --- 
 
 `````python
@@ -2823,11 +3468,17 @@ import inspect
 
 if sys.version_info >= (3, 11):
     from typing import get_type_hints
+elif sys.version_info >= (3, 9):
+    from typing import get_type_hints
 else:
     try:
         from typing_extensions import get_type_hints
     except ImportError:
-        from typing import get_type_hints
+        from typing import get_type_hints as _get_type_hints
+
+        def get_type_hints(func, **kwargs):
+            kwargs.pop('include_extras', None)
+            return _get_type_hints(func, **kwargs)
 
 from .arg import unwrap_arg
 
@@ -2957,6 +3608,54 @@ def _extract_init_kwargs(instance):
 `````
 
 --- **end of file: nb_cmd/core/discovery.py** (project: nb_cmd) --- 
+
+---
+
+
+--- **start of file: nb_cmd/core/meta.py** (project: nb_cmd) --- 
+
+`````python
+# -*- coding: utf-8 -*-
+"""
+NbCmd Meta 配置基类。
+
+用法::
+
+    from nb_cmd import NbCmd, NbCmdMeta
+
+    class MyTool(NbCmd):
+        class Meta(NbCmdMeta):
+            name = "my-tool"
+            version = "1.0.0"
+            use_nb_log = True
+"""
+
+
+class NbCmdMeta(object):
+    """
+    NbCmd 的 Meta 配置基类。
+
+    子类继承后可覆盖任意字段，IDE 可自动补全所有可用选项。
+    """
+    name = None               # type: str   # CLI/API 名称（默认用类名）
+    version = '0.0.1'         # type: str   # 版本号（--version 显示）
+    description = None        # type: str   # 描述（默认用类的 docstring）
+    use_nb_log = False         # type: bool  # 启用 nb_log 增强日志
+    log_level = 'INFO'         # type: str   # 日志级别
+    log_file = None            # type: str   # 日志文件路径
+    auto_save_last_args = False  # type: bool  # 自动保存上次参数
+    config_file = None         # type: str   # 配置持久化文件路径
+    serve_host = '0.0.0.0'    # type: str   # Web/API 绑定地址
+    serve_port = 8080          # type: int   # Web/API 默认端口
+    serve_workers = 1          # type: int   # 工作进程数
+    web_title = None           # type: str   # Web UI 页面标题
+    web_theme = 'light'        # type: str   # Web UI 主题 ('light' / 'dark')
+    enable_exec = True         # type: bool  # 是否暴露内置 exec 命令（False 可防止恶意执行）
+    aliases = {}               # type: dict  # 参数别名（推荐用 Annotated 替代）
+
+`````
+
+--- **end of file: nb_cmd/core/meta.py** (project: nb_cmd) --- 
 
 ---
 
@@ -3235,7 +3934,7 @@ def _print_init_params(write_fn, instance):
 
 
 def _add_init_global_options(parser, instance):
-    """将 __init__ 中的自定义参数变为全局选项，支持 Arg 描述器"""
+    """将 __init__ 中的自定义参数变为全局选项，支持 Annotated 描述"""
     from .arg import unwrap_arg
 
     init_method = instance.__class__.__init__
@@ -3394,7 +4093,7 @@ def _build_group_subparser(parent_parser, group_cls, base_cls, init_kwargs=None)
             except TypeError:
                 pass
 
-    group_commands = discover_commands(group_instance, base_cls)
+    group_commands = discover_commands(group_instance, base_cls, include_builtins=False)
 
     if not group_commands:
         return
@@ -3709,6 +4408,90 @@ def type_display_name(python_type):
 ---
 
 
+--- **start of file: nb_cmd/core/_io_dispatch.py** (project: nb_cmd) --- 
+
+`````python
+# -*- coding: utf-8 -*-
+"""
+线程安全的 stdout/stderr 分发器。
+
+web_mode 和 api_mode 共用同一个 threading.local() + 分发器，
+避免并发请求之间 stdout 串流。
+
+用法:
+    注册输出目标:
+        _tls.output_queue = some_queue        # WebSocket 推送（队列模式）
+        _tls.captured_stdout = StringIO()     # API 捕获（StringIO 模式）
+        _tls.captured_stderr = StringIO()
+
+    注销:
+        _tls.output_queue = None
+        _tls.captured_stdout = None
+        _tls.captured_stderr = None
+
+    没有注册时, 写到原始 sys.stdout / sys.stderr。
+"""
+import sys
+import threading
+
+_tls = threading.local()
+_original_stdout = sys.stdout
+_original_stderr = sys.stderr
+
+
+class _DispatchWriter(object):
+    """
+    线程安全的 stdout/stderr 替代品。
+    按优先级检查当前线程的输出目标:
+      1. _tls.output_queue     → put((stream_type, data))     (WebSocket)
+      2. _tls.captured_stdout  → write(data)                  (API StringIO)
+      3. 原始流                → write(data)                  (服务器控制台)
+    """
+    def __init__(self, original, stream_type):
+        self._orig = original
+        self._type = stream_type
+        self._cap_attr = 'captured_stdout' if stream_type == 'stdout' else 'captured_stderr'
+        self.encoding = getattr(original, 'encoding', 'utf-8')
+
+    def write(self, data):
+        if not data:
+            return
+        q = getattr(_tls, 'output_queue', None)
+        if q is not None:
+            q.put((self._type, data))
+            return
+        cap = getattr(_tls, self._cap_attr, None)
+        if cap is not None:
+            cap.write(data)
+            return
+        self._orig.write(data)
+
+    def flush(self):
+        self._orig.flush()
+
+    def isatty(self):
+        return True
+
+    def fileno(self):
+        return self._orig.fileno()
+
+    def __getattr__(self, name):
+        return getattr(self._orig, name)
+
+
+def install():
+    """安装分发器（幂等，多次调用安全）"""
+    if not isinstance(sys.stdout, _DispatchWriter):
+        sys.stdout = _DispatchWriter(_original_stdout, 'stdout')
+        sys.stderr = _DispatchWriter(_original_stderr, 'stderr')
+
+`````
+
+--- **end of file: nb_cmd/core/_io_dispatch.py** (project: nb_cmd) --- 
+
+---
+
+
 --- **start of file: nb_cmd/core/__init__.py** (project: nb_cmd) --- 
 
 `````python
@@ -3728,13 +4511,20 @@ def type_display_name(python_type):
 REST API 模式 —— 自动将 NbCmd 类的方法生成 FastAPI 路由。
 需要安装: pip install fastapi uvicorn
 """
+import asyncio
+import functools
 import inspect
 import io
-import sys
 import time
 
 from ..core.discovery import discover_commands
 from ..core.result_handler import handle_api_result
+
+
+async def _run_in_thread(func, *args):
+    """asyncio.to_thread 的 Python 3.7+ 兼容版"""
+    loop = asyncio.get_event_loop()
+    return await loop.run_in_executor(None, functools.partial(func, *args))
 
 
 def start_api_server(instance, base_cls, host=None, port=None):
@@ -3841,7 +4631,10 @@ def _register_routes(app, instance, commands, base_cls=None, prefix=''):
             if base_cls is not None:
                 group_cls = cmd_info['cls']
                 group_kwargs = cmd_info.get('init_kwargs', {})
-                group_instance = group_cls(**group_kwargs) if group_kwargs else group_cls()
+                try:
+                    group_instance = group_cls(**group_kwargs) if group_kwargs else group_cls()
+                except TypeError:
+                    group_instance = group_cls.__new__(group_cls)
                 group_commands = discover_commands(group_instance, base_cls,
                                                    include_builtins=False)
                 group_prefix = '{}/{}'.format(prefix, cmd_name) if prefix else cmd_name
@@ -3971,49 +4764,36 @@ def _make_route(app, path, summary, cmd_name, instance, request_model, type_hint
                 converted[k] = v
         return converted
 
-    _method = getattr(_cls, _cmd_name, None)
-    _is_async = inspect.iscoroutinefunction(_method) if _method else False
+    from ..core._io_dispatch import _tls as _api_tls, install as _install_io
+    _install_io()
 
-    async def _exec_async(fresh_inst, kwargs):
-        old_stdout = sys.stdout
-        old_stderr = sys.stderr
-        sys.stdout = captured_out = io.StringIO()
-        sys.stderr = captured_err = io.StringIO()
-        try:
-            method = getattr(fresh_inst, _cmd_name)
-            result = await method(**_convert_kwargs(kwargs))
-        finally:
-            sys.stdout = old_stdout
-            sys.stderr = old_stderr
-        return result, captured_out.getvalue(), captured_err.getvalue()
-
-    def _exec_sync(fresh_inst, kwargs):
-        old_stdout = sys.stdout
-        old_stderr = sys.stderr
-        sys.stdout = captured_out = io.StringIO()
-        sys.stderr = captured_err = io.StringIO()
+    def _exec_in_thread(fresh_inst, kwargs):
+        import asyncio as _aio
+        captured_out = io.StringIO()
+        captured_err = io.StringIO()
+        _api_tls.captured_stdout = captured_out
+        _api_tls.captured_stderr = captured_err
         try:
             method = getattr(fresh_inst, _cmd_name)
             result = method(**_convert_kwargs(kwargs))
+            if inspect.iscoroutine(result):
+                result = _aio.run(result)
         finally:
-            sys.stdout = old_stdout
-            sys.stderr = old_stderr
+            _api_tls.captured_stdout = None
+            _api_tls.captured_stderr = None
         return result, captured_out.getvalue(), captured_err.getvalue()
 
     if request_model is not None:
         @app.post('/{}'.format(path), summary=summary)
         async def endpoint(request: request_model):
-            import asyncio
             start = time.time()
             kwargs = request.dict() if hasattr(request, 'dict') else request.model_dump()
             raw_init = kwargs.pop('init_params', None)
             fresh_inst = _fresh(raw_init)
             fresh_inst.before_run()
             try:
-                if _is_async:
-                    result, stdout_output, stderr_output = await _exec_async(fresh_inst, kwargs)
-                else:
-                    result, stdout_output, stderr_output = await asyncio.to_thread(_exec_sync, fresh_inst, kwargs)
+                result, stdout_output, stderr_output = await _run_in_thread(
+                    _exec_in_thread, fresh_inst, kwargs)
                 api_result = handle_api_result(result)
                 duration_ms = int((time.time() - start) * 1000)
                 return {
@@ -4035,16 +4815,13 @@ def _make_route(app, path, summary, cmd_name, instance, request_model, type_hint
     else:
         @app.post('/{}'.format(path), summary=summary)
         async def endpoint(request: dict = {}):
-            import asyncio
             start = time.time()
             raw_init = request.pop('init_params', None)
             fresh_inst = _fresh(raw_init)
             fresh_inst.before_run()
             try:
-                if _is_async:
-                    result, stdout_output, stderr_output = await _exec_async(fresh_inst, request)
-                else:
-                    result, stdout_output, stderr_output = await asyncio.to_thread(_exec_sync, fresh_inst, request)
+                result, stdout_output, stderr_output = await _run_in_thread(
+                    _exec_in_thread, fresh_inst, request)
                 api_result = handle_api_result(result)
                 duration_ms = int((time.time() - start) * 1000)
                 return {
@@ -4285,6 +5062,9 @@ def start_web_server(instance, base_cls, host=None, port=None):
     commands = discover_commands(instance, base_cls, enable_exec=_enable_exec)
     description = inspect.getdoc(instance) or instance.__class__.__name__
 
+    from ..core._io_dispatch import _tls, install as _install_io
+    _install_io()
+
     static_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'ui', 'static')
     has_built_frontend = os.path.isfile(os.path.join(static_dir, 'index.html'))
 
@@ -4298,7 +5078,10 @@ def start_web_server(instance, base_cls, host=None, port=None):
             if info.get('is_group'):
                 g_cls = info['cls']
                 g_kwargs = info.get('init_kwargs', {})
-                g_inst = g_cls(**g_kwargs) if g_kwargs else g_cls()
+                try:
+                    g_inst = g_cls(**g_kwargs) if g_kwargs else g_cls()
+                except TypeError:
+                    g_inst = g_cls.__new__(g_cls)
                 g_cmds = discover_commands(g_inst, base_cls, include_builtins=False)
                 result[name] = {
                     'type': 'group',
@@ -4455,26 +5238,15 @@ def start_web_server(instance, base_cls, host=None, port=None):
                 if info.get('is_group'):
                     g_cls = info['cls']
                     g_kwargs = info.get('init_kwargs', {})
-                    current_inst = g_cls(**g_kwargs) if g_kwargs else g_cls()
+                    try:
+                        current_inst = g_cls(**g_kwargs) if g_kwargs else g_cls()
+                    except TypeError:
+                        current_inst = g_cls.__new__(g_cls)
                     current_cmds = discover_commands(current_inst, base_cls,
                                                      include_builtins=False)
                 elif i == len(parts) - 1 and current_inst is not None:
                     return info['method'], current_inst, info
         return None, None, None
-
-    class _QueueWriter(object):
-        """将 write() 调用转发到 queue 的伪文件对象，伪装为 TTY 以触发颜色输出"""
-        def __init__(self, output_queue, stream_type):
-            self._q = output_queue
-            self._type = stream_type
-            self.encoding = 'utf-8'
-        def write(self, data):
-            if data:
-                self._q.put((self._type, data))
-        def flush(self):
-            pass
-        def isatty(self):
-            return True
 
     def _cancel_thread(tid):
         """向指定线程注入 KeyboardInterrupt，模拟 Ctrl+C"""
@@ -4507,18 +5279,13 @@ def start_web_server(instance, base_cls, host=None, port=None):
             result_holder = {'result': None, 'error': None, 'cancelled': False}
 
             def _run():
-                old_out, old_err = sys.stdout, sys.stderr
-                ws_out = _QueueWriter(output_q, 'stdout')
-                ws_err = _QueueWriter(output_q, 'stderr')
-                sys.stdout = ws_out
-                sys.stderr = ws_err
+                _tls.output_queue = output_q
                 saved_streams = []
                 if hasattr(target_inst, '_logger') and target_inst._logger:
                     for h in target_inst._logger.handlers:
                         if hasattr(h, 'stream'):
                             saved_streams.append((h, h.stream))
-                            if h.stream is old_err or h.stream is old_out:
-                                h.stream = ws_err
+                            h.stream = sys.stderr
                 try:
                     target_inst.before_run()
                     r = method(**kwargs)
@@ -4536,7 +5303,7 @@ def start_web_server(instance, base_cls, host=None, port=None):
                 finally:
                     for h, orig in saved_streams:
                         h.stream = orig
-                    sys.stdout, sys.stderr = old_out, old_err
+                    _tls.output_queue = None
                     target_inst.after_run()
                     output_q.put(None)
 
@@ -5646,6 +6413,122 @@ def print_info(msg):
 `````
 
 --- **end of file: nb_cmd/ui/colors.py** (project: nb_cmd) --- 
+
+---
+
+
+--- **start of file: nb_cmd/ui/helper.py** (project: nb_cmd) --- 
+
+`````python
+# -*- coding: utf-8 -*-
+"""
+UI 工具方法集合 —— cmdui 单例的实现。
+
+通过 ``from nb_cmd import cmdui`` 导入使用。
+"""
+import json
+import sys
+
+from .colors import print_success, print_warning, print_error, print_info
+from .table import print_table, print_kv
+from .progress import progress as _progress_iter
+
+
+class UIHelper(object):
+    """
+    NbCmd 的 UI 工具方法集合。
+
+    通过 ``from nb_cmd import cmdui`` 导入使用，避免与用户自定义的子命令方法名冲突。
+    包含: 输出(table/kv/tree/json_print)、彩色(success/warning/error/info)、
+          交互(confirm/prompt/select)、进度(progress) 等工具。
+    """
+
+    def table(self, data, headers=None):
+        """表格输出"""
+        print_table(data, headers)
+
+    def kv(self, data):
+        """键值对输出"""
+        print_kv(data)
+
+    def tree(self, data, prefix='', is_last=True):
+        """树形输出"""
+        if isinstance(data, dict):
+            items = list(data.items())
+            for i, (key, value) in enumerate(items):
+                last = (i == len(items) - 1)
+                connector = '└── ' if last else '├── '
+                if isinstance(value, dict):
+                    sys.stdout.write('{}{}{}\n'.format(prefix, connector, key))
+                    extension = '    ' if last else '│   '
+                    self.tree(value, prefix + extension, last)
+                else:
+                    sys.stdout.write('{}{}{}: {}\n'.format(prefix, connector, key, value))
+
+    def json_print(self, data):
+        """JSON美化输出"""
+        sys.stdout.write(json.dumps(data, ensure_ascii=False, indent=2, default=str) + '\n')
+        sys.stdout.flush()
+
+    def progress(self, iterable, desc=None, total=None):
+        """进度条迭代器"""
+        return _progress_iter(iterable, desc=desc, total=total)
+
+    def confirm(self, message):
+        """确认提示，返回 True/False"""
+        try:
+            answer = input('{} [y/N]: '.format(message)).strip().lower()
+            return answer in ('y', 'yes')
+        except (EOFError, KeyboardInterrupt):
+            return False
+
+    def prompt(self, message, default=None):
+        """输入提示"""
+        try:
+            if default is not None:
+                answer = input('{} [{}]: '.format(message, default)).strip()
+                return answer if answer else default
+            else:
+                return input('{}: '.format(message)).strip()
+        except (EOFError, KeyboardInterrupt):
+            return default
+
+    def select(self, message, choices):
+        """选择提示"""
+        sys.stdout.write(message + '\n')
+        for i, choice in enumerate(choices):
+            sys.stdout.write('  {}. {}\n'.format(i + 1, choice))
+        sys.stdout.flush()
+        try:
+            idx = int(input('请选择 [1-{}]: '.format(len(choices))).strip()) - 1
+            if 0 <= idx < len(choices):
+                return choices[idx]
+        except (ValueError, EOFError, KeyboardInterrupt):
+            pass
+        return choices[0] if choices else None
+
+    def success(self, msg):
+        """绿色成功信息"""
+        print_success(msg)
+
+    def warning(self, msg):
+        """黄色警告信息"""
+        print_warning(msg)
+
+    def error(self, msg):
+        """红色错误信息"""
+        print_error(msg)
+
+    def info(self, msg):
+        """蓝色信息"""
+        print_info(msg)
+
+
+cmdui = UIHelper()
+
+`````
+
+--- **end of file: nb_cmd/ui/helper.py** (project: nb_cmd) --- 
 
 ---
 
