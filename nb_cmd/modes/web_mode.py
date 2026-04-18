@@ -291,6 +291,8 @@ def start_web_server(instance, base_cls, host=None, port=None):
                 try:
                     target_inst.before_run()
                     r = method(**kwargs)
+                    if inspect.iscoroutine(r):
+                        r = asyncio.run(r)
                     result_holder['result'] = handle_api_result(r)
                 except KeyboardInterrupt:
                     result_holder['cancelled'] = True

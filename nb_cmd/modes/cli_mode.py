@@ -2,12 +2,21 @@
 """
 CLI 模式 —— 默认的命令行交互模式。
 """
+import asyncio
 import inspect
 
 from ..core.discovery import discover_commands
 from ..core.parser import build_parser
 from ..core.type_utils import convert_value
 from ..core.result_handler import handle_cli_result
+
+
+def _run_method(method, kwargs):
+    """执行方法，自动处理同步和异步函数"""
+    result = method(**kwargs)
+    if inspect.iscoroutine(result):
+        result = asyncio.run(result)
+    return result
 
 
 def run_cli(instance, base_cls, args=None):
@@ -50,7 +59,7 @@ def run_cli(instance, base_cls, args=None):
 
     instance.before_run()
     try:
-        result = method(**kwargs)
+        result = _run_method(method, kwargs)
         handle_cli_result(result)
     except Exception as e:
         instance.on_error(command_name, e)
@@ -126,7 +135,7 @@ def _run_group_command(instance, group_info, parsed, base_cls):
 
     group_instance.before_run()
     try:
-        result = method(**kwargs)
+        result = _run_method(method, kwargs)
         handle_cli_result(result)
     except Exception as e:
         group_instance.on_error(sub_command, e)
