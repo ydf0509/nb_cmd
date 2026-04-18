@@ -172,6 +172,10 @@ pip install nb-cmd[all]
 
 ---
 
+## nb_cmd 网页截图
+
+![nb_cmd 网页截图](https://github.com/ydf0509/nb_cmd/blob/main/docs/images/nb_cmd_web.png)
+
 ## 5 分钟快速上手
 
 ### 第一步：写一个 class
