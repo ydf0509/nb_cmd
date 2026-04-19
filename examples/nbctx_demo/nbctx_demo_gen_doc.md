@@ -1,0 +1,169 @@
+# cloud-tool v1.0.0
+
+> 云平台管理工具 —— nbctx 跨层级上下文传递 demo。
+
+全局参数 region/env/debug 会自动传递给所有子命令组。
+
+## Table of Contents
+
+- [`status`](#status)
+- [`whoami`](#whoami)
+- [`db`  *(子命令组)*](#db-子命令组)
+  - [`db backup`](#db-backup)
+  - [`db migrate`](#db-migrate)
+  - [`db status`](#db-status)
+- [`server`  *(子命令组)*](#server-子命令组)
+  - [`server info`](#server-info)
+  - [`server ssh`](#server-ssh)
+  - [`server ops`  *(子命令组)*](#server-ops-子命令组)
+    - [`server ops deploy`](#server-ops-deploy)
+    - [`server ops restart`](#server-ops-restart)
+
+---
+
+## System Params
+
+| Flag | Description |
+|------|-------------|
+| `-h`, `--help` | 显示帮助信息 |
+| `-fh`, `--full-help` | 显示完整帮助（所有参数详情） |
+| `-eh`, `--easy-help` | 显示简易帮助（argparse 原生格式） |
+| `--version` | 显示版本号 |
+| `--web` | 以 Web UI + REST API 模式启动 |
+| `--web-port PORT` | Web UI 服务端口（用于 `--web`） |
+
+## Global Params (`__init__`)
+
+| Flag | Type | Default | Description |
+|------|------|---------|-------------|
+| `--region` | `str` | `beijing` | 部署区域，如 beijing/shanghai/tokyo |
+| `--env` | `str` | `prod` | 运行环境，如 prod/staging/test |
+| `--debug` | `bool` | `False` | 开启调试模式 |
+
+## Quick Start
+
+```bash
+# 查看完整帮助
+D:\ProgramData\Miniconda3\envs\py39b\python.exe nbctx_demo.py -fh
+
+# 查看版本
+D:\ProgramData\Miniconda3\envs\py39b\python.exe nbctx_demo.py --version
+
+# 启动 Web UI
+D:\ProgramData\Miniconda3\envs\py39b\python.exe nbctx_demo.py --web
+```
+
+## 命令行约定
+
+命令格式：`python script.py [全局参数] <子命令路径> [命令参数]`
+
+| 标记 | 含义 |
+|------|------|
+| `${value}` | 带默认值的参数 — 可按需替换 |
+| `$<name>` | **必填**参数 — 必须提供值 |
+| `--flag`（无值） | 布尔开关，添加即启用 |
+
+---
+
+## Commands
+
+### `status`
+
+查看全局状态
+
+```bash
+D:\ProgramData\Miniconda3\envs\py39b\python.exe nbctx_demo.py --region ${beijing} --env ${prod} --debug status
+```
+
+### `whoami`
+
+显示当前用户信息
+
+```bash
+D:\ProgramData\Miniconda3\envs\py39b\python.exe nbctx_demo.py --region ${beijing} --env ${prod} --debug whoami
+```
+
+### `db` *(子命令组)*
+
+> 数据库工具（第二级子命令组）
+
+#### `db backup`
+
+备份数据库
+
+| Param | Type | Default | Description |
+|-------|------|---------|-------------|
+| `--compress` | `bool` | `True` | 启用压缩 |
+
+```bash
+D:\ProgramData\Miniconda3\envs\py39b\python.exe nbctx_demo.py --region ${beijing} --env ${prod} --debug db backup
+```
+
+#### `db migrate`
+
+执行数据库迁移
+
+| Param | Type | Default | Description |
+|-------|------|---------|-------------|
+| `--dry-run` | `bool` | `False` | 仅模拟，不执行 |
+
+```bash
+D:\ProgramData\Miniconda3\envs\py39b\python.exe nbctx_demo.py --region ${beijing} --env ${prod} --debug db migrate --dry-run
+```
+
+#### `db status`
+
+查看数据库连接状态
+
+```bash
+D:\ProgramData\Miniconda3\envs\py39b\python.exe nbctx_demo.py --region ${beijing} --env ${prod} --debug db status
+```
+
+### `server` *(子命令组)*
+
+> 服务器管理（第二级子命令组，包含第三级 ops）
+
+#### `server info`
+
+查看服务器信息
+
+```bash
+D:\ProgramData\Miniconda3\envs\py39b\python.exe nbctx_demo.py --region ${beijing} --env ${prod} --debug server info
+```
+
+#### `server ssh`
+
+SSH 登录
+
+| Param | Type | Default | Description |
+|-------|------|---------|-------------|
+| `--user` | `str` | `root` | 登录用户名 |
+
+```bash
+D:\ProgramData\Miniconda3\envs\py39b\python.exe nbctx_demo.py --region ${beijing} --env ${prod} --debug server ssh --user ${root}
+```
+
+#### `server ops` *(子命令组)*
+
+> 运维操作（第三级子命令组）
+
+##### `server ops deploy`
+
+部署指定版本
+
+| Param | Type | Default | Description |
+|-------|------|---------|-------------|
+| `--version` | `str` | *(required)* | 目标版本号 |
+| `--rollback` | `bool` | `False` | 是否回滚 |
+
+```bash
+D:\ProgramData\Miniconda3\envs\py39b\python.exe nbctx_demo.py --region ${beijing} --env ${prod} --debug server ops deploy --version $<version> --rollback
+```
+
+##### `server ops restart`
+
+重启服务
+
+```bash
+D:\ProgramData\Miniconda3\envs\py39b\python.exe nbctx_demo.py --region ${beijing} --env ${prod} --debug server ops restart
+```

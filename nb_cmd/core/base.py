@@ -23,6 +23,7 @@ class NbCmd(object):
         - 支持 CLI / REST API / Web UI 三种模式
         - 支持 OOP 继承覆写
         - 支持多层级子命令（sub_commands）
+        - 支持 nbctx 跨层级上下文传递
 
     工具方法通过 cmdui 模块级单例访问（from nb_cmd import cmdui）:
         cmdui.table()  cmdui.kv()  cmdui.tree()  cmdui.json_print()
@@ -34,9 +35,40 @@ class NbCmd(object):
 
     Meta = NbCmdMeta
 
+    nbctx = None  # 跨层级共享的上下文对象，子类通过 nbctx: AppCtx 注解获取 IDE 补全
+
     def __init__(self):
         self._logger = None
         self._setup_logging()
+
+    def make_nbctx(self):
+        """
+        模板方法：创建跨层级共享的上下文对象。
+
+        覆写此方法以返回一个 dataclass 实例，框架会自动将其传递给
+        所有子命令组的 self.nbctx。
+
+        用法::
+
+            @dataclass
+            class AppCtx:
+                region: str = 'beijing'
+                env: str = 'prod'
+
+            class MyApp(NbCmd):
+                def __init__(self, region='beijing', env='prod'):
+                    self.region = region
+                    self.env = env
+
+                def make_nbctx(self):
+                    return AppCtx(region=self.region, env=self.env)
+
+        Returns
+        -------
+        object or None
+            上下文对象，返回 None 表示不启用 nbctx。
+        """
+        return None
 
     def _setup_logging(self):
         """设置日志"""
@@ -141,15 +173,45 @@ class NbCmd(object):
         """
         raw_args = args if args is not None else sys.argv[1:]
 
-        if '--full-help' in raw_args or '-fh' in raw_args:
-            from .parser import print_full_help
-            return print_full_help(self, NbCmd)
+        help_result = self._handle_help(raw_args)
+        if help_result is not None:
+            return help_result
 
         if '--web' in raw_args:
             return self._start_web_server(raw_args)
 
         from ..modes.cli_mode import run_cli
         return run_cli(self, NbCmd, args)
+
+    _HELP_HANDLED = object()
+
+    def _handle_help(self, raw_args):
+        """
+        处理帮助参数（在 argparse 解析之前拦截）。
+        -fh/--full-help: 始终显示完整帮助
+        -eh/--easy-help: 始终显示简易帮助
+        -h/--help: 由 Meta.help_mode 决定
+
+        返回 _HELP_HANDLED 表示已处理，应结束。返回 None 表示未处理。
+        """
+        if '--full-help' in raw_args or '-fh' in raw_args:
+            from .parser import print_full_help
+            print_full_help(self, NbCmd)
+            return self._HELP_HANDLED
+
+        if '--easy-help' in raw_args or '-eh' in raw_args:
+            from .parser import print_easy_help
+            print_easy_help(self, NbCmd)
+            return self._HELP_HANDLED
+
+        meta = self._get_meta()
+        help_mode = getattr(meta, 'help_mode', 'full')
+        if help_mode == 'full' and ('--help' in raw_args or '-h' in raw_args):
+            from .parser import print_full_help
+            print_full_help(self, NbCmd)
+            return self._HELP_HANDLED
+
+        return None
 
     def _start_web_server(self, raw_args):
         """启动 Web UI 服务"""

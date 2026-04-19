@@ -199,16 +199,21 @@ def start_web_server(instance, base_cls, host=None, port=None):
     def _make_instance(raw_init_params=None):
         """每次请求创建一个新的用户类实例，彼此隔离"""
         if not init_params_info:
-            return _user_cls()
-        from ..core.type_utils import convert_value
-        kwargs = {}
-        for p in init_params_info:
-            pname = p['name']
-            if raw_init_params and pname in raw_init_params:
-                kwargs[pname] = convert_value(raw_init_params[pname], p['_real_type'])
-            elif p.get('required'):
-                kwargs[pname] = getattr(instance, pname)
-        return _user_cls(**kwargs) if kwargs else _user_cls()
+            inst = _user_cls()
+        else:
+            from ..core.type_utils import convert_value
+            kwargs = {}
+            for p in init_params_info:
+                pname = p['name']
+                if raw_init_params and pname in raw_init_params:
+                    kwargs[pname] = convert_value(raw_init_params[pname], p['_real_type'])
+                elif p.get('required'):
+                    kwargs[pname] = getattr(instance, pname)
+            inst = _user_cls(**kwargs) if kwargs else _user_cls()
+        ctx = inst.make_nbctx()
+        if ctx is not None:
+            inst.nbctx = ctx
+        return inst
 
     def _resolve_command(route_path, raw_init_params=None):
         """根据路由路径解析出 (method, target_instance, cmd_info)，支持多层嵌套"""
@@ -221,8 +226,9 @@ def start_web_server(instance, base_cls, host=None, port=None):
                 method = getattr(target_inst, cmd_name)
                 return method, target_inst, info
         elif len(parts) >= 2:
+            root_inst = _make_instance(raw_init_params)
             current_cmds = commands
-            current_inst = None
+            current_inst = root_inst
             for i, part in enumerate(parts):
                 if part not in current_cmds:
                     break
@@ -231,9 +237,13 @@ def start_web_server(instance, base_cls, host=None, port=None):
                     g_cls = info['cls']
                     g_kwargs = info.get('init_kwargs', {})
                     try:
-                        current_inst = g_cls(**g_kwargs) if g_kwargs else g_cls()
+                        child_inst = g_cls(**g_kwargs) if g_kwargs else g_cls()
                     except TypeError:
-                        current_inst = g_cls.__new__(g_cls)
+                        child_inst = g_cls.__new__(g_cls)
+                    parent_ctx = current_inst.nbctx if current_inst is not None else None
+                    if parent_ctx is not None:
+                        child_inst.nbctx = parent_ctx
+                    current_inst = child_inst
                     current_cmds = discover_commands(current_inst, base_cls,
                                                      include_builtins=False)
                 elif i == len(parts) - 1 and current_inst is not None:

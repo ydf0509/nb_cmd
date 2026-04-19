@@ -32,11 +32,12 @@ def run_cli(instance, base_cls, args=None):
     meta = getattr(instance.__class__, 'Meta', type('Meta', (), {}))
     _enable_exec = getattr(meta, 'enable_exec', True)
     commands = discover_commands(instance, base_cls, enable_exec=_enable_exec)
-    parser = build_parser(instance, commands, meta)
+    parser = build_parser(instance, commands, meta, base_cls=base_cls)
 
     parsed = parser.parse_args(args)
 
     _apply_init_args(instance, parsed)
+    _ensure_nbctx(instance)
 
     command_name = getattr(parsed, '_nb_command', None)
     if not command_name:
@@ -46,7 +47,7 @@ def run_cli(instance, base_cls, args=None):
     python_name = command_name.replace('-', '_')
 
     if python_name in commands and commands[python_name].get('is_group'):
-        _run_group_command(instance, commands[python_name], parsed, base_cls)
+        _run_group_command(instance, commands[python_name], parsed, base_cls, depth=1)
         return
 
     if python_name not in commands:
@@ -103,7 +104,22 @@ def _extract_kwargs(method, cmd_info, parsed):
     return kwargs
 
 
-def _run_group_command(instance, group_info, parsed, base_cls):
+def _ensure_nbctx(instance):
+    """确保实例的 nbctx 已初始化（调用 make_nbctx）"""
+    if instance.nbctx is None:
+        ctx = instance.make_nbctx()
+        if ctx is not None:
+            instance.nbctx = ctx
+
+
+def _inject_nbctx(parent, child):
+    """将父级的 nbctx 注入到子命令组实例"""
+    parent_ctx = parent.nbctx
+    if parent_ctx is not None:
+        child.nbctx = parent_ctx
+
+
+def _run_group_command(instance, group_info, parsed, base_cls, depth=1):
     """执行子命令组中的命令"""
     group_cls = group_info['cls']
     group_kwargs = group_info.get('init_kwargs', {})
@@ -113,7 +129,10 @@ def _run_group_command(instance, group_info, parsed, base_cls):
     except TypeError:
         group_instance = group_cls.__new__(group_cls)
 
-    sub_command = getattr(parsed, '_nb_sub_command', None)
+    _inject_nbctx(instance, group_instance)
+
+    dest = '_nb_sub_command' if depth == 1 else '_nb_sub_command_{}'.format(depth)
+    sub_command = getattr(parsed, dest, None)
     if not sub_command:
         print('请指定子命令。使用 --help 查看可用子命令。')
         return
@@ -122,7 +141,8 @@ def _run_group_command(instance, group_info, parsed, base_cls):
     sub_commands = discover_commands(group_instance, base_cls)
 
     if sub_python_name in sub_commands and sub_commands[sub_python_name].get('is_group'):
-        _run_group_command(group_instance, sub_commands[sub_python_name], parsed, base_cls)
+        _run_group_command(group_instance, sub_commands[sub_python_name], parsed, base_cls,
+                           depth=depth + 1)
         return
 
     if sub_python_name not in sub_commands:

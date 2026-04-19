@@ -57,8 +57,14 @@ nb_cmd 换了一种思路：**Class 是中心，接口是投影。**
 | 类型注解 `env: Environment`（Enum） | CLI choices + API 校验 + Web 下拉选择 |
 | `print()` / `cmdui.table()` | CLI 终端输出 + Web 实时流式推送（WebSocket + ANSI 彩色渲染） |
 | `sub_commands = {'git': GitTool}` | CLI 多级子命令 + API 嵌套路由 + Web UI 折叠分组 |
+| `CmdGen(MyApp).doc(file='cli.md')` | **自动生成带 TOC + 参数表格 + 可复制命令行的 Markdown 文档** |
+| `MyTool().greet('张三', 3)` | **方法就是普通 Python 方法，随时直接调用、单元测试、import 复用** |
 
-**不需要写的：** 路由定义、Pydantic 模型、HTML 表单、CSS 样式、JavaScript 交互、WebSocket 端点、Swagger 注解、前后端联调。
+**不需要写的：** 路由定义、Pydantic 模型、HTML 表单、CSS 样式、JavaScript 交互、WebSocket 端点、Swagger 注解、前后端联调、**CLI 使用文档**。
+
+> **零装饰器，方法可直接调用：** click/typer 的装饰器把函数变成了 `click.Command` 对象，无法直接 `greet('张三', 3)` 调用——必须用 `CliRunner().invoke()` 模拟 CLI 或自己拆两层。nb_cmd 的方法始终是普通的 Python 类方法，`MyTool().greet('张三', 3)` 直接就能跑，IDE 补全、断点调试、单元测试全部正常。
+
+> **文档生成吊打 `--help`：** 传统框架的文档止步于 `--help` 纯文本，click 需要第三方 `sphinx-click`，typer 只是搬运 `--help` 输出。nb_cmd 的 `CmdGen` 一行代码生成完整的 Markdown 文档——自动目录、参数表格、默认值/必填标注、可复制的 bash 命令行模板，测试人员拿到直接能用。[查看示例](https://github.com/ydf0509/nb_cmd/blob/main/examples/nbctx_demo/nbctx_demo_gen_doc.md)
 
 | 功能 | argparse | click | typer | fire | **nb_cmd** |
 |------|:--------:|:-----:|:-----:|:----:|:----------:|
@@ -70,6 +76,8 @@ nb_cmd 换了一种思路：**Class 是中心，接口是投影。**
 | 多层级子命令 | 手动 | ✓ | ✓ | 有限 | **✓** |
 | Swagger 文档 | ✗ | ✗ | ✗ | ✗ | **✓** |
 | 进度条/表格/彩色 | ✗ | ✓ | ✓(rich) | ✗ | **✓** |
+| 自动生成 CLI 文档 | ✗ | 第三方 | 基础 | ✗ | **✓（Markdown+表格+TOC+可复制命令行）** |
+| 方法可直接调用 | ✓ | ✗ | ✗ | ✓ | **✓（零装饰器，普通类方法）** |
 
 ---
 
@@ -355,6 +363,45 @@ $ python k8s_deploy.py scale --replicas 5
 ```
 
 其他框架做不到这一点：click/typer 用装饰器绑定函数，无法继承覆写；fire 虽然也基于类，但不支持多层级子命令和 Web/API 投影。
+
+#### 方法可直接调用——零装饰器设计
+
+click/typer 的装饰器会把函数**变成 `click.Command` 对象**，你无法像普通函数一样调用它：
+
+```python
+# click —— 装饰器改变了函数本质
+@click.command()
+@click.argument('name')
+@click.option('--times', default=1)
+def greet(name, times):
+    print(f'Hello, {name}!')
+
+greet('张三', 3)  # TypeError! greet 已经不是普通函数了
+# 必须绕路：CliRunner().invoke(greet, ['张三', '--times', '3'])
+# 或者自己拆两层：_greet_impl() + @click.command() 包一层
+```
+
+nb_cmd 的方法始终是**普通的 Python 类方法**，框架只在 `run()` 时通过反射发现它们：
+
+```python
+# nb_cmd —— 就是普通方法，零装饰器
+class MyTool(NbCmd):
+    def greet(self, name: str, times: int = 1):
+        for _ in range(times):
+            print(f'Hello, {name}!')
+
+# 直接调用 —— 完全OK
+MyTool().greet('张三', 3)
+
+# 当 CLI 用 —— 也OK
+MyTool().run()  # python script.py greet --name 张三 --times 3
+
+# import 到别的模块 —— 也OK
+from my_tool import MyTool
+result = MyTool().greet('张三', 3)
+```
+
+**这意味着：** 你的业务逻辑（方法）永远可以直接调用、单元测试、import 复用，不被 CLI 框架绑架。
 
 ### 3. 多层级子命令
 
@@ -901,7 +948,52 @@ deploy — 部署服务到目标主机
 stats — 查看系统状态
 ```
 
-### 12. Web UI 交互特性
+### 12. 自动文档生成（CmdGen）—— 吊打 `--help`
+
+传统 CLI 框架的文档能力止步于 `--help`：一段纯文本，不能复制、不能跳转、不能分享。即使 typer 有 `typer utils docs`，也只是把 `--help` 搬到 Markdown 里而已。
+
+nb_cmd 的 `CmdGen` 是真正的**面向用户的 API 文档生成器**——自动生成带 TOC 目录、参数表格、可复制命令行、占位符约定的**高质量 Markdown 文档**，测试人员和运维人员拿到就能直接用。
+
+```python
+from nb_cmd import CmdGen
+
+g = CmdGen(MyApp, script='my_tool.py')
+
+# 生成单个命令的可复制命令行
+print(g.cmd(DbTool.migrate))
+# python my_tool.py --region ${beijing} --env ${prod} --debug db migrate --dry-run
+
+# 一键生成完整 Markdown 文档到文件
+g.doc(file='docs/cli_reference.md')
+```
+
+**生成的 Markdown 包含：**
+
+| 区域 | 内容 |
+|------|------|
+| 标题 + 版本 | `# cloud-tool v1.0.0` |
+| Table of Contents | 自动递归生成，支持多层级子命令组，可点击跳转 |
+| System Params | 系统参数表格（`-h` / `-fh` / `--web` 等） |
+| Global Params | 全局参数表格（类型 + 默认值 + 描述） |
+| Quick Start | 三条最常用命令（查看帮助/版本/启动 Web） |
+| 命令行约定 | `${value}` / `$<required>` / `--flag` 含义说明 |
+| 每个命令 | 标题 + 描述 + 参数表格 + 可复制 `bash` 代码块 |
+
+**vs 其他框架的文档能力：**
+
+| 功能 | click | typer | nb_cmd `CmdGen` |
+|------|-------|-------|-----------------|
+| 终端 `--help` | 有 | 有（Rich） | 有（三级帮助系统） |
+| 自动生成 Markdown | 需第三方 `sphinx-click` | 基础版（搬运 `--help`） | **完整版（表格+TOC+代码块）** |
+| 可复制命令行模板 | ✗ | ✗ | **✓** `${default}` / `$<required>` |
+| 参数表格（类型/默认/描述） | ✗ | ✗ | **✓** 每个命令自动生成 |
+| 单命令示例生成 | ✗ | ✗ | **✓** `g.cmd(DbTool.migrate)` |
+| 一键写入文件 | ✗ | ✗ | **✓** `g.doc(file='xxx.md')` |
+| 智能格式路由 | ✗ | ✗ | **✓** `.md` 文件自动用 Markdown 格式 |
+
+> 完整示例见 [examples/nbctx_demo/nbctx_demo_gen_doc.md](https://github.com/ydf0509/nb_cmd/blob/main/examples/nbctx_demo/nbctx_demo_gen_doc.md)
+
+### 13. Web UI 交互特性
 
 以下功能在 `--web` 模式下自动可用，无需额外配置：
 
@@ -924,8 +1016,23 @@ stats — 查看系统状态
 
 ```python
 from typing import Annotated
-from nb_cmd import NbCmd, NbCmdMeta, Param, cmdui, validate
+from nb_cmd import NbCmd, NbCmdMeta, Param, cmdui, validate, CmdGen
 ```
+
+### CmdGen（自动文档生成）
+
+```python
+from nb_cmd import CmdGen
+
+g = CmdGen(entry_cls, script='app.py', python='python', fmt='text')
+```
+
+| 方法 | 说明 |
+|------|------|
+| `CmdGen(cls, script, python, fmt)` | 创建生成器。`fmt`: `'text'` / `'markdown'` |
+| `g.cmd(Method)` | 生成单个方法的可复制 CLI 命令行 |
+| `g.doc()` | 生成完整文档字符串 |
+| `g.doc(file='path.md')` | 生成完整文档并写入文件（`.md` 自动用 Markdown 格式） |
 
 ### cmdui（UI / 交互工具）
 
@@ -1085,6 +1192,7 @@ nb_cmd/
 │   ├── discovery.py       # 命令发现（反射 + 类型检查）
 │   ├── parser.py          # argparse 解析器构建
 │   ├── type_utils.py      # 类型工具（Enum/Optional/List 等）
+│   ├── gen_cmd.py         # CmdGen 自动文档/命令行示例生成器
 │   ├── result_handler.py  # 返回值自动处理
 │   └── _io_dispatch.py    # 线程安全的 stdout/stderr 分发器
 ├── modes/

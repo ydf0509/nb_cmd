@@ -127,6 +127,9 @@ def _register_routes(app, instance, commands, base_cls=None, prefix=''):
                     group_instance = group_cls(**group_kwargs) if group_kwargs else group_cls()
                 except TypeError:
                     group_instance = group_cls.__new__(group_cls)
+                parent_ctx = instance.nbctx if hasattr(instance, 'nbctx') else None
+                if parent_ctx is not None:
+                    group_instance.nbctx = parent_ctx
                 group_commands = discover_commands(group_instance, base_cls,
                                                    include_builtins=False)
                 group_prefix = '{}/{}'.format(prefix, cmd_name) if prefix else cmd_name
@@ -238,13 +241,18 @@ def _make_route(app, path, summary, cmd_name, instance, request_model, type_hint
 
     def _fresh(raw_init_params=None):
         if not raw_init_params or not _init_types:
-            return _cls(**_init_kwargs) if _init_kwargs else _cls()
-        from ..core.type_utils import convert_value
-        merged = dict(_init_kwargs)
-        for pname, val in raw_init_params.items():
-            if pname in _init_types:
-                merged[pname] = convert_value(val, _init_types[pname])
-        return _cls(**merged) if merged else _cls()
+            inst = _cls(**_init_kwargs) if _init_kwargs else _cls()
+        else:
+            from ..core.type_utils import convert_value
+            merged = dict(_init_kwargs)
+            for pname, val in raw_init_params.items():
+                if pname in _init_types:
+                    merged[pname] = convert_value(val, _init_types[pname])
+            inst = _cls(**merged) if merged else _cls()
+        ctx = inst.make_nbctx()
+        if ctx is not None:
+            inst.nbctx = ctx
+        return inst
 
     def _convert_kwargs(kwargs):
         from ..core.type_utils import convert_value

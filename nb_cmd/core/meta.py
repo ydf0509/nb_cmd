@@ -34,4 +34,5 @@ class NbCmdMeta(object):
     web_title = None           # type: str   # Web UI 页面标题
     web_theme = 'light'        # type: str   # Web UI 主题 ('light' / 'dark')
     enable_exec = True         # type: bool  # 是否暴露内置 exec 命令（False 可防止恶意执行）
+    help_mode = 'full'         # type: str   # -h 帮助模式: 'full'(完整帮助) / 'easy'(简易帮助)
     aliases = {}               # type: dict  # 参数别名（推荐用 Annotated 替代）

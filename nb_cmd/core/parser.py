@@ -17,7 +17,7 @@ class _RawDefaultsHelpFormatter(argparse.RawDescriptionHelpFormatter,
     pass
 
 
-def build_parser(instance, commands, meta):
+def build_parser(instance, commands, meta, base_cls=None):
     """
     为顶层 NbCmd 实例构建完整的 argparse 解析器。
 
@@ -26,7 +26,11 @@ def build_parser(instance, commands, meta):
     instance : NbCmd 实例
     commands : dict  由 discover_commands 返回
     meta : Meta 配置类
+    base_cls : type, optional  NbCmd 基类，用于子命令组 discover 过滤
     """
+    if base_cls is None:
+        from .base import NbCmd as _NbCmd
+        base_cls = _NbCmd
     description = inspect.getdoc(instance) or instance.__class__.__name__
     version = getattr(meta, 'version', '0.0.1')
 
@@ -38,10 +42,12 @@ def build_parser(instance, commands, meta):
 
     sys_group = parser.add_argument_group('system params')
     sys_group.add_argument('-h', '--help', action='help',
-                           default=argparse.SUPPRESS, help='显示帮助信息')
+                           default=argparse.SUPPRESS, help='显示帮助信息（-h 行为由 Meta.help_mode 控制）')
     sys_group.add_argument('--version', action='version', version=version)
-    sys_group.add_argument('--full-help', '-fh', action='store_true',
+    sys_group.add_argument('-fh', '--full-help', action='store_true',
                            default=False, help='显示所有命令的完整参数详情')
+    sys_group.add_argument('-eh', '--easy-help', action='store_true',
+                           default=False, help='显示简易帮助（argparse 原生格式）')
     sys_group.add_argument('--web', action='store_true',
                            help='以Web UI + REST API模式启动')
     sys_group.add_argument('--web-port', type=int, default=None,
@@ -66,7 +72,7 @@ def build_parser(instance, commands, meta):
                 description=group_doc,
                 formatter_class=_RawDefaultsHelpFormatter,
             )
-            _build_group_subparser(sub, group_cls, instance.__class__, group_kwargs)
+            _build_group_subparser(sub, group_cls, base_cls, group_kwargs)
         else:
             param_hint = _build_param_hint(cmd_info)
             help_text = cmd_info['doc']
@@ -98,7 +104,7 @@ def _build_param_hint(cmd_info):
             short = arg_inst.aliases[0]
             flag = '{}/{}'.format(short, cli_name)
         else:
-            flag = pname.upper() if not has_default else cli_name
+            flag = cli_name
         if has_default and param.default is not False and param.default is not True:
             parts.append('{}={}'.format(flag, param.default))
         else:
@@ -108,9 +114,33 @@ def _build_param_hint(cmd_info):
     return '({})'.format(', '.join(parts))
 
 
+def print_easy_help(instance, base_cls):
+    """打印简易帮助（argparse 原生格式）"""
+    meta = getattr(instance.__class__, 'Meta', type('Meta', (), {}))
+    _enable_exec = getattr(meta, 'enable_exec', True)
+    from .discovery import discover_commands
+    commands = discover_commands(instance, base_cls, enable_exec=_enable_exec)
+    parser = build_parser(instance, commands, meta, base_cls=base_cls)
+    parser.print_help()
+
+
+def get_full_help_text(instance, base_cls):
+    """生成完整帮助文本并返回字符串（无 ANSI 颜色码）"""
+    lines = _build_full_help_lines(instance, base_cls, color=False)
+    return '\n'.join(lines)
+
+
 def print_full_help(instance, base_cls):
-    """打印所有命令的完整参数详情"""
+    """打印所有命令的完整参数详情到 stdout（带 ANSI 颜色码）"""
     import sys as _sys
+    lines = _build_full_help_lines(instance, base_cls, color=True)
+    _sys.stdout.write('\n'.join(lines))
+    _sys.stdout.write('\n')
+    _sys.stdout.flush()
+
+
+def _build_full_help_lines(instance, base_cls, color=True):
+    """构建完整帮助的所有行，返回列表"""
     from .discovery import discover_commands
 
     meta = getattr(instance.__class__, 'Meta', type('Meta', (), {}))
@@ -119,42 +149,47 @@ def print_full_help(instance, base_cls):
     description = inspect.getdoc(instance) or instance.__class__.__name__
     version = getattr(meta, 'version', '0.0.1')
 
-    w = _sys.stdout.write
-    line = '=' * 56
+    sep = '=' * 56
+    lines = [
+        '',
+        sep,
+        '  {} v{}'.format(instance.__class__.__name__, version),
+        '  {}'.format(description),
+        sep,
+        '',
+        'system params:',
+        '    {:<24s} {}'.format('--help, -h', '显示帮助信息'),
+        '    {:<24s} {}'.format('--full-help, -fh', '显示完整帮助（所有参数详情）'),
+        '    {:<24s} {}'.format('--easy-help, -eh', '显示简易帮助（argparse 原生格式）'),
+        '    {:<24s} {}'.format('--version', '显示版本号'),
+        '    {:<24s} {}'.format('--web', '以Web UI + REST API模式启动'),
+        '    {:<24s} {}'.format('--web-port PORT', 'Web UI 服务端口（用于 --web）'),
+        '',
+    ]
 
-    w('\n{}\n  {} v{}\n  {}\n{}\n\n'.format(
-        line, instance.__class__.__name__, version, description, line))
+    if _has_init_params(instance):
+        lines.append('init params:')
+        lines.extend(_build_init_param_lines(instance))
+        lines.append('')
 
-    w('system params:\n')
-    w('    {:<24s} {}\n'.format('--help, -h', '显示简要帮助'))
-    w('    {:<24s} {}\n'.format('--full-help, -fh', '显示本完整帮助'))
-    w('    {:<24s} {}\n'.format('--version', '显示版本号'))
-    w('    {:<24s} {}\n'.format('--web', '以Web UI + REST API模式启动'))
-    w('    {:<24s} {}\n'.format('--web-port PORT', 'Web UI 服务端口（用于 --web）'))
-    w('\n')
+    lines.append('-' * 56)
+    lines.extend(_build_group_command_lines(commands, base_cls, prefix='', color=color))
 
-    has_init_params = _has_init_params(instance)
-    if has_init_params:
-        w('init params:\n')
-        _print_init_params(w, instance)
-        w('\n')
-
-    w('{}\n'.format('-' * 56))
-    _print_group_commands(w, commands, base_cls, prefix='')
-    _sys.stdout.flush()
+    return lines
 
 
-def _print_group_commands(w, commands, base_cls, prefix=''):
-    """递归打印命令组及其所有子命令（含嵌套组）"""
+def _build_group_command_lines(commands, base_cls, prefix='', color=True):
+    """递归收集命令组及其所有子命令的帮助行"""
     from .discovery import discover_commands
 
+    lines = []
     for cmd_name, cmd_info in commands.items():
         cli_name = cmd_name.replace('_', '-')
         full_name = '{} {}'.format(prefix, cli_name).strip() if prefix else cli_name
 
         if cmd_info.get('is_group'):
-            w('{} \033[36m[子命令组]\033[0m  {}\n'.format(
-                full_name, cmd_info.get('doc', '')))
+            tag = '\033[36m[子命令组]\033[0m' if color else '[子命令组]'
+            lines.append('{} {}  {}'.format(full_name, tag, cmd_info.get('doc', '')))
             group_cls = cmd_info['cls']
             group_kwargs = cmd_info.get('init_kwargs', {})
             try:
@@ -163,23 +198,28 @@ def _print_group_commands(w, commands, base_cls, prefix=''):
                 group_inst = group_cls.__new__(group_cls)
             group_cmds = discover_commands(group_inst, base_cls,
                                            include_builtins=False)
-            _print_group_commands(w, group_cmds, base_cls, prefix=full_name)
-            w('\n')
+            lines.extend(_build_group_command_lines(group_cmds, base_cls,
+                                                    prefix=full_name, color=color))
+            lines.append('')
         else:
             if prefix:
-                w('\n  {} — {}\n'.format(full_name, cmd_info.get('doc', '')))
+                lines.append('')
+                lines.append('  {} — {}'.format(full_name, cmd_info.get('doc', '')))
             else:
-                w('{} — {}\n'.format(full_name, cmd_info.get('doc', '')))
-            _print_params(w, cmd_info)
+                lines.append('{} — {}'.format(full_name, cmd_info.get('doc', '')))
+            lines.extend(_build_param_lines(cmd_info))
             if not prefix:
-                w('\n')
+                lines.append('')
+
+    return lines
 
 
-def _print_params(write_fn, cmd_info):
-    """打印一个命令的完整参数列表"""
+def _build_param_lines(cmd_info):
+    """构建一个命令的完整参数列表行"""
     sig = cmd_info['signature']
     hints = cmd_info.get('type_hints', {})
     arg_meta = cmd_info.get('arg_meta', {})
+    lines = []
 
     for pname, param in sig.parameters.items():
         if pname == 'self':
@@ -195,10 +235,7 @@ def _print_params(write_fn, cmd_info):
         if arg_inst and arg_inst.aliases:
             flags_str = '{}, {}'.format(cli_flag, ', '.join(arg_inst.aliases))
         else:
-            if not has_default:
-                flags_str = pname.upper()
-            else:
-                flags_str = cli_flag
+            flags_str = cli_flag
 
         if has_default:
             meta_str = '({}, 默认: {})'.format(type_name, param.default)
@@ -206,9 +243,11 @@ def _print_params(write_fn, cmd_info):
             meta_str = '({}, 必填)'.format(type_name)
 
         if desc:
-            write_fn('    {:<24s} {}  {}\n'.format(flags_str, desc, meta_str))
+            lines.append('    {:<24s} {}  {}'.format(flags_str, desc, meta_str))
         else:
-            write_fn('    {:<24s} {}\n'.format(flags_str, meta_str))
+            lines.append('    {:<24s} {}'.format(flags_str, meta_str))
+
+    return lines
 
 
 def _has_init_params(instance):
@@ -223,15 +262,16 @@ def _has_init_params(instance):
     return False
 
 
-def _print_init_params(write_fn, instance):
-    """打印 __init__ 全局选项的详情（用于 --full-help）"""
+def _build_init_param_lines(instance):
+    """构建 __init__ 全局选项的详情行"""
     from .arg import unwrap_arg
 
     init_method = instance.__class__.__init__
     if init_method is object.__init__:
-        return
+        return []
 
     sig = inspect.signature(init_method)
+    lines = []
 
     for pname, param in sig.parameters.items():
         if pname == 'self':
@@ -263,9 +303,11 @@ def _print_init_params(write_fn, instance):
         meta_str = '(全局, {}, 默认: {})'.format(type_name, default_val)
 
         if desc:
-            write_fn('    {:<24s} {}  {}\n'.format(flags_str, desc, meta_str))
+            lines.append('    {:<24s} {}  {}'.format(flags_str, desc, meta_str))
         else:
-            write_fn('    {:<24s} {}\n'.format(flags_str, meta_str))
+            lines.append('    {:<24s} {}'.format(flags_str, meta_str))
+
+    return lines
 
 
 def _add_init_global_options(parser, instance):
@@ -388,33 +430,22 @@ def _add_method_arguments(sub_parser, cmd_info, meta):
                 kwargs['choices'] = choices
             sub_parser.add_argument(*flags, **kwargs)
         else:
+            flags = [cli_flag] + extra_flags
             auto_help = '({}, 必填)'.format(type_name)
-            if extra_flags:
-                flags = [cli_flag] + extra_flags
-                kwargs = dict(
-                    type=ap_type,
-                    required=True,
-                    dest=param_name,
-                    help='{} {}'.format(desc, auto_help) if desc else auto_help,
-                )
-                if nargs is not None:
-                    kwargs['nargs'] = nargs
-                if choices is not None:
-                    kwargs['choices'] = choices
-                sub_parser.add_argument(*flags, **kwargs)
-            else:
-                kwargs = dict(
-                    type=ap_type,
-                    help='{} {}'.format(desc, auto_help) if desc else auto_help,
-                )
-                if nargs is not None:
-                    kwargs['nargs'] = nargs
-                if choices is not None:
-                    kwargs['choices'] = choices
-                sub_parser.add_argument(param_name, **kwargs)
+            kwargs = dict(
+                type=ap_type,
+                required=True,
+                dest=param_name,
+                help='{} {}'.format(desc, auto_help) if desc else auto_help,
+            )
+            if nargs is not None:
+                kwargs['nargs'] = nargs
+            if choices is not None:
+                kwargs['choices'] = choices
+            sub_parser.add_argument(*flags, **kwargs)
 
 
-def _build_group_subparser(parent_parser, group_cls, base_cls, init_kwargs=None):
+def _build_group_subparser(parent_parser, group_cls, base_cls, init_kwargs=None, depth=1):
     """递归为子命令组构建 subparser"""
     from .discovery import discover_commands
 
@@ -435,7 +466,8 @@ def _build_group_subparser(parent_parser, group_cls, base_cls, init_kwargs=None)
 
     sub_group_meta = getattr(group_cls, 'Meta', type('Meta', (), {}))
 
-    group_subparsers = parent_parser.add_subparsers(dest='_nb_sub_command', help='可用子命令')
+    dest = '_nb_sub_command' if depth == 1 else '_nb_sub_command_{}'.format(depth)
+    group_subparsers = parent_parser.add_subparsers(dest=dest, help='可用子命令')
 
     for cmd_name, cmd_info in group_commands.items():
         cli_name = cmd_name.replace('_', '-')
@@ -450,7 +482,7 @@ def _build_group_subparser(parent_parser, group_cls, base_cls, init_kwargs=None)
                 description=nested_doc,
                 formatter_class=_RawDefaultsHelpFormatter,
             )
-            _build_group_subparser(nested_sub, nested_cls, base_cls, nested_kwargs)
+            _build_group_subparser(nested_sub, nested_cls, base_cls, nested_kwargs, depth + 1)
         else:
             sub = group_subparsers.add_parser(
                 cli_name,

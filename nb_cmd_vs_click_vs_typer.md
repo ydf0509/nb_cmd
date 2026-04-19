@@ -404,14 +404,14 @@ def remote(ctx):
 @click.pass_context
 def add(ctx, name, url):
     """添加远程仓库"""
-    print('[{}] git remote add {} {}'.format(ctx.obj['region'], name, url))
+    print('git remote add {} {}'.format(name, url))
 
 @remote.command()
 @click.argument('name')
 @click.pass_context
 def remove(ctx, name):
     """删除远程仓库"""
-    print('[{}] git remote remove {}'.format(ctx.obj['region'], name))
+    print('git remote remove {}'.format(name))
 
 # ---------- branch 子命令组 ----------
 @cli.group()
@@ -426,7 +426,7 @@ def branch(ctx):
 @click.pass_context
 def create(ctx, name, from_branch):
     """创建分支"""
-    print('[{}] git branch {} from {}'.format(ctx.obj['region'], name, from_branch))
+    print('git branch {} from {}'.format(name, from_branch))
 
 @branch.command()
 @click.argument('name')
@@ -435,7 +435,7 @@ def create(ctx, name, from_branch):
 def delete(ctx, name, force):
     """删除分支"""
     flag = ' --force' if force else ''
-    print('[{}] git branch -d{} {}'.format(ctx.obj['region'], flag, name))
+    print('git branch -d{} {}'.format(flag, name))
 
 if __name__ == '__main__':
     cli()
@@ -481,12 +481,12 @@ app.add_typer(remote_app, name="remote")
 @remote_app.command()
 def add(name: str, url: str):
     """添加远程仓库"""
-    print('[{}] git remote add {} {}'.format(state["region"], name, url))
+    print('git remote add {} {}'.format(name, url))
 
 @remote_app.command()
 def remove(name: str):
     """删除远程仓库"""
-    print('[{}] git remote remove {}'.format(state["region"], name))
+    print('git remote remove {}'.format(name))
 
 # ---------- branch 子命令组 ----------
 branch_app = typer.Typer(help='分支管理')
@@ -495,13 +495,13 @@ app.add_typer(branch_app, name="branch")
 @branch_app.command()
 def create(name: str, from_branch: str = "main"):
     """创建分支"""
-    print('[{}] git branch {} from {}'.format(state["region"], name, from_branch))
+    print('git branch {} from {}'.format(name, from_branch))
 
 @branch_app.command()
 def delete(name: str, force: bool = False):
     """删除分支"""
     flag = ' --force' if force else ''
-    print('[{}] git branch -d{} {}'.format(state["region"], flag, name))
+    print('git branch -d{} {}'.format(flag, name))
 
 if __name__ == '__main__':
     app()
@@ -528,11 +528,11 @@ class GitRemote(NbCmd):
     """远程仓库管理"""
     def add(self, name: str, url: str):
         """添加远程仓库"""
-        print('[{}] git remote add {} {}'.format(self._parent.region, name, url))
+        print('git remote add {} {}'.format(name, url))
 
     def remove(self, name: str):
         """删除远程仓库"""
-        print('[{}] git remote remove {}'.format(self._parent.region, name))
+        print('git remote remove {}'.format(name))
 
 class GitBranch(NbCmd):
     """分支管理"""
