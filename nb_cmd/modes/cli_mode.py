@@ -70,20 +70,32 @@ def run_cli(instance, base_cls, args=None):
 
 
 def _apply_init_args(instance, parsed):
-    """将解析出的全局选项（__init__参数）应用到实例上"""
+    """
+    将解析出的全局选项（__init__参数）应用到实例上。
+
+    通过重新调用 __init__（带 CLI 解析值）来更新实例状态，
+    这样用户在 __init__ 中直接赋值 self.nbctx = XxxCtx(...) 也能拿到正确的 CLI 值。
+    """
     init_method = instance.__class__.__init__
     if init_method is object.__init__:
         return
 
     sig = inspect.signature(init_method)
+    kwargs = {}
     for param_name in sig.parameters:
         if param_name == 'self':
             continue
         attr_name = '_nb_init_' + param_name
         if hasattr(parsed, attr_name):
-            val = getattr(parsed, attr_name)
-            if val is not None:
-                setattr(instance, param_name, val)
+            cli_val = getattr(parsed, attr_name)
+            if cli_val is not None:
+                kwargs[param_name] = cli_val
+            elif hasattr(instance, param_name):
+                kwargs[param_name] = getattr(instance, param_name)
+        elif hasattr(instance, param_name):
+            kwargs[param_name] = getattr(instance, param_name)
+
+    instance.__init__(**kwargs)
 
 
 def _extract_kwargs(method, cmd_info, parsed):

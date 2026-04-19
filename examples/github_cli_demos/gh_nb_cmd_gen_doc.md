@@ -1,0 +1,197 @@
+# gh-cli v1.0.0
+
+> gh-cli: GitHub 命令行工具 (nb_cmd 版)
+
+全局参数 repo/hostname/auth_token/debug/no_prompt 自动穿透到所有子命令组。
+
+## Table of Contents
+
+- [`status`](#status)
+- [`issue`  *(子命令组)*](#issue-子命令组)
+  - [`issue create`](#issue-create)
+  - [`issue list`](#issue-list)
+  - [`issue view`](#issue-view)
+- [`pr`  *(子命令组)*](#pr-子命令组)
+  - [`pr create`](#pr-create)
+  - [`pr list`](#pr-list)
+  - [`pr merge`](#pr-merge)
+- [`repo`  *(子命令组)*](#repo-子命令组)
+  - [`repo clone`](#repo-clone)
+  - [`repo fork`](#repo-fork)
+
+---
+
+## System Params
+
+| Flag | Description |
+|------|-------------|
+| `-h`, `--help` | 显示帮助信息 |
+| `-fh`, `--full-help` | 显示完整帮助（所有参数详情） |
+| `-eh`, `--easy-help` | 显示简易帮助（argparse 原生格式） |
+| `--cmd-version` | 显示版本号 |
+| `--web` | 以 Web UI + REST API 模式启动 |
+| `--web-port PORT` | Web UI 服务端口（用于 `--web`） |
+
+## Global Params (`__init__`)
+
+| Flag | Type | Default | Description |
+|------|------|---------|-------------|
+| `--repo, -R` | `str` | `None` | 目标仓库 (owner/repo) |
+| `--hostname` | `str` | `None` | GitHub Enterprise 域名 |
+| `--auth-token` | `str` | `None` | 访问令牌 (覆盖配置) |
+| `--debug` | `bool` | `False` | 开启调试模式 |
+| `--no-prompt` | `bool` | `False` | 禁用交互提示 |
+
+## Quick Start
+
+```bash
+# 查看完整帮助
+D:\ProgramData\Miniconda3\envs\py39b\python.exe gh_nb_cmd.py -fh
+
+# 查看版本
+D:\ProgramData\Miniconda3\envs\py39b\python.exe gh_nb_cmd.py --cmd-version
+
+# 启动 Web UI
+D:\ProgramData\Miniconda3\envs\py39b\python.exe gh_nb_cmd.py --web
+```
+
+## 命令行约定
+
+命令格式：`python script.py [全局参数] <子命令路径> [命令参数]`
+
+| 标记 | 含义 |
+|------|------|
+| `${value}` | 带默认值的参数 — 可按需替换 |
+| `$<name>` | **必填**参数 — 必须提供值 |
+| `--flag`（无值） | 布尔开关，添加即启用 |
+
+---
+
+## Commands
+
+### `status`
+
+查看 CLI 全局配置状态
+
+```bash
+D:\ProgramData\Miniconda3\envs\py39b\python.exe gh_nb_cmd.py --repo ${None} --hostname ${None} --auth-token ${None} --debug --no-prompt status
+```
+
+### `issue` *(子命令组)*
+
+> Issue 管理
+
+#### `issue create`
+
+创建新 Issue
+
+| Param | Type | Default | Description |
+|-------|------|---------|-------------|
+| `--title, -t` | `str` | *(required)* | Issue 标题 |
+| `--body, -b` | `str` | `` | Issue 正文 |
+| `--assignee, -a` | `str` | `None` | 指定负责人 |
+
+```bash
+D:\ProgramData\Miniconda3\envs\py39b\python.exe gh_nb_cmd.py --repo ${None} --hostname ${None} --auth-token ${None} --debug --no-prompt issue create --title $<title> --body ${} --assignee ${None}
+```
+
+#### `issue list`
+
+列出 Issues
+
+| Param | Type | Default | Description |
+|-------|------|---------|-------------|
+| `--state` | `str` | `open` | Issue 状态过滤 (open/closed/all) |
+| `--label` | `str` | `None` | 按标签过滤 |
+| `--limit` | `int` | `30` | 最大返回数量 |
+
+```bash
+D:\ProgramData\Miniconda3\envs\py39b\python.exe gh_nb_cmd.py --repo ${None} --hostname ${None} --auth-token ${None} --debug --no-prompt issue list --state ${open} --label ${None} --limit ${30}
+```
+
+#### `issue view`
+
+查看 Issue 详情
+
+| Param | Type | Default | Description |
+|-------|------|---------|-------------|
+| `--number` | `int` | *(required)* | Issue 编号 |
+
+```bash
+D:\ProgramData\Miniconda3\envs\py39b\python.exe gh_nb_cmd.py --repo ${None} --hostname ${None} --auth-token ${None} --debug --no-prompt issue view --number $<number>
+```
+
+### `pr` *(子命令组)*
+
+> Pull Request 管理
+
+#### `pr create`
+
+创建新 Pull Request
+
+| Param | Type | Default | Description |
+|-------|------|---------|-------------|
+| `--title, -t` | `str` | *(required)* | PR 标题 |
+| `--body, -b` | `str` | `` | PR 描述 |
+| `--base` | `str` | `main` | 目标分支 |
+| `--draft` | `bool` | `False` | 创建为 Draft PR |
+
+```bash
+D:\ProgramData\Miniconda3\envs\py39b\python.exe gh_nb_cmd.py --repo ${None} --hostname ${None} --auth-token ${None} --debug --no-prompt pr create --title $<title> --body ${} --base ${main} --draft
+```
+
+#### `pr list`
+
+列出 Pull Requests
+
+| Param | Type | Default | Description |
+|-------|------|---------|-------------|
+| `--state` | `str` | `open` | PR 状态过滤 (open/closed/merged/all) |
+| `--author` | `str` | `None` | 按作者过滤 |
+
+```bash
+D:\ProgramData\Miniconda3\envs\py39b\python.exe gh_nb_cmd.py --repo ${None} --hostname ${None} --auth-token ${None} --debug --no-prompt pr list --state ${open} --author ${None}
+```
+
+#### `pr merge`
+
+合并 Pull Request
+
+| Param | Type | Default | Description |
+|-------|------|---------|-------------|
+| `--number, -n` | `int` | *(required)* | PR 编号 |
+| `--squash` | `bool` | `False` | Squash 合并 |
+| `--delete-branch` | `bool` | `False` | 合并后删除分支 |
+
+```bash
+D:\ProgramData\Miniconda3\envs\py39b\python.exe gh_nb_cmd.py --repo ${None} --hostname ${None} --auth-token ${None} --debug --no-prompt pr merge --number $<number> --squash --delete-branch
+```
+
+### `repo` *(子命令组)*
+
+> 仓库管理
+
+#### `repo clone`
+
+克隆仓库
+
+| Param | Type | Default | Description |
+|-------|------|---------|-------------|
+| `--target-repo` | `str` | *(required)* | 要克隆的仓库 |
+| `--depth` | `int` | `0` | 浅克隆深度 (0=完整) |
+
+```bash
+D:\ProgramData\Miniconda3\envs\py39b\python.exe gh_nb_cmd.py --repo ${None} --hostname ${None} --auth-token ${None} --debug --no-prompt repo clone --target-repo $<target_repo> --depth ${0}
+```
+
+#### `repo fork`
+
+Fork 仓库
+
+| Param | Type | Default | Description |
+|-------|------|---------|-------------|
+| `--org` | `str` | `None` | Fork 到指定组织 |
+
+```bash
+D:\ProgramData\Miniconda3\envs\py39b\python.exe gh_nb_cmd.py --repo ${None} --hostname ${None} --auth-token ${None} --debug --no-prompt repo fork --org ${None}
+```

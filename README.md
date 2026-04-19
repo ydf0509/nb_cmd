@@ -11,6 +11,8 @@
 
 > 详细的多维度对比（含多层级子命令 + 全局参数的完整代码对比）请看：[nb_cmd vs click vs typer vs fire](https://github.com/ydf0509/nb_cmd/blob/main/nb_cmd_vs_click_vs_typer.md)
 
+> **GitHub CLI 实战对比：** 以真实 `gh` CLI 语义为基准（5 全局参数 + 3 子命令组 + 9 子命令），三框架完整实现对比。Click 需 49 个装饰器，Typer 需模块全局变量，nb_cmd 零装饰器 + 强类型上下文 + CmdGen 一行生成 Markdown 文档。[查看对比](examples/github_cli_demos/gh_comparison.md) | [nb_cmd 实现](examples/github_cli_demos/gh_nb_cmd.py) | [自动生成文档](examples/github_cli_demos/gh_nb_cmd_gen_doc.md)
+
 ## 目录
 
 - [为什么用 nb_cmd？](#为什么用-nb_cmd)
@@ -1084,6 +1086,8 @@ g = CmdGen(entry_cls, script='app.py', python='python', fmt='text')
 ## 和竞品对比
 
 > 详细的多维度对比（含多层级子命令 + 全局参数的完整代码对比）请看：[nb_cmd vs click vs typer vs fire](https://github.com/ydf0509/nb_cmd/blob/main/nb_cmd_vs_click_vs_typer.md)
+
+> **GitHub CLI 三框架实战对比**：以真实 `gh` CLI 为基准（5 全局参数 + 3 子命令组 + 9 子命令），三框架完整可运行代码对比。[查看完整对比文档](examples/github_cli_demos/gh_comparison.md) | [Click 实现](examples/github_cli_demos/gh_click.py) | [Typer 实现](examples/github_cli_demos/gh_typer.py) | [nb_cmd 实现](examples/github_cli_demos/gh_nb_cmd.py) | [CmdGen 自动生成文档](examples/github_cli_demos/gh_nb_cmd_gen_doc.md)
 
 ### 代码对比：实现同一个工具
 

@@ -105,6 +105,7 @@ def unwrap_arg(hint):
     - Annotated[str, '描述']                     → (str, _ArgMeta(desc='描述'))
     - Annotated[str, '描述', 'n']                → (str, _ArgMeta(desc='描述', aliases=['-n']))
     - Annotated[str, Param(desc='描述', alias='n')]  → 同上
+    - Optional[Annotated[str, '描述']]           → (str, _ArgMeta(desc='描述'))
     - str                                        → (str, None)
     """
     if Annotated is not None and get_origin(hint) is Annotated:
@@ -127,4 +128,29 @@ def unwrap_arg(hint):
             return real_type, _ArgMeta(desc=desc, aliases=aliases)
         return real_type, None
 
+    # Optional[Annotated[...]] — get_type_hints 对 default=None 的参数自动包装 Optional
+    if _is_optional(hint):
+        inner = _unwrap_optional(hint)
+        if inner is not hint and Annotated is not None and get_origin(inner) is Annotated:
+            return unwrap_arg(inner)
+
     return hint, None
+
+
+def _is_optional(tp):
+    """判断 tp 是否为 Optional[X]（即 Union[X, None]），兼容 Python 3.7+"""
+    import typing
+    origin = getattr(tp, '__origin__', None)
+    if origin is getattr(typing, 'Union', None):
+        args = getattr(tp, '__args__', ())
+        return type(None) in args
+    return False
+
+
+def _unwrap_optional(tp):
+    """Optional[X] → X，兼容 Python 3.7+"""
+    args = getattr(tp, '__args__', ())
+    non_none = [a for a in args if a is not type(None)]
+    if len(non_none) == 1:
+        return non_none[0]
+    return tp

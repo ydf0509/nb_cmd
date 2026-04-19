@@ -6,6 +6,59 @@ tags: []
 
 # nb_cmd 重大设计修改记录
 
+## 2026-04-19: CLI 模式 _apply_init_args 改为重新调用 __init__（Plan A）
+
+**问题**: 用户在 `__init__` 中直接赋值 `self.nbctx = GhCtx(repo=self.repo, ...)` 时，CLI 模式下 `self.nbctx` 拿到的是默认值而非 CLI 传入的值。原因是 CLI 执行流程为：
+1. `instance = Cls()` → `__init__` 用默认参数执行，`self.nbctx` 拿到默认值
+2. `_apply_init_args(instance, parsed)` → 用 `setattr` 逐个更新 `self.repo` 等属性
+3. `_ensure_nbctx(instance)` → 但 `self.nbctx` 已经不是 `None`，跳过 `make_nbctx()`
+结果：`self.nbctx` 仍是步骤 1 的默认值。
+
+**修复（Plan A）**: 将 `_apply_init_args` 从"setattr 逐个设属性"改为"收集 kwargs 后重新调用 `instance.__init__(**kwargs)`"。这样 `__init__` 中的 `self.nbctx = GhCtx(...)` 第二次执行时能拿到 CLI 解析的值。
+
+**Web/API 模式无需修改**: Web 模式的 `_user_cls(**kwargs)` 和 API 模式的 `_cls(**merged)` 已经直接带参数调用 `__init__`，直接赋值本身就能工作。
+
+**影响文件**:
+- `nb_cmd/modes/cli_mode.py` (`_apply_init_args` 改为收集 kwargs + 重新调用 `__init__`)
+- `examples/github_cli_demos/gh_nb_cmd.py` (从 `make_nbctx()` 模式改为直接赋值模式)
+- `tests/ai_codes/test_direct_nbctx.py` (新增直接赋值测试脚本)
+
+**用户现在有两种等价的上下文传递方式**:
+```python
+# 方式 1: 直接赋值（更简洁）
+def __init__(self, repo=None):
+    self.repo = repo
+    self.nbctx = GhCtx(repo=self.repo)
+
+# 方式 2: make_nbctx 模板方法（经典方式）
+def __init__(self, repo=None):
+    self.repo = repo
+def make_nbctx(self):
+    return GhCtx(repo=self.repo)
+```
+
+## 2026-04-19: unwrap_arg 修复 Optional[Annotated[...]] 解析
+
+**问题**: `get_type_hints(method, include_extras=True)` 会把 `default=None` 的 `Annotated[str, '描述']` 参数自动包装为 `Optional[Annotated[str, '描述']]`（即 `Union[Annotated[str, '描述'], None]`）。`unwrap_arg` 只处理了直接的 `Annotated[...]`，没有处理外层 `Optional` 包装的情况，导致：
+- 类型显示为 `Annotated[str, '描述']` 而非 `str`
+- 描述和别名丢失（显示为 `-`）
+
+**修复**: 在 `unwrap_arg` 中增加 `Optional[Annotated[...]]` 的检测。如果 hint 是 `Optional` 类型，先 unwrap Optional 得到内层类型，再检查内层是否为 `Annotated`，递归调用 `unwrap_arg` 处理。
+
+**影响文件**:
+- `nb_cmd/core/arg.py` (新增 `_is_optional()`, `_unwrap_optional()` 辅助函数，`unwrap_arg` 增加 Optional 分支)
+
+## 2026-04-19: GitHub CLI 三框架对比示例
+
+**需求**: 创建 GitHub CLI (`gh`) 风格的对比示例，展示 nb_cmd 在多层级命令+全参数场景下对 Click/Typer 的碾压优势。
+
+**文件**:
+- `examples/github_cli_demos/gh_click.py` — Click 实现（49 个装饰器，ctx.obj 字典传递）
+- `examples/github_cli_demos/gh_typer.py` — Typer 实现（模块全局变量，add_typer 管理）
+- `examples/github_cli_demos/gh_nb_cmd.py` — nb_cmd 实现（零装饰器，make_nbctx 强类型穿透，CmdGen 自动文档）
+- `examples/github_cli_demos/gh_nb_cmd_gen_doc.md` — CmdGen 自动生成的 Markdown 文档
+- `examples/github_cli_demos/gh_comparison.md` — 三框架对比总结文档
+
 ## 2026-04-18: 帮助系统三级化 (-h / -fh / -eh + help_mode 配置)
 
 **需求**: 很多用户只知道 `-h`，不知道 `-fh` 可以看完整帮助。希望 `-h` 默认显示完整帮助。
