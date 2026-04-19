@@ -1,4 +1,4 @@
-
+﻿
 # 🤖 AI 上下文阅读协议 (由 nb_ai_context 生成)
 
 > **系统指令**：你正在解析一份由工具 **`nb_ai_context`** 自动生成的**结构化项目快照**。
@@ -3533,6 +3533,8 @@ D:\ProgramData\Miniconda3\envs\py39b\python.exe d:/codes/nb_cmd/examples/nbctx_d
 
 ```bash
 D:\ProgramData\Miniconda3\envs\py39b\python.exe d:/codes/nb_cmd/examples/nbctx_demo/nbctx_demo.py --region ${beijing} --env ${prod} --debug server ops restart
+
+
 ```
 
 `````
@@ -3839,7 +3841,7 @@ class NbCmd(object):
     功能:
         - 公有方法 → 子命令
         - 方法签名 → 参数自动推导
-        - 支持 CLI / REST API / Web UI 三种模式
+        - 支持 CLI / REST API / Web UI / Python 直接调用 四种模式
         - 支持 OOP 继承覆写
         - 支持多层级子命令（sub_commands）
         - 支持 nbctx 跨层级上下文传递
