@@ -166,4 +166,6 @@ D:\ProgramData\Miniconda3\envs\py39b\python.exe d:/codes/nb_cmd/examples/nbctx_d
 
 ```bash
 D:\ProgramData\Miniconda3\envs\py39b\python.exe d:/codes/nb_cmd/examples/nbctx_demo/nbctx_demo.py --region ${beijing} --env ${prod} --debug server ops restart
+
+
 ```

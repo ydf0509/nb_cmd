@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 nb_cmd — 万能接口生成器
-你写一个 Python class，自动获得 CLI + REST API + Web UI 三种接口。
+你写一个 Python class，自动获得 CLI + REST API + Web UI + Python 直接调用 四种接口。
 
 用法::
 

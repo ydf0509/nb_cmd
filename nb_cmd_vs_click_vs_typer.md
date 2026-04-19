@@ -127,7 +127,7 @@ if __name__ == '__main__':
 
 ---
 
-### 5. nb_cmd（写一次，三种接口）
+### 5. nb_cmd（写一次，四种接口）
 
 ```python
 from nb_cmd import NbCmd
@@ -154,7 +154,7 @@ python deploy.py deploy web-01 --port 2222 --verbose   # CLI
 python deploy.py --web                                   # Web UI + REST API
 ```
 
-**优点：** 代码量和 fire 接近，但强制类型注解、自动类型校验、支持三种接口模式。
+**优点：** 代码量和 fire 接近，但强制类型注解、自动类型校验、支持四种接口模式。
 
 ---
 

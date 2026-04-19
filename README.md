@@ -1,6 +1,6 @@
 # nb_cmd
 
-**Python 码农的低代码平台** —— 写一个 class，自动获得 CLI + REST API + Web UI 三种接口。不写路由、不写前端、不写文档，全自动。
+**Python 码农的低代码平台** —— 写一个 class，自动获得 CLI + REST API + Web UI + Python 直接调用 四种接口。不写路由、不写前端、不写文档，全自动。
 
 [![Python](https://img.shields.io/badge/python-3.7%2B-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
@@ -46,7 +46,7 @@ nb_cmd 换了一种思路：**Class 是中心，接口是投影。**
              └── Web UI 模式（自动生成页面）
 ```
 
-写一次业务逻辑，三种接口自动生成，不改一行代码。
+写一次业务逻辑，四种接口自动生成，不改一行代码。
 
 **你写什么 → 你得到什么：**
 
@@ -1135,7 +1135,7 @@ def status():
 # 想加 API？对不起，请重写一遍...
 ```
 
-**nb_cmd（写一次，三种接口）：**
+**nb_cmd（写一次，四种接口）：**
 
 ```python
 from nb_cmd import NbCmd
@@ -1176,7 +1176,7 @@ python deploy.py --web --web-port 8080     # Web UI + REST API
 | 新增 1 个参数 | 改 3 处（后端/前端/文档） | **改 1 处（方法签名）** |
 | 前端开发者 | 需要 | **不需要** |
 
-> **本质区别：** 传统开发是"手动映射"——后端定义接口，前端照着文档手写表单；nb_cmd 是"自动投影"——Python 类是唯一真相源，CLI/API/Web UI 是它的三个不同维度的影子。改真相源，影子自动跟着变。
+> **本质区别：** 传统开发是"手动映射"——后端定义接口，前端照着文档手写表单；nb_cmd 是"自动投影"——Python 类是唯一真相源，CLI/API/Web UI/Python 直接调用 是它的四个不同维度的影子。改真相源，影子自动跟着变。
 
 ---
 

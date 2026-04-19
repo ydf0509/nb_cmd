@@ -8,7 +8,7 @@ tags: []
 
 ## 一句话定位
 
-**nb_cmd = "万能接口生成器"**——你写一个 Python class，自动获得 CLI + REST API + Web UI 三种接口。不是"更好的CLI框架"，而是"超越CLI的CLI"。
+**nb_cmd = "万能接口生成器"**——你写一个 Python class，自动获得 CLI + REST API + Web UI + Python 直接调用 四种接口。不是"更好的CLI框架"，而是"超越CLI的CLI"。
 
 ---
 
@@ -19,7 +19,7 @@ tags: []
 - [3. 四步走转化思路](#3-四步走转化思路)
 - [4. API 设计——基础用法](#4-api-设计基础用法)
 - [5. API 设计——高级用法](#5-api-设计高级用法)
-- [6. API 设计——三种接口模式](#6-api-设计三种接口模式)
+- [6. API 设计——四种接口模式](#6-api-设计四种接口模式)
 - [7. API 设计——生态集成](#7-api-设计生态集成)
 - [8. 核心实现原理](#8-核心实现原理)
 - [9. 和竞品的对比](#9-和竞品的对比)
@@ -77,7 +77,7 @@ tags: []
 
 funboost 让你写一个函数，装饰器一加就能跑在40种消息队列上。
 
-nb_cmd 让你写一个class，run一调就能跑在3种接口模式上。
+nb_cmd 让你写一个class，run一调就能跑在4种接口模式上。
 
 ---
 
@@ -678,7 +678,7 @@ $ python my_tool.py deploy -h 192.168.1.1 -p 2222 -v
 
 ---
 
-## 6. API 设计——三种接口模式
+## 6. API 设计——四种接口模式
 
 ### 6.1 CLI模式（默认）
 
@@ -1323,7 +1323,7 @@ class Tool(NbCmd):
     def deploy(self, host: str, port: int = 22):
         ...
 Tool().run()
-# 和fire一样简，但有类型校验 + 帮助定制 + 三种接口模式 + OOP继承覆写 + 多层级子命令
+# 和fire一样简，但有类型校验 + 帮助定制 + 四种接口模式 + OOP继承覆写 + 多层级子命令
 ```
 
 ### 9.3 核心差异总结
@@ -1332,7 +1332,7 @@ Tool().run()
 |------|-----------|---------|
 | **世界观** | CLI是终点 | Class是中心，接口是投影 |
 | **扩展方式** | 无（火fire）或有限（typer） | OOP继承覆写 |
-| **接口数量** | 1种（CLI） | 3种（CLI/API/Web） |
+| **接口数量** | 1种（CLI） | 4种（CLI/API/Web/Python直接调用） |
 | **代码复用** | 每种接口写一遍 | 写一次，到处使用 |
 
 ---
@@ -1797,7 +1797,7 @@ $ python ops.py k8s scale myapp --replicas 5
 
 **nb_cmd 的核心颠覆点：**
 
-1. **不是"更好的CLI框架"，而是"万能接口生成器"** —— 一个class，三种接口（CLI + REST API + Web UI）
+1. **不是"更好的CLI框架"，而是"万能接口生成器"** —— 一个class，四种接口（CLI + REST API + Web UI + Python 直接调用）
 2. **OOP继承覆写** —— typer/fire/click 都做不到的能力
 3. **零核心依赖** —— CLI模式纯标准库，其他模式按需安装
 4. **和nb生态无缝集成** —— nb_log/nb_config/nb_api/funboost

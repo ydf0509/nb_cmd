@@ -20,7 +20,7 @@ class NbCmd(object):
     功能:
         - 公有方法 → 子命令
         - 方法签名 → 参数自动推导
-        - 支持 CLI / REST API / Web UI 三种模式
+        - 支持 CLI / REST API / Web UI / Python 直接调用 四种模式
         - 支持 OOP 继承覆写
         - 支持多层级子命令（sub_commands）
         - 支持 nbctx 跨层级上下文传递

@@ -154,7 +154,7 @@ class DbTool(NbCmd):
         print(f'Migrating in {self.nbctx.region}')
 ```
 
-**三种模式均支持**:
+**四种模式均支持**:
 - CLI: `--region shanghai db migrate` → `self.nbctx.region == 'shanghai'`
 - Web: `init_params` 面板设置 → 自动传递
 - API: `"init_params": {"region": "shanghai"}` → 自动传递

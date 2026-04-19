@@ -1,4 +1,4 @@
-﻿
+
 # 🤖 AI 上下文阅读协议 (由 nb_ai_context 生成)
 
 > **系统指令**：你正在解析一份由工具 **`nb_ai_context`** 自动生成的**结构化项目快照**。
@@ -55,7 +55,7 @@
 
 `````
 nb_cmd — 万能接口生成器
-你写一个 Python class，自动获得 CLI + REST API + Web UI 三种接口。
+你写一个 Python class，自动获得 CLI + REST API + Web UI + Python 直接调用 四种接口。
 
 用法::
 
@@ -79,6 +79,7 @@ nb_cmd — 万能接口生成器
 - `from ui.helper import UIHelper`
 - `from ui.helper import cmdui`
 - `from utils.validators import validate`
+- `from core.gen_cmd import CmdGen`
 
 
 ---
@@ -103,6 +104,8 @@ NbCmd 基类 —— 所有命令行工具的父类。
 - `from modes.cli_mode import run_cli`
 - `from modes.web_mode import start_web_server`
 - `from parser import print_full_help`
+- `from parser import print_easy_help`
+- `from parser import print_full_help`
 - `import nb_log`
 
 #### 🏛️ Classes (1)
@@ -122,9 +125,10 @@ NbCmd 基类 —— 所有命令行工具的父类。
 功能:
     - 公有方法 → 子命令
     - 方法签名 → 参数自动推导
-    - 支持 CLI / REST API / Web UI 三种模式
+    - 支持 CLI / REST API / Web UI / Python 直接调用 四种模式
     - 支持 OOP 继承覆写
     - 支持多层级子命令（sub_commands）
+    - 支持 nbctx 跨层级上下文传递
 
 工具方法通过 cmdui 模块级单例访问（from nb_cmd import cmdui）:
     cmdui.table()  cmdui.kv()  cmdui.tree()  cmdui.json_print()
@@ -137,7 +141,35 @@ NbCmd 基类 —— 所有命令行工具的父类。
   - **Parameters:**
     - `self`
 
-**Public Methods (6):**
+**Public Methods (7):**
+- `def make_nbctx(self)`
+  - **Docstring:**
+  `````
+  模板方法：创建跨层级共享的上下文对象。
+  
+  覆写此方法以返回一个 dataclass 实例，框架会自动将其传递给
+  所有子命令组的 self.nbctx。
+  
+  用法::
+  
+      @dataclass
+      class AppCtx:
+          region: str = 'beijing'
+          env: str = 'prod'
+  
+      class MyApp(NbCmd):
+          def __init__(self, region='beijing', env='prod'):
+              self.region = region
+              self.env = env
+  
+          def make_nbctx(self):
+              return AppCtx(region=self.region, env=self.env)
+  
+  Returns
+  -------
+  object or None
+      上下文对象，返回 None 表示不启用 nbctx。
+  `````
 - `def before_run(self)`
   - *所有子命令执行前的钩子，子类可覆写*
 - `def after_run(self)`
@@ -175,9 +207,11 @@ NbCmd 基类 —— 所有命令行工具的父类。
 **Properties (1):**
 - `@property logger`
 
-**Class Variables (2):**
+**Class Variables (4):**
 - `sub_commands = {}`
 - `Meta = NbCmdMeta`
+- `nbctx = None`
+- `_HELP_HANDLED = object()`
 
 
 ---
@@ -215,7 +249,7 @@ NbCmd 的 Meta 配置基类。
 子类继承后可覆盖任意字段，IDE 可自动补全所有可用选项。
 `````
 
-**Class Variables (15):**
+**Class Variables (16):**
 - `name = None`
 - `version = '0.0.1'`
 - `description = None`
@@ -230,6 +264,7 @@ NbCmd 的 Meta 配置基类。
 - `web_title = None`
 - `web_theme = 'light'`
 - `enable_exec = True`
+- `help_mode = 'full'`
 - `aliases = {}`
 
 
@@ -397,7 +432,7 @@ Core Files (imported by other files, sorted by import count):
 `````markdown
 # nb_cmd
 
-**Python 码农的低代码平台** —— 写一个 class，自动获得 CLI + REST API + Web UI 三种接口。不写路由、不写前端、不写文档，全自动。
+**Python 码农的低代码平台** —— 写一个 class，自动获得 CLI + REST API + Web UI + Python 直接调用 四种接口。不写路由、不写前端、不写文档，全自动。
 
 [![Python](https://img.shields.io/badge/python-3.7%2B-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
@@ -443,7 +478,7 @@ nb_cmd 换了一种思路：**Class 是中心，接口是投影。**
              └── Web UI 模式（自动生成页面）
 ```
 
-写一次业务逻辑，三种接口自动生成，不改一行代码。
+写一次业务逻辑，四种接口自动生成，不改一行代码。
 
 **你写什么 → 你得到什么：**
 
@@ -454,8 +489,14 @@ nb_cmd 换了一种思路：**Class 是中心，接口是投影。**
 | 类型注解 `env: Environment`（Enum） | CLI choices + API 校验 + Web 下拉选择 |
 | `print()` / `cmdui.table()` | CLI 终端输出 + Web 实时流式推送（WebSocket + ANSI 彩色渲染） |
 | `sub_commands = {'git': GitTool}` | CLI 多级子命令 + API 嵌套路由 + Web UI 折叠分组 |
+| `CmdGen(MyApp).doc(file='cli.md')` | **自动生成带 TOC + 参数表格 + 可复制命令行的 Markdown 文档** |
+| `MyTool().greet('张三', 3)` | **方法就是普通 Python 方法，随时直接调用、单元测试、import 复用** |
 
-**不需要写的：** 路由定义、Pydantic 模型、HTML 表单、CSS 样式、JavaScript 交互、WebSocket 端点、Swagger 注解、前后端联调。
+**不需要写的：** 路由定义、Pydantic 模型、HTML 表单、CSS 样式、JavaScript 交互、WebSocket 端点、Swagger 注解、前后端联调、**CLI 使用文档**。
+
+> **零装饰器，方法可直接调用：** click/typer 的装饰器把函数变成了 `click.Command` 对象，无法直接 `greet('张三', 3)` 调用——必须用 `CliRunner().invoke()` 模拟 CLI 或自己拆两层。nb_cmd 的方法始终是普通的 Python 类方法，`MyTool().greet('张三', 3)` 直接就能跑，IDE 补全、断点调试、单元测试全部正常。
+
+> **文档生成吊打 `--help`：** 传统框架的文档止步于 `--help` 纯文本，click 需要第三方 `sphinx-click`，typer 只是搬运 `--help` 输出。nb_cmd 的 `CmdGen` 一行代码生成完整的 Markdown 文档——自动目录、参数表格、默认值/必填标注、可复制的 bash 命令行模板，测试人员拿到直接能用。[查看示例](https://github.com/ydf0509/nb_cmd/blob/main/examples/nbctx_demo/nbctx_demo_gen_doc.md)
 
 | 功能 | argparse | click | typer | fire | **nb_cmd** |
 |------|:--------:|:-----:|:-----:|:----:|:----------:|
@@ -467,6 +508,8 @@ nb_cmd 换了一种思路：**Class 是中心，接口是投影。**
 | 多层级子命令 | 手动 | ✓ | ✓ | 有限 | **✓** |
 | Swagger 文档 | ✗ | ✗ | ✗ | ✗ | **✓** |
 | 进度条/表格/彩色 | ✗ | ✓ | ✓(rich) | ✗ | **✓** |
+| 自动生成 CLI 文档 | ✗ | 第三方 | 基础 | ✗ | **✓（Markdown+表格+TOC+可复制命令行）** |
+| 方法可直接调用 | ✓ | ✗ | ✗ | ✓ | **✓（零装饰器，普通类方法）** |
 
 ---
 
@@ -612,7 +655,7 @@ $ python my_tool.py --help
 
 system params:
   -h, --help           显示帮助信息
-  --version            show program's version number and exit
+  --cmd-version        show program's version number and exit
   --full-help, -fh     显示所有命令的完整参数详情
   --web                以Web UI + REST API模式启动
   --web-port WEB_PORT  Web UI 服务端口（用于 --web）
@@ -752,6 +795,45 @@ $ python k8s_deploy.py scale --replicas 5
 ```
 
 其他框架做不到这一点：click/typer 用装饰器绑定函数，无法继承覆写；fire 虽然也基于类，但不支持多层级子命令和 Web/API 投影。
+
+#### 方法可直接调用——零装饰器设计
+
+click/typer 的装饰器会把函数**变成 `click.Command` 对象**，你无法像普通函数一样调用它：
+
+```python
+# click —— 装饰器改变了函数本质
+@click.command()
+@click.argument('name')
+@click.option('--times', default=1)
+def greet(name, times):
+    print(f'Hello, {name}!')
+
+greet('张三', 3)  # TypeError! greet 已经不是普通函数了
+# 必须绕路：CliRunner().invoke(greet, ['张三', '--times', '3'])
+# 或者自己拆两层：_greet_impl() + @click.command() 包一层
+```
+
+nb_cmd 的方法始终是**普通的 Python 类方法**，框架只在 `run()` 时通过反射发现它们：
+
+```python
+# nb_cmd —— 就是普通方法，零装饰器
+class MyTool(NbCmd):
+    def greet(self, name: str, times: int = 1):
+        for _ in range(times):
+            print(f'Hello, {name}!')
+
+# 直接调用 —— 完全OK
+MyTool().greet('张三', 3)
+
+# 当 CLI 用 —— 也OK
+MyTool().run()  # python script.py greet --name 张三 --times 3
+
+# import 到别的模块 —— 也OK
+from my_tool import MyTool
+result = MyTool().greet('张三', 3)
+```
+
+**这意味着：** 你的业务逻辑（方法）永远可以直接调用、单元测试、import 复用，不被 CLI 框架绑架。
 
 ### 3. 多层级子命令
 
@@ -1081,7 +1163,7 @@ if __name__ == '__main__':
 $ python server_tool.py --help
 system params:
   -h, --help           显示帮助信息
-  --version            show program's version number and exit
+  --cmd-version        show program's version number and exit
   --full-help, -fh     显示所有命令的完整参数详情
 
 init params:
@@ -1220,7 +1302,7 @@ class MyTool(NbCmd):
 | 字段 | 类型 | 默认值 | 说明 |
 |------|------|--------|------|
 | `name` | str | `None` | CLI/API 名称（默认用类名） |
-| `version` | str | `'0.0.1'` | 版本号（`--version` 显示） |
+| `version` | str | `'0.0.1'` | 版本号（`--cmd-version` 显示） |
 | `description` | str | `None` | 描述（默认用类的 docstring） |
 | `use_nb_log` | bool | `False` | 启用 [nb_log](https://github.com/ydf0509/nb_log) 增强日志 |
 | `log_level` | str | `'INFO'` | 日志级别 |
@@ -1282,7 +1364,7 @@ $ python server_tool.py --full-help   # 或 -fh
 system params:
     --help, -h               显示简要帮助
     --full-help, -fh         显示本完整帮助
-    --version                显示版本号
+    --cmd-version            显示版本号
     --web                    以Web UI + REST API模式启动
     --web-port PORT          Web UI 服务端口
 
@@ -1298,7 +1380,52 @@ deploy — 部署服务到目标主机
 stats — 查看系统状态
 ```
 
-### 12. Web UI 交互特性
+### 12. 自动文档生成（CmdGen）—— 吊打 `--help`
+
+传统 CLI 框架的文档能力止步于 `--help`：一段纯文本，不能复制、不能跳转、不能分享。即使 typer 有 `typer utils docs`，也只是把 `--help` 搬到 Markdown 里而已。
+
+nb_cmd 的 `CmdGen` 是真正的**面向用户的 API 文档生成器**——自动生成带 TOC 目录、参数表格、可复制命令行、占位符约定的**高质量 Markdown 文档**，测试人员和运维人员拿到就能直接用。
+
+```python
+from nb_cmd import CmdGen
+
+g = CmdGen(MyApp, script='my_tool.py')
+
+# 生成单个命令的可复制命令行
+print(g.cmd(DbTool.migrate))
+# python my_tool.py --region ${beijing} --env ${prod} --debug db migrate --dry-run
+
+# 一键生成完整 Markdown 文档到文件
+g.doc(file='docs/cli_reference.md')
+```
+
+**生成的 Markdown 包含：**
+
+| 区域 | 内容 |
+|------|------|
+| 标题 + 版本 | `# cloud-tool v1.0.0` |
+| Table of Contents | 自动递归生成，支持多层级子命令组，可点击跳转 |
+| System Params | 系统参数表格（`-h` / `-fh` / `--web` 等） |
+| Global Params | 全局参数表格（类型 + 默认值 + 描述） |
+| Quick Start | 三条最常用命令（查看帮助/版本/启动 Web） |
+| 命令行约定 | `${value}` / `$<required>` / `--flag` 含义说明 |
+| 每个命令 | 标题 + 描述 + 参数表格 + 可复制 `bash` 代码块 |
+
+**vs 其他框架的文档能力：**
+
+| 功能 | click | typer | nb_cmd `CmdGen` |
+|------|-------|-------|-----------------|
+| 终端 `--help` | 有 | 有（Rich） | 有（三级帮助系统） |
+| 自动生成 Markdown | 需第三方 `sphinx-click` | 基础版（搬运 `--help`） | **完整版（表格+TOC+代码块）** |
+| 可复制命令行模板 | ✗ | ✗ | **✓** `${default}` / `$<required>` |
+| 参数表格（类型/默认/描述） | ✗ | ✗ | **✓** 每个命令自动生成 |
+| 单命令示例生成 | ✗ | ✗ | **✓** `g.cmd(DbTool.migrate)` |
+| 一键写入文件 | ✗ | ✗ | **✓** `g.doc(file='xxx.md')` |
+| 智能格式路由 | ✗ | ✗ | **✓** `.md` 文件自动用 Markdown 格式 |
+
+> 完整示例见 [examples/nbctx_demo/nbctx_demo_gen_doc.md](https://github.com/ydf0509/nb_cmd/blob/main/examples/nbctx_demo/nbctx_demo_gen_doc.md)
+
+### 13. Web UI 交互特性
 
 以下功能在 `--web` 模式下自动可用，无需额外配置：
 
@@ -1321,8 +1448,23 @@ stats — 查看系统状态
 
 ```python
 from typing import Annotated
-from nb_cmd import NbCmd, NbCmdMeta, Param, cmdui, validate
+from nb_cmd import NbCmd, NbCmdMeta, Param, cmdui, validate, CmdGen
 ```
+
+### CmdGen（自动文档生成）
+
+```python
+from nb_cmd import CmdGen
+
+g = CmdGen(entry_cls, script='app.py', python='python', fmt='text')
+```
+
+| 方法 | 说明 |
+|------|------|
+| `CmdGen(cls, script, python, fmt)` | 创建生成器。`fmt`: `'text'` / `'markdown'` |
+| `g.cmd(Method)` | 生成单个方法的可复制 CLI 命令行 |
+| `g.doc()` | 生成完整文档字符串 |
+| `g.doc(file='path.md')` | 生成完整文档并写入文件（`.md` 自动用 Markdown 格式） |
 
 ### cmdui（UI / 交互工具）
 
@@ -1425,7 +1567,7 @@ def status():
 # 想加 API？对不起，请重写一遍...
 ```
 
-**nb_cmd（写一次，三种接口）：**
+**nb_cmd（写一次，四种接口）：**
 
 ```python
 from nb_cmd import NbCmd
@@ -1466,7 +1608,7 @@ python deploy.py --web --web-port 8080     # Web UI + REST API
 | 新增 1 个参数 | 改 3 处（后端/前端/文档） | **改 1 处（方法签名）** |
 | 前端开发者 | 需要 | **不需要** |
 
-> **本质区别：** 传统开发是"手动映射"——后端定义接口，前端照着文档手写表单；nb_cmd 是"自动投影"——Python 类是唯一真相源，CLI/API/Web UI 是它的三个不同维度的影子。改真相源，影子自动跟着变。
+> **本质区别：** 传统开发是"手动映射"——后端定义接口，前端照着文档手写表单；nb_cmd 是"自动投影"——Python 类是唯一真相源，CLI/API/Web UI/Python 直接调用 是它的四个不同维度的影子。改真相源，影子自动跟着变。
 
 ---
 
@@ -1482,6 +1624,7 @@ nb_cmd/
 │   ├── discovery.py       # 命令发现（反射 + 类型检查）
 │   ├── parser.py          # argparse 解析器构建
 │   ├── type_utils.py      # 类型工具（Enum/Optional/List 等）
+│   ├── gen_cmd.py         # CmdGen 自动文档/命令行示例生成器
 │   ├── result_handler.py  # 返回值自动处理
 │   └── _io_dispatch.py    # 线程安全的 stdout/stderr 分发器
 ├── modes/
@@ -1531,7 +1674,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "nb-cmd"
 version = "0.2.0"
-description = "万能接口生成器——你写一个 Python class，自动获得 CLI + REST API + Web UI 三种操作方式，堪称python界低代码平台"
+description = "万能接口生成器——你写一个 Python class，自动获得 CLI + REST API + Web UI + Python 直接调用 四种操作方式，堪称python界低代码平台"
 readme = "README.md"
 license = {text = "MIT"}
 requires-python = ">=3.7"
@@ -1734,7 +1877,7 @@ if __name__ == '__main__':
 
 ---
 
-### 5. nb_cmd（写一次，三种接口）
+### 5. nb_cmd（写一次，四种接口）
 
 ```python
 from nb_cmd import NbCmd
@@ -1761,7 +1904,7 @@ python deploy.py deploy web-01 --port 2222 --verbose   # CLI
 python deploy.py --web                                   # Web UI + REST API
 ```
 
-**优点：** 代码量和 fire 接近，但强制类型注解、自动类型校验、支持三种接口模式。
+**优点：** 代码量和 fire 接近，但强制类型注解、自动类型校验、支持四种接口模式。
 
 ---
 
@@ -2011,14 +2154,14 @@ def remote(ctx):
 @click.pass_context
 def add(ctx, name, url):
     """添加远程仓库"""
-    print('[{}] git remote add {} {}'.format(ctx.obj['region'], name, url))
+    print('git remote add {} {}'.format(name, url))
 
 @remote.command()
 @click.argument('name')
 @click.pass_context
 def remove(ctx, name):
     """删除远程仓库"""
-    print('[{}] git remote remove {}'.format(ctx.obj['region'], name))
+    print('git remote remove {}'.format(name))
 
 # ---------- branch 子命令组 ----------
 @cli.group()
@@ -2033,7 +2176,7 @@ def branch(ctx):
 @click.pass_context
 def create(ctx, name, from_branch):
     """创建分支"""
-    print('[{}] git branch {} from {}'.format(ctx.obj['region'], name, from_branch))
+    print('git branch {} from {}'.format(name, from_branch))
 
 @branch.command()
 @click.argument('name')
@@ -2042,7 +2185,7 @@ def create(ctx, name, from_branch):
 def delete(ctx, name, force):
     """删除分支"""
     flag = ' --force' if force else ''
-    print('[{}] git branch -d{} {}'.format(ctx.obj['region'], flag, name))
+    print('git branch -d{} {}'.format(flag, name))
 
 if __name__ == '__main__':
     cli()
@@ -2088,12 +2231,12 @@ app.add_typer(remote_app, name="remote")
 @remote_app.command()
 def add(name: str, url: str):
     """添加远程仓库"""
-    print('[{}] git remote add {} {}'.format(state["region"], name, url))
+    print('git remote add {} {}'.format(name, url))
 
 @remote_app.command()
 def remove(name: str):
     """删除远程仓库"""
-    print('[{}] git remote remove {}'.format(state["region"], name))
+    print('git remote remove {}'.format(name))
 
 # ---------- branch 子命令组 ----------
 branch_app = typer.Typer(help='分支管理')
@@ -2102,13 +2245,13 @@ app.add_typer(branch_app, name="branch")
 @branch_app.command()
 def create(name: str, from_branch: str = "main"):
     """创建分支"""
-    print('[{}] git branch {} from {}'.format(state["region"], name, from_branch))
+    print('git branch {} from {}'.format(name, from_branch))
 
 @branch_app.command()
 def delete(name: str, force: bool = False):
     """删除分支"""
     flag = ' --force' if force else ''
-    print('[{}] git branch -d{} {}'.format(state["region"], flag, name))
+    print('git branch -d{} {}'.format(flag, name))
 
 if __name__ == '__main__':
     app()
@@ -2135,11 +2278,11 @@ class GitRemote(NbCmd):
     """远程仓库管理"""
     def add(self, name: str, url: str):
         """添加远程仓库"""
-        print('[{}] git remote add {} {}'.format(self._parent.region, name, url))
+        print('git remote add {} {}'.format(name, url))
 
     def remove(self, name: str):
         """删除远程仓库"""
-        print('[{}] git remote remove {}'.format(self._parent.region, name))
+        print('git remote remove {}'.format(name))
 
 class GitBranch(NbCmd):
     """分支管理"""
@@ -2303,14 +2446,17 @@ class GitRemote(NbCmd):
     ├── demo_full.py
     ├── demo_inherit.py
     ├── demo_nb_log.py
-    └── demo_subcommands.py
+    ├── demo_subcommands.py
+    └── nbctx_demo
+        ├── nbctx_demo.py
+        └── nbctx_demo_gen_doc.md
 
 `````
 
 ---
 
 
-## nb_cmd (relative dir: `examples`)  Included Files (total: 7 files)
+## nb_cmd (relative dir: `examples`)  Included Files (total: 9 files)
 
 
 - `examples/bigone_cmd.py`
@@ -2326,6 +2472,10 @@ class GitRemote(NbCmd):
 - `examples/demo_nb_log.py`
 
 - `examples/demo_subcommands.py`
+
+- `examples/nbctx_demo/nbctx_demo.py`
+
+- `examples/nbctx_demo/nbctx_demo_gen_doc.md`
 
 
 ---
@@ -3001,6 +3151,396 @@ if __name__ == '__main__':
 
 ---
 
+
+--- **start of file: examples/nbctx_demo/nbctx_demo.py** (project: nb_cmd) --- 
+
+`````python
+# -*- coding: utf-8 -*-
+"""
+nb_cmd nbctx 跨层级上下文传递 demo。
+
+演示：顶层全局参数（region/env/debug）如何自动穿透到任意深度的子命令组。
+
+四种使用方式：
+    1. CLI:  python nbctx_demo.py --region shanghai db migrate
+    2. Web:  python nbctx_demo.py --web --web-port 8085
+    3. API:  curl -X POST http://localhost:8085/db/migrate -d '{"init_params":{"region":"shanghai"}}'
+    4. 本地: 见本文件底部 if __name__ == '__main__' 部分
+"""
+import sys
+import os
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
+
+from dataclasses import dataclass
+from typing import Annotated
+from nb_cmd import NbCmd
+
+
+# ==================== 1. 定义全局上下文 ====================
+
+@dataclass
+class AppCtx:
+    """应用级上下文，所有子命令组共享"""
+    region: str = 'beijing'
+    env: str = 'prod'
+    debug: bool = False
+
+
+# ==================== 2. 子命令组（多层嵌套）====================
+
+class OpsTool(NbCmd):
+    """运维操作（第三级子命令组）"""
+    nbctx: AppCtx
+
+    def deploy(self, version: Annotated[str, '目标版本号', '-v'], rollback: Annotated[bool, '是否回滚'] = False):
+        """部署指定版本"""
+        action = '回滚' if rollback else '部署'
+        print(f'[{self.nbctx.region}/{self.nbctx.env}] {action} v{version}')
+        if self.nbctx.debug:
+            print(f'  DEBUG: deploy(version={version}, rollback={rollback})')
+
+    def restart(self):
+        """重启服务"""
+        print(f'[{self.nbctx.region}/{self.nbctx.env}] 重启服务')
+
+
+class DbTool(NbCmd):
+    """数据库工具（第二级子命令组）"""
+    nbctx: AppCtx
+
+    def migrate(self, dry_run: Annotated[bool, '仅模拟，不执行'] = False):
+        """执行数据库迁移"""
+        mode = 'DRY-RUN' if dry_run else 'EXECUTE'
+        print(f'[{self.nbctx.region}/{self.nbctx.env}] 数据库迁移 ({mode})')
+        if self.nbctx.debug:
+            print(f'  DEBUG: migrate(dry_run={dry_run})')
+
+    def backup(self, compress: Annotated[bool, '启用压缩'] = True):
+        """备份数据库"""
+        fmt = 'tar.gz' if compress else 'sql'
+        print(f'[{self.nbctx.region}/{self.nbctx.env}] 备份数据库 → backup.{fmt}')
+
+    def status(self):
+        """查看数据库连接状态"""
+        print(f'[{self.nbctx.region}] 数据库连接正常 (env={self.nbctx.env})')
+
+
+class ServerTool(NbCmd):
+    """服务器管理（第二级子命令组，包含第三级 ops）"""
+    nbctx: AppCtx
+
+    sub_commands = {
+        'ops': OpsTool,
+    }
+
+    def info(self):
+        """查看服务器信息"""
+        print(f'[{self.nbctx.region}] 服务器: {self.nbctx.env} 环境')
+        print(f'  Region: {self.nbctx.region}')
+        print(f'  Env:    {self.nbctx.env}')
+        print(f'  Debug:  {self.nbctx.debug}')
+
+    def ssh(self, user: Annotated[str, '登录用户名'] = 'root'):
+        """SSH 登录"""
+        host = f'{self.nbctx.region}-{self.nbctx.env}.example.com'
+        print(f'ssh {user}@{host}')
+
+
+# ==================== 3. 顶层命令 ====================
+
+class MyApp(NbCmd):
+    """
+    云平台管理工具 —— nbctx 跨层级上下文传递 demo。
+
+    全局参数 region/env/debug 会自动传递给所有子命令组。
+    """
+    nbctx: AppCtx  # 类型注解，让 IDE 补全 self.nbctx.region 等
+
+    class Meta:
+        name = 'cloud-tool'
+        version = '1.0.0'
+        enable_exec = False
+
+    def __init__(self,
+                 region: Annotated[str, '部署区域，如 beijing/shanghai/tokyo'] = 'beijing',
+                 env: Annotated[str, '运行环境，如 prod/staging/test'] = 'prod',
+                 debug: Annotated[bool, '开启调试模式'] = False):
+        self.region = region
+        self.env = env
+        self.debug = debug
+
+    def make_nbctx(self):
+        """构造上下文，框架自动传给所有子命令组"""
+        return AppCtx(region=self.region, env=self.env, debug=self.debug)
+
+    sub_commands = {
+        'db': DbTool,
+        'server': ServerTool,
+    }
+
+    def status(self):
+        """查看全局状态"""
+        print(f'=== 云平台状态 ===')
+        print(f'Region: {self.nbctx.region}')
+        print(f'Env:    {self.nbctx.env}')
+        print(f'Debug:  {self.nbctx.debug}')
+
+    def whoami(self):
+        """显示当前用户信息"""
+        return {'user': 'admin', 'region': self.nbctx.region, 'env': self.nbctx.env}
+
+
+if __name__ == '__main__':
+    import sys as _sys
+
+    if len(_sys.argv) > 1:
+        # CLI / Web / API 模式
+        MyApp().run()
+    else:
+        # 本地直接调用演示
+        print('='*50)
+        print('本地直接调用演示（不走 CLI/Web/API）')
+        print('='*50)
+
+        # 场景 1: 顶层命令使用 nbctx
+        print('\n--- 场景 1: 顶层命令 ---')
+        app = MyApp(region='shanghai', env='staging', debug=True)
+        app.nbctx = app.make_nbctx()
+        app.status()
+
+        # 场景 2: 子命令组手动注入 nbctx
+        print('\n--- 场景 2: 子命令组手动注入 nbctx ---')
+        ctx = AppCtx(region='tokyo', env='test', debug=True)
+        db = DbTool()
+        db.nbctx = ctx
+        db.migrate(dry_run=True)
+        db.backup()
+
+        # 场景 3: 用默认 ctx
+        print('\n--- 场景 3: 用默认 ctx ---')
+        db2 = DbTool()
+        db2.nbctx = AppCtx()  # 使用 dataclass 默认值
+        db2.migrate()
+
+        # 场景 4: 多个子命令组共享同一个 ctx
+        print('\n--- 场景 4: 多子命令组共享 ctx ---')
+        ctx = AppCtx(region='us-east', env='canary')
+        db = DbTool()
+        server = ServerTool()
+        ops = OpsTool()
+        db.nbctx = ctx
+        server.nbctx = ctx
+        ops.nbctx = ctx
+        db.status()
+        server.info()
+        ops.deploy('2.0.0')
+
+        # 场景 5: CmdGen 自动生成命令行示例
+        print('\n--- 场景 5: CmdGen 自动生成命令行示例 ---')
+        from nb_cmd import CmdGen
+
+        g = CmdGen(MyApp, script='nbctx_demo.py')
+        print(g.cmd(DbTool.migrate))
+        print(g.cmd(OpsTool.deploy))
+        print(g.cmd(MyApp.status))
+        print(g.cmd(ServerTool.ssh))
+        print()
+        g_md = CmdGen(MyApp, script='d:/codes/nb_cmd/examples/nbctx_demo/nbctx_demo.py', fmt='markdown')
+        print(g_md.cmd(DbTool.migrate))
+
+        # 场景 6: CmdGen.doc() 生成完整文档
+        print('\n--- 场景 6: CmdGen.doc() 生成完整文档 ---')
+        print(g.doc())
+        print()
+        print('--- Markdown 格式 ---')
+        print(g_md.doc(file='d:/codes/nb_cmd/examples/nbctx_demo/nbctx_demo_gen_doc.md'))
+
+`````
+
+--- **end of file: examples/nbctx_demo/nbctx_demo.py** (project: nb_cmd) --- 
+
+---
+
+
+--- **start of file: examples/nbctx_demo/nbctx_demo_gen_doc.md** (project: nb_cmd) --- 
+
+`````markdown
+# cloud-tool v1.0.0
+
+> 云平台管理工具 —— nbctx 跨层级上下文传递 demo。
+
+全局参数 region/env/debug 会自动传递给所有子命令组。
+
+## Table of Contents
+
+- [`status`](#status)
+- [`whoami`](#whoami)
+- [`db`  *(子命令组)*](#db-子命令组)
+  - [`db backup`](#db-backup)
+  - [`db migrate`](#db-migrate)
+  - [`db status`](#db-status)
+- [`server`  *(子命令组)*](#server-子命令组)
+  - [`server info`](#server-info)
+  - [`server ssh`](#server-ssh)
+  - [`server ops`  *(子命令组)*](#server-ops-子命令组)
+    - [`server ops deploy`](#server-ops-deploy)
+    - [`server ops restart`](#server-ops-restart)
+
+---
+
+## System Params
+
+| Flag | Description |
+|------|-------------|
+| `-h`, `--help` | 显示帮助信息 |
+| `-fh`, `--full-help` | 显示完整帮助（所有参数详情） |
+| `-eh`, `--easy-help` | 显示简易帮助（argparse 原生格式） |
+| `--cmd-version` | 显示版本号 |
+| `--web` | 以 Web UI + REST API 模式启动 |
+| `--web-port PORT` | Web UI 服务端口（用于 `--web`） |
+
+## Global Params (`__init__`)
+
+| Flag | Type | Default | Description |
+|------|------|---------|-------------|
+| `--region` | `str` | `beijing` | 部署区域，如 beijing/shanghai/tokyo |
+| `--env` | `str` | `prod` | 运行环境，如 prod/staging/test |
+| `--debug` | `bool` | `False` | 开启调试模式 |
+
+## Quick Start
+
+```bash
+# 查看完整帮助
+D:\ProgramData\Miniconda3\envs\py39b\python.exe d:/codes/nb_cmd/examples/nbctx_demo/nbctx_demo.py -fh
+
+# 查看版本
+D:\ProgramData\Miniconda3\envs\py39b\python.exe d:/codes/nb_cmd/examples/nbctx_demo/nbctx_demo.py --cmd-version
+
+# 启动 Web UI
+D:\ProgramData\Miniconda3\envs\py39b\python.exe d:/codes/nb_cmd/examples/nbctx_demo/nbctx_demo.py --web
+```
+
+## 命令行约定
+
+命令格式：`python script.py [全局参数] <子命令路径> [命令参数]`
+
+| 标记 | 含义 |
+|------|------|
+| `${value}` | 带默认值的参数 — 可按需替换 |
+| `$<name>` | **必填**参数 — 必须提供值 |
+| `--flag`（无值） | 布尔开关，添加即启用 |
+
+---
+
+## Commands
+
+### `status`
+
+查看全局状态
+
+```bash
+D:\ProgramData\Miniconda3\envs\py39b\python.exe d:/codes/nb_cmd/examples/nbctx_demo/nbctx_demo.py --region ${beijing} --env ${prod} --debug status
+```
+
+### `whoami`
+
+显示当前用户信息
+
+```bash
+D:\ProgramData\Miniconda3\envs\py39b\python.exe d:/codes/nb_cmd/examples/nbctx_demo/nbctx_demo.py --region ${beijing} --env ${prod} --debug whoami
+```
+
+### `db` *(子命令组)*
+
+> 数据库工具（第二级子命令组）
+
+#### `db backup`
+
+备份数据库
+
+| Param | Type | Default | Description |
+|-------|------|---------|-------------|
+| `--compress` | `bool` | `True` | 启用压缩 |
+
+```bash
+D:\ProgramData\Miniconda3\envs\py39b\python.exe d:/codes/nb_cmd/examples/nbctx_demo/nbctx_demo.py --region ${beijing} --env ${prod} --debug db backup
+```
+
+#### `db migrate`
+
+执行数据库迁移
+
+| Param | Type | Default | Description |
+|-------|------|---------|-------------|
+| `--dry-run` | `bool` | `False` | 仅模拟，不执行 |
+
+```bash
+D:\ProgramData\Miniconda3\envs\py39b\python.exe d:/codes/nb_cmd/examples/nbctx_demo/nbctx_demo.py --region ${beijing} --env ${prod} --debug db migrate --dry-run
+```
+
+#### `db status`
+
+查看数据库连接状态
+
+```bash
+D:\ProgramData\Miniconda3\envs\py39b\python.exe d:/codes/nb_cmd/examples/nbctx_demo/nbctx_demo.py --region ${beijing} --env ${prod} --debug db status
+```
+
+### `server` *(子命令组)*
+
+> 服务器管理（第二级子命令组，包含第三级 ops）
+
+#### `server info`
+
+查看服务器信息
+
+```bash
+D:\ProgramData\Miniconda3\envs\py39b\python.exe d:/codes/nb_cmd/examples/nbctx_demo/nbctx_demo.py --region ${beijing} --env ${prod} --debug server info
+```
+
+#### `server ssh`
+
+SSH 登录
+
+| Param | Type | Default | Description |
+|-------|------|---------|-------------|
+| `--user` | `str` | `root` | 登录用户名 |
+
+```bash
+D:\ProgramData\Miniconda3\envs\py39b\python.exe d:/codes/nb_cmd/examples/nbctx_demo/nbctx_demo.py --region ${beijing} --env ${prod} --debug server ssh --user ${root}
+```
+
+#### `server ops` *(子命令组)*
+
+> 运维操作（第三级子命令组）
+
+##### `server ops deploy`
+
+部署指定版本
+
+| Param | Type | Default | Description |
+|-------|------|---------|-------------|
+| `--version, -v` | `str` | *(required)* | 目标版本号 |
+| `--rollback` | `bool` | `False` | 是否回滚 |
+
+```bash
+D:\ProgramData\Miniconda3\envs\py39b\python.exe d:/codes/nb_cmd/examples/nbctx_demo/nbctx_demo.py --region ${beijing} --env ${prod} --debug server ops deploy --version $<version> --rollback
+```
+
+##### `server ops restart`
+
+重启服务
+
+```bash
+D:\ProgramData\Miniconda3\envs\py39b\python.exe d:/codes/nb_cmd/examples/nbctx_demo/nbctx_demo.py --region ${beijing} --env ${prod} --debug server ops restart
+```
+
+`````
+
+--- **end of file: examples/nbctx_demo/nbctx_demo_gen_doc.md** (project: nb_cmd) --- 
+
+---
+
 # markdown content namespace: nb_cmd codes 
 
 
@@ -3017,6 +3557,7 @@ if __name__ == '__main__':
     │   ├── arg.py
     │   ├── base.py
     │   ├── discovery.py
+    │   ├── gen_cmd.py
     │   ├── meta.py
     │   ├── parser.py
     │   ├── result_handler.py
@@ -3042,7 +3583,7 @@ if __name__ == '__main__':
 ---
 
 
-## nb_cmd (relative dir: `nb_cmd`)  Included Files (total: 22 files)
+## nb_cmd (relative dir: `nb_cmd`)  Included Files (total: 23 files)
 
 
 - `nb_cmd/__init__.py`
@@ -3052,6 +3593,8 @@ if __name__ == '__main__':
 - `nb_cmd/core/base.py`
 
 - `nb_cmd/core/discovery.py`
+
+- `nb_cmd/core/gen_cmd.py`
 
 - `nb_cmd/core/meta.py`
 
@@ -3099,7 +3642,7 @@ if __name__ == '__main__':
 # -*- coding: utf-8 -*-
 """
 nb_cmd — 万能接口生成器
-你写一个 Python class，自动获得 CLI + REST API + Web UI 三种接口。
+你写一个 Python class，自动获得 CLI + REST API + Web UI + Python 直接调用 四种接口。
 
 用法::
 
@@ -3121,6 +3664,7 @@ from .core.meta import NbCmdMeta  # noqa: F401
 from .core.arg import Annotated, Param  # noqa: F401
 from .ui.helper import UIHelper, cmdui  # noqa: F401
 from .utils.validators import validate  # noqa: F401
+from .core.gen_cmd import CmdGen  # noqa: F401
 
 `````
 
@@ -3298,6 +3842,7 @@ class NbCmd(object):
         - 支持 CLI / REST API / Web UI 三种模式
         - 支持 OOP 继承覆写
         - 支持多层级子命令（sub_commands）
+        - 支持 nbctx 跨层级上下文传递
 
     工具方法通过 cmdui 模块级单例访问（from nb_cmd import cmdui）:
         cmdui.table()  cmdui.kv()  cmdui.tree()  cmdui.json_print()
@@ -3309,9 +3854,40 @@ class NbCmd(object):
 
     Meta = NbCmdMeta
 
+    nbctx = None  # 跨层级共享的上下文对象，子类通过 nbctx: AppCtx 注解获取 IDE 补全
+
     def __init__(self):
         self._logger = None
         self._setup_logging()
+
+    def make_nbctx(self):
+        """
+        模板方法：创建跨层级共享的上下文对象。
+
+        覆写此方法以返回一个 dataclass 实例，框架会自动将其传递给
+        所有子命令组的 self.nbctx。
+
+        用法::
+
+            @dataclass
+            class AppCtx:
+                region: str = 'beijing'
+                env: str = 'prod'
+
+            class MyApp(NbCmd):
+                def __init__(self, region='beijing', env='prod'):
+                    self.region = region
+                    self.env = env
+
+                def make_nbctx(self):
+                    return AppCtx(region=self.region, env=self.env)
+
+        Returns
+        -------
+        object or None
+            上下文对象，返回 None 表示不启用 nbctx。
+        """
+        return None
 
     def _setup_logging(self):
         """设置日志"""
@@ -3416,15 +3992,45 @@ class NbCmd(object):
         """
         raw_args = args if args is not None else sys.argv[1:]
 
-        if '--full-help' in raw_args or '-fh' in raw_args:
-            from .parser import print_full_help
-            return print_full_help(self, NbCmd)
+        help_result = self._handle_help(raw_args)
+        if help_result is not None:
+            return help_result
 
         if '--web' in raw_args:
             return self._start_web_server(raw_args)
 
         from ..modes.cli_mode import run_cli
         return run_cli(self, NbCmd, args)
+
+    _HELP_HANDLED = object()
+
+    def _handle_help(self, raw_args):
+        """
+        处理帮助参数（在 argparse 解析之前拦截）。
+        -fh/--full-help: 始终显示完整帮助
+        -eh/--easy-help: 始终显示简易帮助
+        -h/--help: 由 Meta.help_mode 决定
+
+        返回 _HELP_HANDLED 表示已处理，应结束。返回 None 表示未处理。
+        """
+        if '--full-help' in raw_args or '-fh' in raw_args:
+            from .parser import print_full_help
+            print_full_help(self, NbCmd)
+            return self._HELP_HANDLED
+
+        if '--easy-help' in raw_args or '-eh' in raw_args:
+            from .parser import print_easy_help
+            print_easy_help(self, NbCmd)
+            return self._HELP_HANDLED
+
+        meta = self._get_meta()
+        help_mode = getattr(meta, 'help_mode', 'full')
+        if help_mode == 'full' and ('--help' in raw_args or '-h' in raw_args):
+            from .parser import print_full_help
+            print_full_help(self, NbCmd)
+            return self._HELP_HANDLED
+
+        return None
 
     def _start_web_server(self, raw_args):
         """启动 Web UI 服务"""
@@ -3612,6 +4218,537 @@ def _extract_init_kwargs(instance):
 ---
 
 
+--- **start of file: nb_cmd/core/gen_cmd.py** (project: nb_cmd) --- 
+
+`````python
+# -*- coding: utf-8 -*-
+"""
+命令行示例生成器 —— 自动生成 CLI 用法示例和完整文档。
+
+用法::
+
+    from nb_cmd import CmdGen
+
+    g = CmdGen(MyApp, script='app.py')
+    print(g.cmd(DbTool.migrate))
+    print(g.doc())
+"""
+import sys
+import inspect
+
+from .discovery import discover_commands
+
+
+class CmdGen(object):
+    """
+    命令行示例生成器。
+
+    Parameters
+    ----------
+    entry_cls : class
+        顶层入口类，如 MyApp
+    script : str, optional
+        脚本名。默认用 sys.argv[0]。
+    python : str, optional
+        Python 解释器路径。默认用 sys.executable（当前解释器完整路径）。
+    fmt : str
+        输出格式: 'text' (纯文本) | 'markdown' (markdown 代码块)
+    """
+
+    def __init__(self, entry_cls, script=None, python=None, fmt='text'):
+        self.entry_cls = entry_cls
+        self.script = script or _get_script_name()
+        self.python = python or sys.executable
+        self.fmt = fmt
+        self._base_cls = _find_base_cls(entry_cls)
+
+    def cmd(self, method):
+        """
+        生成单个方法的 CLI 命令行示例。
+
+        Parameters
+        ----------
+        method : unbound method
+            目标方法，如 DbTool.migrate
+
+        Returns
+        -------
+        str
+            生成的命令行示例字符串
+        """
+        method_name = method.__name__
+        method_cls = _get_method_class(method)
+
+        global_args = _format_init_args(self.entry_cls)
+        path = _find_command_path(self.entry_cls, method_cls, self._base_cls)
+
+        method_args = _format_method_args(method)
+        cmd_name = method_name.replace('_', '-')
+
+        parts = [self.python, self.script]
+        if global_args:
+            parts.append(global_args)
+        if path:
+            parts.append(path)
+        parts.append(cmd_name)
+        if method_args:
+            parts.append(method_args)
+
+        cmd_line = ' '.join(parts)
+        return _apply_fmt(cmd_line, self.fmt)
+
+    def doc(self, file=None):
+        """
+        生成入口类的完整命令行文档。
+
+        包含完整帮助信息和每个命令的可复制命令行示例。
+        当 fmt='markdown' 或 file 以 .md 结尾时，输出高质量 Markdown 文档。
+
+        Parameters
+        ----------
+        file : str, optional
+            输出文件路径。传入后自动写入文件并返回文件路径。
+
+        Returns
+        -------
+        str
+            生成的完整文档字符串（传了 file 时同时写入文件）
+        """
+        use_md = self.fmt == 'markdown'
+        if not use_md and file and file.endswith('.md'):
+            use_md = True
+
+        if use_md:
+            text = self._build_md_doc()
+        else:
+            text = self._build_text_doc()
+
+        if file is not None:
+            import os
+            dir_name = os.path.dirname(file)
+            if dir_name:
+                os.makedirs(dir_name, exist_ok=True)
+            with open(file, 'w', encoding='utf-8') as f:
+                f.write(text)
+
+        return text
+
+    def _build_text_doc(self):
+        """构建纯文本格式的完整文档"""
+        from .parser import get_full_help_text
+
+        meta = getattr(self.entry_cls, 'Meta', None)
+        app_name = getattr(meta, 'name', self.entry_cls.__name__) if meta else self.entry_cls.__name__
+
+        instance = _safe_instantiate(self.entry_cls)
+        full_help = get_full_help_text(instance, self._base_cls)
+
+        lines = [full_help.rstrip(), '']
+        lines.append('{} 命令行示例'.format(app_name))
+        lines.append('=' * (len(app_name) + 14))
+
+        global_args = _format_init_args(self.entry_cls)
+        commands = discover_commands(instance, self._base_cls,
+                                     include_builtins=False, enable_exec=False)
+        _collect_text_doc(commands, self._base_cls, self.script, self.python,
+                          global_args, '', lines, depth=0)
+
+        return '\n'.join(lines)
+
+    def _build_md_doc(self):
+        """构建高质量 Markdown 格式的完整文档"""
+        meta = getattr(self.entry_cls, 'Meta', type('Meta', (), {}))
+        app_name = getattr(meta, 'name', self.entry_cls.__name__) if meta else self.entry_cls.__name__
+        version = getattr(meta, 'version', '0.0.1') if meta else '0.0.1'
+        instance = _safe_instantiate(self.entry_cls)
+        description = inspect.getdoc(instance) or self.entry_cls.__name__
+
+        commands = discover_commands(instance, self._base_cls,
+                                     include_builtins=False, enable_exec=False)
+        global_args = _format_init_args(self.entry_cls)
+
+        lines = []
+
+        lines.append('# {} v{}'.format(app_name, version))
+        lines.append('')
+        lines.append('> {}'.format(description))
+        lines.append('')
+
+        toc_items = _collect_toc(commands, self._base_cls, prefix='')
+        if toc_items:
+            lines.append('## Table of Contents')
+            lines.append('')
+            for item in toc_items:
+                indent = '  ' * item['depth']
+                anchor = item['display'].lower().replace(' ', '-').replace('_', '-')
+                if item['is_group']:
+                    lines.append('{}- [`{}`  *(子命令组)*](#{}-子命令组)'.format(
+                        indent, item['display'], anchor))
+                else:
+                    lines.append('{}- [`{}`](#{})'.format(indent, item['display'], anchor))
+            lines.append('')
+
+        lines.append('---')
+        lines.append('')
+
+        lines.append('## System Params')
+        lines.append('')
+        lines.append('| Flag | Description |')
+        lines.append('|------|-------------|')
+        sys_params = [
+            ('`-h`, `--help`', '显示帮助信息'),
+            ('`-fh`, `--full-help`', '显示完整帮助（所有参数详情）'),
+            ('`-eh`, `--easy-help`', '显示简易帮助（argparse 原生格式）'),
+            ('`--cmd-version`', '显示版本号'),
+            ('`--web`', '以 Web UI + REST API 模式启动'),
+            ('`--web-port PORT`', 'Web UI 服务端口（用于 `--web`）'),
+        ]
+        for flag, desc in sys_params:
+            lines.append('| {} | {} |'.format(flag, desc))
+        lines.append('')
+
+        init_params = _collect_init_params(self.entry_cls)
+        if init_params:
+            lines.append('## Global Params (`__init__`)')
+            lines.append('')
+            lines.append('| Flag | Type | Default | Description |')
+            lines.append('|------|------|---------|-------------|')
+            for p in init_params:
+                lines.append('| `{}` | `{}` | `{}` | {} |'.format(
+                    p['flag'], p['type'], p['default'], p['desc']))
+            lines.append('')
+
+        lines.append('## Quick Start')
+        lines.append('')
+        lines.append('```bash')
+        lines.append('# 查看完整帮助')
+        lines.append('{} {} -fh'.format(self.python, self.script))
+        lines.append('')
+        lines.append('# 查看版本')
+        lines.append('{} {} --cmd-version'.format(self.python, self.script))
+        lines.append('')
+        lines.append('# 启动 Web UI')
+        lines.append('{} {} --web'.format(self.python, self.script))
+        lines.append('```')
+        lines.append('')
+
+        lines.append('## 命令行约定')
+        lines.append('')
+        lines.append('命令格式：`python script.py [全局参数] <子命令路径> [命令参数]`')
+        lines.append('')
+        lines.append('| 标记 | 含义 |')
+        lines.append('|------|------|')
+        lines.append('| `${value}` | 带默认值的参数 — 可按需替换 |')
+        lines.append('| `$<name>` | **必填**参数 — 必须提供值 |')
+        lines.append('| `--flag`（无值） | 布尔开关，添加即启用 |')
+        lines.append('')
+
+        lines.append('---')
+        lines.append('')
+        lines.append('## Commands')
+        lines.append('')
+
+        _collect_md_doc(commands, self._base_cls, self.script, self.python,
+                        global_args, '', lines, depth=0)
+
+        return '\n'.join(lines)
+
+
+def _collect_toc(commands, base_cls, prefix='', depth=0):
+    """递归收集命令目录结构"""
+    items = []
+    for cmd_name, cmd_info in commands.items():
+        full_path = '{} {}'.format(prefix, cmd_name).strip() if prefix else cmd_name
+        display = full_path.replace('_', '-')
+
+        if cmd_info.get('is_group'):
+            items.append({'display': display, 'is_group': True, 'depth': depth})
+            group_cls = cmd_info['cls']
+            group_instance = _safe_instantiate(group_cls)
+            sub_commands = discover_commands(group_instance, base_cls,
+                                             include_builtins=False, enable_exec=False)
+            items.extend(_collect_toc(sub_commands, base_cls, prefix=full_path,
+                                      depth=depth + 1))
+        else:
+            items.append({'display': display, 'is_group': False, 'depth': depth})
+    return items
+
+
+def _collect_init_params(entry_cls):
+    """收集 __init__ 的全局参数信息列表"""
+    from .arg import unwrap_arg
+    from .type_utils import type_display_name
+
+    init_method = entry_cls.__init__
+    if init_method is object.__init__:
+        return []
+
+    sig = inspect.signature(init_method)
+    results = []
+    for pname, param in sig.parameters.items():
+        if pname == 'self':
+            continue
+        has_default = param.default is not inspect.Parameter.empty
+        default_val = param.default if has_default else None
+        raw_hint = param.annotation
+        if raw_hint is inspect.Parameter.empty:
+            raw_hint = type(default_val) if default_val is not None else str
+        real_type, arg_inst = unwrap_arg(raw_hint)
+        desc = arg_inst.desc if arg_inst and arg_inst.desc else ''
+        flag = '--{}'.format(pname.replace('_', '-'))
+        if arg_inst and arg_inst.aliases:
+            flag = '{}, {}'.format(flag, ', '.join(arg_inst.aliases))
+        results.append({
+            'flag': flag,
+            'type': type_display_name(real_type),
+            'default': default_val if has_default else '*(required)*',
+            'desc': desc or '-',
+        })
+    return results
+
+
+def _collect_text_doc(commands, base_cls, script_name, python_path, global_args,
+                      prefix, lines, depth):
+    """递归收集纯文本格式的命令文档"""
+    for cmd_name, cmd_info in commands.items():
+        full_path = '{} {}'.format(prefix, cmd_name).strip() if prefix else cmd_name
+
+        if cmd_info.get('is_group'):
+            group_cls = cmd_info['cls']
+            group_doc = cmd_info.get('doc', '')
+            indent = '  ' * depth
+            lines.append('')
+            lines.append('{}[{}]  {}'.format(indent, full_path, group_doc))
+            group_instance = _safe_instantiate(group_cls)
+            sub_commands = discover_commands(group_instance, base_cls,
+                                             include_builtins=False, enable_exec=False)
+            _collect_text_doc(sub_commands, base_cls, script_name, python_path,
+                              global_args, full_path, lines, depth=depth + 1)
+        else:
+            method = cmd_info['method']
+            doc = cmd_info.get('doc', '')
+            method_args = _format_method_args(method)
+            display_name = cmd_name.replace('_', '-')
+            parts = [python_path, script_name]
+            if global_args:
+                parts.append(global_args)
+            if prefix:
+                parts.append(prefix)
+            parts.append(display_name)
+            if method_args:
+                parts.append(method_args)
+            cmd_line = ' '.join(parts)
+            indent = '  ' * depth
+            lines.append('')
+            lines.append('{}{}  {}'.format(indent, full_path.replace('_', '-'), doc))
+            lines.append('{}  {}'.format(indent, cmd_line))
+
+
+def _collect_md_doc(commands, base_cls, script_name, python_path, global_args,
+                    prefix, lines, depth):
+    """递归收集 Markdown 格式的命令文档"""
+    from .type_utils import (
+        is_optional, unwrap_optional, type_display_name,
+    )
+
+    for cmd_name, cmd_info in commands.items():
+        full_path = '{} {}'.format(prefix, cmd_name).strip() if prefix else cmd_name
+        display = full_path.replace('_', '-')
+
+        if cmd_info.get('is_group'):
+            group_cls = cmd_info['cls']
+            group_doc = cmd_info.get('doc', '')
+            level = '#' * min(depth + 3, 6)
+            lines.append('{} `{}` *(子命令组)*'.format(level, display))
+            lines.append('')
+            if group_doc:
+                lines.append('> {}'.format(group_doc))
+                lines.append('')
+            group_instance = _safe_instantiate(group_cls)
+            sub_commands = discover_commands(group_instance, base_cls,
+                                             include_builtins=False, enable_exec=False)
+            _collect_md_doc(sub_commands, base_cls, script_name, python_path,
+                            global_args, full_path, lines, depth=depth + 1)
+        else:
+            method = cmd_info['method']
+            doc = cmd_info.get('doc', '')
+            method_args = _format_method_args(method)
+            display_name = cmd_name.replace('_', '-')
+
+            parts = [python_path, script_name]
+            if global_args:
+                parts.append(global_args)
+            if prefix:
+                parts.append(prefix)
+            parts.append(display_name)
+            if method_args:
+                parts.append(method_args)
+            cmd_line = ' '.join(parts)
+
+            level = '#' * min(depth + 3, 6)
+            lines.append('{} `{}`'.format(level, display))
+            lines.append('')
+            if doc:
+                lines.append(doc)
+                lines.append('')
+
+            sig = cmd_info['signature']
+            hints = cmd_info.get('type_hints', {})
+            arg_meta = cmd_info.get('arg_meta', {})
+            param_rows = []
+            for pname, param in sig.parameters.items():
+                if pname == 'self':
+                    continue
+                ptype = hints.get(pname, str)
+                real_type = unwrap_optional(ptype) if is_optional(ptype) else ptype
+                tname = type_display_name(real_type)
+                has_default = param.default is not inspect.Parameter.empty
+                arg_inst = arg_meta.get(pname)
+                desc = arg_inst.desc if arg_inst and arg_inst.desc else '-'
+                flag = '--{}'.format(pname.replace('_', '-'))
+                if arg_inst and arg_inst.aliases:
+                    flag = '{}, {}'.format(flag, ', '.join(arg_inst.aliases))
+                default_str = '`{}`'.format(param.default) if has_default else '*(required)*'
+                param_rows.append((flag, tname, default_str, desc))
+
+            if param_rows:
+                lines.append('| Param | Type | Default | Description |')
+                lines.append('|-------|------|---------|-------------|')
+                for flag, tname, default_str, desc in param_rows:
+                    lines.append('| `{}` | `{}` | {} | {} |'.format(
+                        flag, tname, default_str, desc))
+                lines.append('')
+
+            lines.append('```bash')
+            lines.append(cmd_line)
+            lines.append('```')
+            lines.append('')
+
+
+def _get_script_name():
+    """获取当前脚本名"""
+    import os
+    name = sys.argv[0] if sys.argv[0] else 'script.py'
+    return os.path.basename(name)
+
+
+def _get_method_class(method):
+    """从 unbound method 获取所属类"""
+    qualname = getattr(method, '__qualname__', '')
+    parts = qualname.split('.')
+    if len(parts) >= 2:
+        cls_name = parts[-2]
+        module = inspect.getmodule(method)
+        if module:
+            cls = getattr(module, cls_name, None)
+            if cls is not None:
+                return cls
+    return None
+
+
+def _find_base_cls(entry_cls):
+    """找到 NbCmd 基类"""
+    from .base import NbCmd
+    return NbCmd
+
+
+def _find_command_path(entry_cls, target_cls, base_cls):
+    """
+    从 entry_cls 的 sub_commands 树中递归搜索 target_cls，
+    返回子命令组路径字符串（如 'db' 或 'server ops'）。
+    """
+    if target_cls is None or target_cls is entry_cls:
+        return ''
+
+    sub_cmds = getattr(entry_cls, 'sub_commands', {})
+    for group_name, group_val in sub_cmds.items():
+        group_cls = group_val if inspect.isclass(group_val) else group_val.__class__
+        if group_cls is target_cls:
+            return group_name
+
+        deeper = _find_command_path(group_cls, target_cls, base_cls)
+        if deeper:
+            return '{} {}'.format(group_name, deeper)
+
+    return ''
+
+
+def _format_init_args(entry_cls):
+    """将 entry_cls 的 __init__ 参数格式化为 CLI 全局参数字符串"""
+    init_method = entry_cls.__init__
+    if init_method is object.__init__:
+        return ''
+
+    sig = inspect.signature(init_method)
+    parts = []
+    for pname, param in sig.parameters.items():
+        if pname == 'self':
+            continue
+        flag = '--{}'.format(pname.replace('_', '-'))
+        default = param.default
+        if default is inspect.Parameter.empty:
+            ptype = param.annotation if param.annotation is not inspect.Parameter.empty else str
+            if ptype is bool:
+                parts.append(flag)
+            else:
+                parts.append('{} $<{}>'.format(flag, pname))
+        else:
+            if isinstance(default, bool):
+                if not default:
+                    parts.append(flag)
+            else:
+                parts.append('{} ${{{}}}'.format(flag, default))
+
+    return ' '.join(parts)
+
+
+def _format_method_args(method):
+    """将方法的参数格式化为 CLI 参数字符串"""
+    sig = inspect.signature(method)
+    parts = []
+    for pname, param in sig.parameters.items():
+        if pname == 'self':
+            continue
+        flag = '--{}'.format(pname.replace('_', '-'))
+        default = param.default
+        ptype = param.annotation if param.annotation is not inspect.Parameter.empty else str
+
+        if default is inspect.Parameter.empty:
+            if ptype is bool:
+                parts.append(flag)
+            else:
+                parts.append('{} $<{}>'.format(flag, pname))
+        else:
+            if isinstance(default, bool):
+                if not default:
+                    parts.append(flag)
+            else:
+                parts.append('{} ${{{}}}'.format(flag, default))
+
+    return ' '.join(parts)
+
+
+def _safe_instantiate(cls):
+    """安全实例化类，失败时用 __new__"""
+    try:
+        return cls()
+    except TypeError:
+        return cls.__new__(cls)
+
+
+def _apply_fmt(cmd_line, fmt):
+    """应用输出格式"""
+    if fmt == 'markdown':
+        return '```bash\n{}\n```'.format(cmd_line)
+    return cmd_line
+
+`````
+
+--- **end of file: nb_cmd/core/gen_cmd.py** (project: nb_cmd) --- 
+
+---
+
+
 --- **start of file: nb_cmd/core/meta.py** (project: nb_cmd) --- 
 
 `````python
@@ -3638,7 +4775,7 @@ class NbCmdMeta(object):
     子类继承后可覆盖任意字段，IDE 可自动补全所有可用选项。
     """
     name = None               # type: str   # CLI/API 名称（默认用类名）
-    version = '0.0.1'         # type: str   # 版本号（--version 显示）
+    version = '0.0.1'         # type: str   # 版本号（--cmd-version 显示）
     description = None        # type: str   # 描述（默认用类的 docstring）
     use_nb_log = False         # type: bool  # 启用 nb_log 增强日志
     log_level = 'INFO'         # type: str   # 日志级别
@@ -3651,6 +4788,7 @@ class NbCmdMeta(object):
     web_title = None           # type: str   # Web UI 页面标题
     web_theme = 'light'        # type: str   # Web UI 主题 ('light' / 'dark')
     enable_exec = True         # type: bool  # 是否暴露内置 exec 命令（False 可防止恶意执行）
+    help_mode = 'full'         # type: str   # -h 帮助模式: 'full'(完整帮助) / 'easy'(简易帮助)
     aliases = {}               # type: dict  # 参数别名（推荐用 Annotated 替代）
 
 `````
@@ -3682,7 +4820,7 @@ class _RawDefaultsHelpFormatter(argparse.RawDescriptionHelpFormatter,
     pass
 
 
-def build_parser(instance, commands, meta):
+def build_parser(instance, commands, meta, base_cls=None):
     """
     为顶层 NbCmd 实例构建完整的 argparse 解析器。
 
@@ -3691,7 +4829,11 @@ def build_parser(instance, commands, meta):
     instance : NbCmd 实例
     commands : dict  由 discover_commands 返回
     meta : Meta 配置类
+    base_cls : type, optional  NbCmd 基类，用于子命令组 discover 过滤
     """
+    if base_cls is None:
+        from .base import NbCmd as _NbCmd
+        base_cls = _NbCmd
     description = inspect.getdoc(instance) or instance.__class__.__name__
     version = getattr(meta, 'version', '0.0.1')
 
@@ -3703,10 +4845,12 @@ def build_parser(instance, commands, meta):
 
     sys_group = parser.add_argument_group('system params')
     sys_group.add_argument('-h', '--help', action='help',
-                           default=argparse.SUPPRESS, help='显示帮助信息')
-    sys_group.add_argument('--version', action='version', version=version)
-    sys_group.add_argument('--full-help', '-fh', action='store_true',
+                           default=argparse.SUPPRESS, help='显示帮助信息（-h 行为由 Meta.help_mode 控制）')
+    sys_group.add_argument('--cmd-version', action='version', version=version)
+    sys_group.add_argument('-fh', '--full-help', action='store_true',
                            default=False, help='显示所有命令的完整参数详情')
+    sys_group.add_argument('-eh', '--easy-help', action='store_true',
+                           default=False, help='显示简易帮助（argparse 原生格式）')
     sys_group.add_argument('--web', action='store_true',
                            help='以Web UI + REST API模式启动')
     sys_group.add_argument('--web-port', type=int, default=None,
@@ -3731,7 +4875,7 @@ def build_parser(instance, commands, meta):
                 description=group_doc,
                 formatter_class=_RawDefaultsHelpFormatter,
             )
-            _build_group_subparser(sub, group_cls, instance.__class__, group_kwargs)
+            _build_group_subparser(sub, group_cls, base_cls, group_kwargs)
         else:
             param_hint = _build_param_hint(cmd_info)
             help_text = cmd_info['doc']
@@ -3763,7 +4907,7 @@ def _build_param_hint(cmd_info):
             short = arg_inst.aliases[0]
             flag = '{}/{}'.format(short, cli_name)
         else:
-            flag = pname.upper() if not has_default else cli_name
+            flag = cli_name
         if has_default and param.default is not False and param.default is not True:
             parts.append('{}={}'.format(flag, param.default))
         else:
@@ -3773,9 +4917,33 @@ def _build_param_hint(cmd_info):
     return '({})'.format(', '.join(parts))
 
 
+def print_easy_help(instance, base_cls):
+    """打印简易帮助（argparse 原生格式）"""
+    meta = getattr(instance.__class__, 'Meta', type('Meta', (), {}))
+    _enable_exec = getattr(meta, 'enable_exec', True)
+    from .discovery import discover_commands
+    commands = discover_commands(instance, base_cls, enable_exec=_enable_exec)
+    parser = build_parser(instance, commands, meta, base_cls=base_cls)
+    parser.print_help()
+
+
+def get_full_help_text(instance, base_cls):
+    """生成完整帮助文本并返回字符串（无 ANSI 颜色码）"""
+    lines = _build_full_help_lines(instance, base_cls, color=False)
+    return '\n'.join(lines)
+
+
 def print_full_help(instance, base_cls):
-    """打印所有命令的完整参数详情"""
+    """打印所有命令的完整参数详情到 stdout（带 ANSI 颜色码）"""
     import sys as _sys
+    lines = _build_full_help_lines(instance, base_cls, color=True)
+    _sys.stdout.write('\n'.join(lines))
+    _sys.stdout.write('\n')
+    _sys.stdout.flush()
+
+
+def _build_full_help_lines(instance, base_cls, color=True):
+    """构建完整帮助的所有行，返回列表"""
     from .discovery import discover_commands
 
     meta = getattr(instance.__class__, 'Meta', type('Meta', (), {}))
@@ -3784,42 +4952,47 @@ def print_full_help(instance, base_cls):
     description = inspect.getdoc(instance) or instance.__class__.__name__
     version = getattr(meta, 'version', '0.0.1')
 
-    w = _sys.stdout.write
-    line = '=' * 56
+    sep = '=' * 56
+    lines = [
+        '',
+        sep,
+        '  {} v{}'.format(instance.__class__.__name__, version),
+        '  {}'.format(description),
+        sep,
+        '',
+        'system params:',
+        '    {:<24s} {}'.format('--help, -h', '显示帮助信息'),
+        '    {:<24s} {}'.format('--full-help, -fh', '显示完整帮助（所有参数详情）'),
+        '    {:<24s} {}'.format('--easy-help, -eh', '显示简易帮助（argparse 原生格式）'),
+        '    {:<24s} {}'.format('--cmd-version', '显示版本号'),
+        '    {:<24s} {}'.format('--web', '以Web UI + REST API模式启动'),
+        '    {:<24s} {}'.format('--web-port PORT', 'Web UI 服务端口（用于 --web）'),
+        '',
+    ]
 
-    w('\n{}\n  {} v{}\n  {}\n{}\n\n'.format(
-        line, instance.__class__.__name__, version, description, line))
+    if _has_init_params(instance):
+        lines.append('init params:')
+        lines.extend(_build_init_param_lines(instance))
+        lines.append('')
 
-    w('system params:\n')
-    w('    {:<24s} {}\n'.format('--help, -h', '显示简要帮助'))
-    w('    {:<24s} {}\n'.format('--full-help, -fh', '显示本完整帮助'))
-    w('    {:<24s} {}\n'.format('--version', '显示版本号'))
-    w('    {:<24s} {}\n'.format('--web', '以Web UI + REST API模式启动'))
-    w('    {:<24s} {}\n'.format('--web-port PORT', 'Web UI 服务端口（用于 --web）'))
-    w('\n')
+    lines.append('-' * 56)
+    lines.extend(_build_group_command_lines(commands, base_cls, prefix='', color=color))
 
-    has_init_params = _has_init_params(instance)
-    if has_init_params:
-        w('init params:\n')
-        _print_init_params(w, instance)
-        w('\n')
-
-    w('{}\n'.format('-' * 56))
-    _print_group_commands(w, commands, base_cls, prefix='')
-    _sys.stdout.flush()
+    return lines
 
 
-def _print_group_commands(w, commands, base_cls, prefix=''):
-    """递归打印命令组及其所有子命令（含嵌套组）"""
+def _build_group_command_lines(commands, base_cls, prefix='', color=True):
+    """递归收集命令组及其所有子命令的帮助行"""
     from .discovery import discover_commands
 
+    lines = []
     for cmd_name, cmd_info in commands.items():
         cli_name = cmd_name.replace('_', '-')
         full_name = '{} {}'.format(prefix, cli_name).strip() if prefix else cli_name
 
         if cmd_info.get('is_group'):
-            w('{} \033[36m[子命令组]\033[0m  {}\n'.format(
-                full_name, cmd_info.get('doc', '')))
+            tag = '\033[36m[子命令组]\033[0m' if color else '[子命令组]'
+            lines.append('{} {}  {}'.format(full_name, tag, cmd_info.get('doc', '')))
             group_cls = cmd_info['cls']
             group_kwargs = cmd_info.get('init_kwargs', {})
             try:
@@ -3828,23 +5001,28 @@ def _print_group_commands(w, commands, base_cls, prefix=''):
                 group_inst = group_cls.__new__(group_cls)
             group_cmds = discover_commands(group_inst, base_cls,
                                            include_builtins=False)
-            _print_group_commands(w, group_cmds, base_cls, prefix=full_name)
-            w('\n')
+            lines.extend(_build_group_command_lines(group_cmds, base_cls,
+                                                    prefix=full_name, color=color))
+            lines.append('')
         else:
             if prefix:
-                w('\n  {} — {}\n'.format(full_name, cmd_info.get('doc', '')))
+                lines.append('')
+                lines.append('  {} — {}'.format(full_name, cmd_info.get('doc', '')))
             else:
-                w('{} — {}\n'.format(full_name, cmd_info.get('doc', '')))
-            _print_params(w, cmd_info)
+                lines.append('{} — {}'.format(full_name, cmd_info.get('doc', '')))
+            lines.extend(_build_param_lines(cmd_info))
             if not prefix:
-                w('\n')
+                lines.append('')
+
+    return lines
 
 
-def _print_params(write_fn, cmd_info):
-    """打印一个命令的完整参数列表"""
+def _build_param_lines(cmd_info):
+    """构建一个命令的完整参数列表行"""
     sig = cmd_info['signature']
     hints = cmd_info.get('type_hints', {})
     arg_meta = cmd_info.get('arg_meta', {})
+    lines = []
 
     for pname, param in sig.parameters.items():
         if pname == 'self':
@@ -3860,10 +5038,7 @@ def _print_params(write_fn, cmd_info):
         if arg_inst and arg_inst.aliases:
             flags_str = '{}, {}'.format(cli_flag, ', '.join(arg_inst.aliases))
         else:
-            if not has_default:
-                flags_str = pname.upper()
-            else:
-                flags_str = cli_flag
+            flags_str = cli_flag
 
         if has_default:
             meta_str = '({}, 默认: {})'.format(type_name, param.default)
@@ -3871,9 +5046,11 @@ def _print_params(write_fn, cmd_info):
             meta_str = '({}, 必填)'.format(type_name)
 
         if desc:
-            write_fn('    {:<24s} {}  {}\n'.format(flags_str, desc, meta_str))
+            lines.append('    {:<24s} {}  {}'.format(flags_str, desc, meta_str))
         else:
-            write_fn('    {:<24s} {}\n'.format(flags_str, meta_str))
+            lines.append('    {:<24s} {}'.format(flags_str, meta_str))
+
+    return lines
 
 
 def _has_init_params(instance):
@@ -3888,15 +5065,16 @@ def _has_init_params(instance):
     return False
 
 
-def _print_init_params(write_fn, instance):
-    """打印 __init__ 全局选项的详情（用于 --full-help）"""
+def _build_init_param_lines(instance):
+    """构建 __init__ 全局选项的详情行"""
     from .arg import unwrap_arg
 
     init_method = instance.__class__.__init__
     if init_method is object.__init__:
-        return
+        return []
 
     sig = inspect.signature(init_method)
+    lines = []
 
     for pname, param in sig.parameters.items():
         if pname == 'self':
@@ -3928,9 +5106,11 @@ def _print_init_params(write_fn, instance):
         meta_str = '(全局, {}, 默认: {})'.format(type_name, default_val)
 
         if desc:
-            write_fn('    {:<24s} {}  {}\n'.format(flags_str, desc, meta_str))
+            lines.append('    {:<24s} {}  {}'.format(flags_str, desc, meta_str))
         else:
-            write_fn('    {:<24s} {}\n'.format(flags_str, meta_str))
+            lines.append('    {:<24s} {}'.format(flags_str, meta_str))
+
+    return lines
 
 
 def _add_init_global_options(parser, instance):
@@ -4054,13 +5234,14 @@ def _add_method_arguments(sub_parser, cmd_info, meta):
             sub_parser.add_argument(*flags, **kwargs)
         else:
             auto_help = '({}, 必填)'.format(type_name)
+            help_text = '{} {}'.format(desc, auto_help) if desc else auto_help
             if extra_flags:
                 flags = [cli_flag] + extra_flags
                 kwargs = dict(
                     type=ap_type,
                     required=True,
                     dest=param_name,
-                    help='{} {}'.format(desc, auto_help) if desc else auto_help,
+                    help=help_text,
                 )
                 if nargs is not None:
                     kwargs['nargs'] = nargs
@@ -4070,7 +5251,8 @@ def _add_method_arguments(sub_parser, cmd_info, meta):
             else:
                 kwargs = dict(
                     type=ap_type,
-                    help='{} {}'.format(desc, auto_help) if desc else auto_help,
+                    help=help_text,
+                    metavar=param_name.upper(),
                 )
                 if nargs is not None:
                     kwargs['nargs'] = nargs
@@ -4079,7 +5261,7 @@ def _add_method_arguments(sub_parser, cmd_info, meta):
                 sub_parser.add_argument(param_name, **kwargs)
 
 
-def _build_group_subparser(parent_parser, group_cls, base_cls, init_kwargs=None):
+def _build_group_subparser(parent_parser, group_cls, base_cls, init_kwargs=None, depth=1):
     """递归为子命令组构建 subparser"""
     from .discovery import discover_commands
 
@@ -4100,7 +5282,8 @@ def _build_group_subparser(parent_parser, group_cls, base_cls, init_kwargs=None)
 
     sub_group_meta = getattr(group_cls, 'Meta', type('Meta', (), {}))
 
-    group_subparsers = parent_parser.add_subparsers(dest='_nb_sub_command', help='可用子命令')
+    dest = '_nb_sub_command' if depth == 1 else '_nb_sub_command_{}'.format(depth)
+    group_subparsers = parent_parser.add_subparsers(dest=dest, help='可用子命令')
 
     for cmd_name, cmd_info in group_commands.items():
         cli_name = cmd_name.replace('_', '-')
@@ -4115,7 +5298,7 @@ def _build_group_subparser(parent_parser, group_cls, base_cls, init_kwargs=None)
                 description=nested_doc,
                 formatter_class=_RawDefaultsHelpFormatter,
             )
-            _build_group_subparser(nested_sub, nested_cls, base_cls, nested_kwargs)
+            _build_group_subparser(nested_sub, nested_cls, base_cls, nested_kwargs, depth + 1)
         else:
             sub = group_subparsers.add_parser(
                 cli_name,
@@ -4635,6 +5818,9 @@ def _register_routes(app, instance, commands, base_cls=None, prefix=''):
                     group_instance = group_cls(**group_kwargs) if group_kwargs else group_cls()
                 except TypeError:
                     group_instance = group_cls.__new__(group_cls)
+                parent_ctx = instance.nbctx if hasattr(instance, 'nbctx') else None
+                if parent_ctx is not None:
+                    group_instance.nbctx = parent_ctx
                 group_commands = discover_commands(group_instance, base_cls,
                                                    include_builtins=False)
                 group_prefix = '{}/{}'.format(prefix, cmd_name) if prefix else cmd_name
@@ -4746,13 +5932,18 @@ def _make_route(app, path, summary, cmd_name, instance, request_model, type_hint
 
     def _fresh(raw_init_params=None):
         if not raw_init_params or not _init_types:
-            return _cls(**_init_kwargs) if _init_kwargs else _cls()
-        from ..core.type_utils import convert_value
-        merged = dict(_init_kwargs)
-        for pname, val in raw_init_params.items():
-            if pname in _init_types:
-                merged[pname] = convert_value(val, _init_types[pname])
-        return _cls(**merged) if merged else _cls()
+            inst = _cls(**_init_kwargs) if _init_kwargs else _cls()
+        else:
+            from ..core.type_utils import convert_value
+            merged = dict(_init_kwargs)
+            for pname, val in raw_init_params.items():
+                if pname in _init_types:
+                    merged[pname] = convert_value(val, _init_types[pname])
+            inst = _cls(**merged) if merged else _cls()
+        ctx = inst.make_nbctx()
+        if ctx is not None:
+            inst.nbctx = ctx
+        return inst
 
     def _convert_kwargs(kwargs):
         from ..core.type_utils import convert_value
@@ -4885,11 +6076,12 @@ def run_cli(instance, base_cls, args=None):
     meta = getattr(instance.__class__, 'Meta', type('Meta', (), {}))
     _enable_exec = getattr(meta, 'enable_exec', True)
     commands = discover_commands(instance, base_cls, enable_exec=_enable_exec)
-    parser = build_parser(instance, commands, meta)
+    parser = build_parser(instance, commands, meta, base_cls=base_cls)
 
     parsed = parser.parse_args(args)
 
     _apply_init_args(instance, parsed)
+    _ensure_nbctx(instance)
 
     command_name = getattr(parsed, '_nb_command', None)
     if not command_name:
@@ -4899,7 +6091,7 @@ def run_cli(instance, base_cls, args=None):
     python_name = command_name.replace('-', '_')
 
     if python_name in commands and commands[python_name].get('is_group'):
-        _run_group_command(instance, commands[python_name], parsed, base_cls)
+        _run_group_command(instance, commands[python_name], parsed, base_cls, depth=1)
         return
 
     if python_name not in commands:
@@ -4956,7 +6148,22 @@ def _extract_kwargs(method, cmd_info, parsed):
     return kwargs
 
 
-def _run_group_command(instance, group_info, parsed, base_cls):
+def _ensure_nbctx(instance):
+    """确保实例的 nbctx 已初始化（调用 make_nbctx）"""
+    if instance.nbctx is None:
+        ctx = instance.make_nbctx()
+        if ctx is not None:
+            instance.nbctx = ctx
+
+
+def _inject_nbctx(parent, child):
+    """将父级的 nbctx 注入到子命令组实例"""
+    parent_ctx = parent.nbctx
+    if parent_ctx is not None:
+        child.nbctx = parent_ctx
+
+
+def _run_group_command(instance, group_info, parsed, base_cls, depth=1):
     """执行子命令组中的命令"""
     group_cls = group_info['cls']
     group_kwargs = group_info.get('init_kwargs', {})
@@ -4966,7 +6173,10 @@ def _run_group_command(instance, group_info, parsed, base_cls):
     except TypeError:
         group_instance = group_cls.__new__(group_cls)
 
-    sub_command = getattr(parsed, '_nb_sub_command', None)
+    _inject_nbctx(instance, group_instance)
+
+    dest = '_nb_sub_command' if depth == 1 else '_nb_sub_command_{}'.format(depth)
+    sub_command = getattr(parsed, dest, None)
     if not sub_command:
         print('请指定子命令。使用 --help 查看可用子命令。')
         return
@@ -4975,7 +6185,8 @@ def _run_group_command(instance, group_info, parsed, base_cls):
     sub_commands = discover_commands(group_instance, base_cls)
 
     if sub_python_name in sub_commands and sub_commands[sub_python_name].get('is_group'):
-        _run_group_command(group_instance, sub_commands[sub_python_name], parsed, base_cls)
+        _run_group_command(group_instance, sub_commands[sub_python_name], parsed, base_cls,
+                           depth=depth + 1)
         return
 
     if sub_python_name not in sub_commands:
@@ -5207,16 +6418,21 @@ def start_web_server(instance, base_cls, host=None, port=None):
     def _make_instance(raw_init_params=None):
         """每次请求创建一个新的用户类实例，彼此隔离"""
         if not init_params_info:
-            return _user_cls()
-        from ..core.type_utils import convert_value
-        kwargs = {}
-        for p in init_params_info:
-            pname = p['name']
-            if raw_init_params and pname in raw_init_params:
-                kwargs[pname] = convert_value(raw_init_params[pname], p['_real_type'])
-            elif p.get('required'):
-                kwargs[pname] = getattr(instance, pname)
-        return _user_cls(**kwargs) if kwargs else _user_cls()
+            inst = _user_cls()
+        else:
+            from ..core.type_utils import convert_value
+            kwargs = {}
+            for p in init_params_info:
+                pname = p['name']
+                if raw_init_params and pname in raw_init_params:
+                    kwargs[pname] = convert_value(raw_init_params[pname], p['_real_type'])
+                elif p.get('required'):
+                    kwargs[pname] = getattr(instance, pname)
+            inst = _user_cls(**kwargs) if kwargs else _user_cls()
+        ctx = inst.make_nbctx()
+        if ctx is not None:
+            inst.nbctx = ctx
+        return inst
 
     def _resolve_command(route_path, raw_init_params=None):
         """根据路由路径解析出 (method, target_instance, cmd_info)，支持多层嵌套"""
@@ -5229,8 +6445,9 @@ def start_web_server(instance, base_cls, host=None, port=None):
                 method = getattr(target_inst, cmd_name)
                 return method, target_inst, info
         elif len(parts) >= 2:
+            root_inst = _make_instance(raw_init_params)
             current_cmds = commands
-            current_inst = None
+            current_inst = root_inst
             for i, part in enumerate(parts):
                 if part not in current_cmds:
                     break
@@ -5239,9 +6456,13 @@ def start_web_server(instance, base_cls, host=None, port=None):
                     g_cls = info['cls']
                     g_kwargs = info.get('init_kwargs', {})
                     try:
-                        current_inst = g_cls(**g_kwargs) if g_kwargs else g_cls()
+                        child_inst = g_cls(**g_kwargs) if g_kwargs else g_cls()
                     except TypeError:
-                        current_inst = g_cls.__new__(g_cls)
+                        child_inst = g_cls.__new__(g_cls)
+                    parent_ctx = current_inst.nbctx if current_inst is not None else None
+                    if parent_ctx is not None:
+                        child_inst.nbctx = parent_ctx
+                    current_inst = child_inst
                     current_cmds = discover_commands(current_inst, base_cls,
                                                      include_builtins=False)
                 elif i == len(parts) - 1 and current_inst is not None:
