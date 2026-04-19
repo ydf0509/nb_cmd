@@ -22,7 +22,8 @@ else:
 from .arg import unwrap_arg
 
 
-def discover_commands(instance, base_cls, include_builtins=True, enable_exec=True):
+def discover_commands(instance, base_cls, include_builtins=True, enable_exec=True,
+                      allow_method_list=None, command_prefix=''):
     """
     发现 instance 上所有应暴露为 CLI 子命令的方法，以及 sub_commands 中的子命令组。
 
@@ -32,11 +33,18 @@ def discover_commands(instance, base_cls, include_builtins=True, enable_exec=Tru
         是否包含基类内置命令（如 exec），顶层类为 True，子命令组为 False
     enable_exec : bool
         是否启用内置 exec 命令，由 Meta.enable_exec 控制
+    allow_method_list : list[str] or None
+        命令白名单。为空/None 表示不过滤；有值时仅暴露白名单命令。
+        支持写法：['status', 'db.migrate', 'db/migrate', 'db migrate']。
+    command_prefix : str
+        当前 discover 所在的命令路径前缀（内部递归使用）。
 
     返回: OrderedDict  { cmd_name: cmd_info_dict }
     """
     from collections import OrderedDict
     commands = OrderedDict()
+    allow_set = _normalize_allow_method_set(allow_method_list)
+    current_prefix = _normalize_command_path(command_prefix)
 
     _BUILTIN_COMMANDS = {'exec'} if (include_builtins and enable_exec) else set()
     base_methods = set(dir(base_cls)) - _BUILTIN_COMMANDS
@@ -98,6 +106,10 @@ def discover_commands(instance, base_cls, include_builtins=True, enable_exec=Tru
                 )
             )
 
+        full_path = _join_command_path(current_prefix, name)
+        if not _is_method_allowed(full_path, allow_set):
+            continue
+
         commands[name] = {
             'method': attr,
             'signature': sig,
@@ -110,6 +122,10 @@ def discover_commands(instance, base_cls, include_builtins=True, enable_exec=Tru
 
     sub_cmds = getattr(instance.__class__, 'sub_commands', {})
     for group_name, group_val in sub_cmds.items():
+        group_path = _join_command_path(current_prefix, group_name)
+        if not _is_group_allowed(group_path, allow_set):
+            continue
+
         if inspect.isclass(group_val) and issubclass(group_val, base_cls):
             commands[group_name] = {
                 'cls': group_val,
@@ -127,6 +143,120 @@ def discover_commands(instance, base_cls, include_builtins=True, enable_exec=Tru
             }
 
     return commands
+
+
+def _normalize_allow_method_set(allow_method_list):
+    """
+    归一化 allow_method_list，返回 set。
+
+    - None / [] / () / '' -> 空 set（表示不过滤）
+    - str -> 视为单条规则
+    - 路径分隔支持 '.', '/', 空格
+    - CLI 风格 '-' 自动转为 '_'（与 Python 方法名对齐）
+    """
+    if allow_method_list is None:
+        return set()
+
+    if isinstance(allow_method_list, str):
+        raw_items = [allow_method_list]
+    elif isinstance(allow_method_list, (list, tuple, set)):
+        raw_items = list(allow_method_list)
+    else:
+        raw_items = [str(allow_method_list)]
+
+    normalized = set()
+    for item in raw_items:
+        p = _normalize_command_path(item)
+        if p:
+            normalized.add(p)
+    return normalized
+
+
+def _normalize_command_path(path):
+    """将命令路径统一为 'group/sub/cmd' 形式（内部用 '_' 命名）。"""
+    if path is None:
+        return ''
+    s = str(path).strip()
+    if not s:
+        return ''
+
+    # 支持 db.migrate / db/migrate / db migrate
+    s = s.replace('\\', '/').replace('.', '/').replace(' ', '/')
+    while '//' in s:
+        s = s.replace('//', '/')
+    s = s.strip('/')
+    if not s:
+        return ''
+
+    parts = []
+    for part in s.split('/'):
+        p = part.strip()
+        if not p:
+            continue
+        parts.append(p.replace('-', '_'))
+    return '/'.join(parts)
+
+
+def _join_command_path(prefix, name):
+    """拼接完整命令路径。"""
+    p = _normalize_command_path(prefix)
+    n = _normalize_command_path(name)
+    if not p:
+        return n
+    if not n:
+        return p
+    return p + '/' + n
+
+
+def _iter_ancestor_paths(path):
+    """迭代 path 的祖先路径（不含自身），用于白名单祖先命中判断。"""
+    p = _normalize_command_path(path)
+    if not p:
+        return []
+    parts = p.split('/')
+    ancestors = []
+    # issue/list -> ['issue']
+    for i in range(1, len(parts)):
+        ancestors.append('/'.join(parts[:i]))
+    return ancestors
+
+
+def _is_method_allowed(method_path, allow_set):
+    """方法是否在白名单内（支持父组命中）。"""
+    if not allow_set:
+        return True
+
+    p = _normalize_command_path(method_path)
+    if p in allow_set:
+        return True
+
+    # allow=['issue'] 时，issue 下所有方法可见
+    for anc in _iter_ancestor_paths(p):
+        if anc in allow_set:
+            return True
+    return False
+
+
+def _is_group_allowed(group_path, allow_set):
+    """命令组是否需要暴露（自身命中、祖先命中、或有子命令命中）。"""
+    if not allow_set:
+        return True
+
+    p = _normalize_command_path(group_path)
+    if p in allow_set:
+        return True
+
+    # allow=['admin']，admin/ops 也应可见
+    for anc in _iter_ancestor_paths(p):
+        if anc in allow_set:
+            return True
+
+    # allow=['issue/list']，issue 组需保留用于路由到子命令
+    prefix = p + '/'
+    for item in allow_set:
+        if item.startswith(prefix):
+            return True
+    return False
 
 
 def _extract_init_kwargs(instance):

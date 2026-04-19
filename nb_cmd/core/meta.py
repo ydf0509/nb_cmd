@@ -13,6 +13,8 @@ NbCmd Meta 配置基类。
             use_nb_log = True
 """
 
+from typing import Dict, List, Optional
+
 
 class NbCmdMeta(object):
     """
@@ -20,19 +22,20 @@ class NbCmdMeta(object):
 
     子类继承后可覆盖任意字段，IDE 可自动补全所有可用选项。
     """
-    name = None               # type: str   # CLI/API 名称（默认用类名）
-    version = '0.0.1'         # type: str   # 版本号（--cmd-version 显示）
-    description = None        # type: str   # 描述（默认用类的 docstring）
-    use_nb_log = False         # type: bool  # 启用 nb_log 增强日志
-    log_level = 'INFO'         # type: str   # 日志级别
-    log_file = None            # type: str   # 日志文件路径
-    auto_save_last_args = False  # type: bool  # 自动保存上次参数
-    config_file = None         # type: str   # 配置持久化文件路径
-    serve_host = '0.0.0.0'    # type: str   # Web/API 绑定地址
-    serve_port = 8080          # type: int   # Web/API 默认端口
-    serve_workers = 1          # type: int   # 工作进程数
-    web_title = None           # type: str   # Web UI 页面标题
-    web_theme = 'light'        # type: str   # Web UI 主题 ('light' / 'dark')
-    enable_exec = True         # type: bool  # 是否暴露内置 exec 命令（False 可防止恶意执行）
-    help_mode = 'full'         # type: str   # -h 帮助模式: 'full'(完整帮助) / 'easy'(简易帮助)
-    aliases = {}               # type: dict  # 参数别名（推荐用 Annotated 替代）
+    name: Optional[str] = None               # CLI/API 名称（默认用类名）
+    version: str = '0.0.1'                   # 版本号（--cmd-version 显示）
+    description: Optional[str] = None        # 描述（默认用类的 docstring）
+    use_nb_log: bool = False                 # 启用 nb_log 增强日志
+    log_level: str = 'INFO'                  # 日志级别
+    log_file: Optional[str] = None           # 日志文件路径
+    auto_save_last_args: bool = False        # 自动保存上次参数
+    config_file: Optional[str] = None        # 配置持久化文件路径
+    serve_host: str = '0.0.0.0'              # Web/API 绑定地址
+    serve_port: int = 8080                   # Web/API 默认端口
+    serve_workers: int = 1                   # 工作进程数
+    web_title: Optional[str] = None          # Web UI 页面标题
+    web_theme: str = 'light'                 # Web UI 主题 ('light' / 'dark')
+    enable_exec: bool = True                 # 是否暴露内置 exec 命令（False 可防止恶意执行）
+    help_mode: str = 'full'                  # -h 帮助模式: 'full'(完整帮助) / 'easy'(简易帮助)
+    aliases: Dict[str, List[str]] = {}       # 参数别名（推荐用 Annotated 替代）
+    allow_method_list: Optional[List[str]] = None  # 命令白名单（仅限制 CLI/API/Web 暴露；Python 直接调用不受影响）

@@ -6,6 +6,27 @@ tags: []
 
 # nb_cmd 重大设计修改记录
 
+## 2026-04-19: allow_method_list 命令白名单（仅限制 CLI/API/Web）
+
+**需求**: 增加 `Meta.allow_method_list`，当用户指定白名单时，仅暴露指定命令；未指定时暴露全部命令。该限制只作用于 CLI / REST API / Web UI，Python 代码直接调用类方法不受影响。
+
+**实现**:
+1. `discover_commands()` 新增 `allow_method_list` + `command_prefix` 参数，统一做命令过滤
+2. 支持路径写法：`status`、`db.migrate`、`db/migrate`、`db migrate`
+3. 对命令组做“前缀保留”逻辑：当白名单包含 `db/migrate` 时，`db` 组自动保留
+4. CLI/API/Web/Help/CmdGen 全链路接入白名单参数，行为一致
+
+**影响文件**:
+- `nb_cmd/core/discovery.py`（新增路径归一化、祖先命中、组前缀保留过滤逻辑）
+- `nb_cmd/modes/cli_mode.py`（CLI 执行链路接入 allow_method_list）
+- `nb_cmd/core/parser.py`（argparse + full-help + easy-help 接入 allow_method_list）
+- `nb_cmd/modes/api_mode.py`（REST 路由注册递归接入 allow_method_list）
+- `nb_cmd/modes/web_mode.py`（Web 命令树与执行解析接入 allow_method_list）
+- `nb_cmd/core/gen_cmd.py`（CmdGen 文档/目录接入 allow_method_list）
+- `nb_cmd/core/meta.py`（新增字段注释，默认 `None`）
+- `examples/github_cli_demos/gh_nb_cmd.py`（Meta 中补充 allow_method_list 用法示例注释）
+- `tests/ai_codes/testnbcmds/test_allow_method_list.py`（新增专项测试）
+
 ## 2026-04-19: README 全面更新（nbctx + async + help_mode + 并发安全）
 
 **更新内容**:

@@ -59,8 +59,11 @@ def start_api_server(instance, base_cls, host=None, port=None):
     )
 
     _enable_exec = getattr(meta, 'enable_exec', True)
-    commands = discover_commands(instance, base_cls, enable_exec=_enable_exec)
-    _register_routes(app, instance, commands, base_cls=base_cls)
+    _allow_methods = getattr(meta, 'allow_method_list', None)
+    commands = discover_commands(instance, base_cls, enable_exec=_enable_exec,
+                                 allow_method_list=_allow_methods)
+    _register_routes(app, instance, commands, base_cls=base_cls,
+                     allow_method_list=_allow_methods, command_prefix='')
 
     from fastapi.responses import RedirectResponse
 
@@ -116,13 +119,15 @@ def _safe_default(value):
     return str(value)
 
 
-def _register_routes(app, instance, commands, base_cls=None, prefix=''):
+def _register_routes(app, instance, commands, base_cls=None, prefix='',
+                     allow_method_list=None, command_prefix=''):
     """为每个命令注册 POST 路由，支持递归注册子命令组"""
     for cmd_name, cmd_info in commands.items():
         if cmd_info.get('is_group'):
             if base_cls is not None:
                 group_cls = cmd_info['cls']
                 group_kwargs = cmd_info.get('init_kwargs', {})
+                group_path = '{}/{}'.format(command_prefix, cmd_name) if command_prefix else cmd_name
                 try:
                     group_instance = group_cls(**group_kwargs) if group_kwargs else group_cls()
                 except TypeError:
@@ -131,10 +136,14 @@ def _register_routes(app, instance, commands, base_cls=None, prefix=''):
                 if parent_ctx is not None:
                     group_instance.nbctx = parent_ctx
                 group_commands = discover_commands(group_instance, base_cls,
-                                                   include_builtins=False)
+                                                   include_builtins=False,
+                                                   allow_method_list=allow_method_list,
+                                                   command_prefix=group_path)
                 group_prefix = '{}/{}'.format(prefix, cmd_name) if prefix else cmd_name
                 _register_routes(app, group_instance, group_commands,
-                                 base_cls=base_cls, prefix=group_prefix)
+                                 base_cls=base_cls, prefix=group_prefix,
+                                 allow_method_list=allow_method_list,
+                                 command_prefix=group_path)
             continue
 
         sig = cmd_info['signature']

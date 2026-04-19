@@ -31,8 +31,11 @@ def run_cli(instance, base_cls, args=None):
     """
     meta = getattr(instance.__class__, 'Meta', type('Meta', (), {}))
     _enable_exec = getattr(meta, 'enable_exec', True)
-    commands = discover_commands(instance, base_cls, enable_exec=_enable_exec)
-    parser = build_parser(instance, commands, meta, base_cls=base_cls)
+    _allow_methods = getattr(meta, 'allow_method_list', None)
+    commands = discover_commands(instance, base_cls, enable_exec=_enable_exec,
+                                 allow_method_list=_allow_methods)
+    parser = build_parser(instance, commands, meta, base_cls=base_cls,
+                          allow_method_list=_allow_methods)
 
     parsed = parser.parse_args(args)
 
@@ -47,7 +50,8 @@ def run_cli(instance, base_cls, args=None):
     python_name = command_name.replace('-', '_')
 
     if python_name in commands and commands[python_name].get('is_group'):
-        _run_group_command(instance, commands[python_name], parsed, base_cls, depth=1)
+        _run_group_command(instance, commands[python_name], parsed, base_cls, depth=1,
+                           allow_method_list=_allow_methods, command_prefix=python_name)
         return
 
     if python_name not in commands:
@@ -131,7 +135,8 @@ def _inject_nbctx(parent, child):
         child.nbctx = parent_ctx
 
 
-def _run_group_command(instance, group_info, parsed, base_cls, depth=1):
+def _run_group_command(instance, group_info, parsed, base_cls, depth=1,
+                       allow_method_list=None, command_prefix=''):
     """执行子命令组中的命令"""
     group_cls = group_info['cls']
     group_kwargs = group_info.get('init_kwargs', {})
@@ -150,11 +155,15 @@ def _run_group_command(instance, group_info, parsed, base_cls, depth=1):
         return
 
     sub_python_name = sub_command.replace('-', '_')
-    sub_commands = discover_commands(group_instance, base_cls)
+    sub_commands = discover_commands(group_instance, base_cls,
+                                     allow_method_list=allow_method_list,
+                                     command_prefix=command_prefix)
 
     if sub_python_name in sub_commands and sub_commands[sub_python_name].get('is_group'):
+        next_prefix = '{}/{}'.format(command_prefix, sub_python_name) if command_prefix else sub_python_name
         _run_group_command(group_instance, sub_commands[sub_python_name], parsed, base_cls,
-                           depth=depth + 1)
+                           depth=depth + 1, allow_method_list=allow_method_list,
+                           command_prefix=next_prefix)
         return
 
     if sub_python_name not in sub_commands:

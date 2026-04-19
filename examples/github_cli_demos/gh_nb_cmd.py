@@ -130,6 +130,8 @@ class GhCli(NbCmd):
         name = 'gh-cli'
         version = '1.0.0'
         enable_exec = False
+        # 白名单示例：仅暴露 status + issue/list + pr/merge（Python 直接调用不受影响）
+        # allow_method_list = ['status', 'issue.list', 'pr/merge']
 
     def __init__(
         self,
@@ -164,7 +166,7 @@ class GhCli(NbCmd):
 
     def status(self):
         """查看 CLI 全局配置状态"""
-        print(f"=== gh-cli 全局配置 ===")
+        print("=== gh-cli 全局配置 ===")
         print(f"repo:       {self.nbctx.repo}")
         print(f"hostname:   {self.nbctx.hostname}")
         print(f"auth_token: {'***' if self.nbctx.auth_token else 'None'}")

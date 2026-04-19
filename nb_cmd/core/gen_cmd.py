@@ -38,6 +38,7 @@ class CmdGen(object):
         self.python = python or sys.executable
         self.fmt = fmt
         self._base_cls = _find_base_cls(entry_cls)
+        self._allow_methods = _get_allow_method_list(entry_cls)
 
     def cmd(self, method):
         """
@@ -126,9 +127,11 @@ class CmdGen(object):
 
         global_args = _format_init_args(self.entry_cls)
         commands = discover_commands(instance, self._base_cls,
-                                     include_builtins=False, enable_exec=False)
+                                     include_builtins=False, enable_exec=False,
+                                     allow_method_list=self._allow_methods)
         _collect_text_doc(commands, self._base_cls, self.script, self.python,
-                          global_args, '', lines, depth=0)
+                          global_args, '', lines, depth=0,
+                          allow_method_list=self._allow_methods, command_prefix='')
 
         return '\n'.join(lines)
 
@@ -141,7 +144,8 @@ class CmdGen(object):
         description = inspect.getdoc(instance) or self.entry_cls.__name__
 
         commands = discover_commands(instance, self._base_cls,
-                                     include_builtins=False, enable_exec=False)
+                                     include_builtins=False, enable_exec=False,
+                                     allow_method_list=self._allow_methods)
         global_args = _format_init_args(self.entry_cls)
 
         lines = []
@@ -151,7 +155,9 @@ class CmdGen(object):
         lines.append('> {}'.format(description))
         lines.append('')
 
-        toc_items = _collect_toc(commands, self._base_cls, prefix='')
+        toc_items = _collect_toc(commands, self._base_cls, prefix='',
+                                 allow_method_list=self._allow_methods,
+                                 command_prefix='')
         if toc_items:
             lines.append('## Table of Contents')
             lines.append('')
@@ -226,12 +232,14 @@ class CmdGen(object):
         lines.append('')
 
         _collect_md_doc(commands, self._base_cls, self.script, self.python,
-                        global_args, '', lines, depth=0)
+                        global_args, '', lines, depth=0,
+                        allow_method_list=self._allow_methods, command_prefix='')
 
         return '\n'.join(lines)
 
 
-def _collect_toc(commands, base_cls, prefix='', depth=0):
+def _collect_toc(commands, base_cls, prefix='', depth=0, allow_method_list=None,
+                 command_prefix=''):
     """递归收集命令目录结构"""
     items = []
     for cmd_name, cmd_info in commands.items():
@@ -242,10 +250,15 @@ def _collect_toc(commands, base_cls, prefix='', depth=0):
             items.append({'display': display, 'is_group': True, 'depth': depth})
             group_cls = cmd_info['cls']
             group_instance = _safe_instantiate(group_cls)
+            group_path = '{}/{}'.format(command_prefix, cmd_name) if command_prefix else cmd_name
             sub_commands = discover_commands(group_instance, base_cls,
-                                             include_builtins=False, enable_exec=False)
+                                             include_builtins=False, enable_exec=False,
+                                             allow_method_list=allow_method_list,
+                                             command_prefix=group_path)
             items.extend(_collect_toc(sub_commands, base_cls, prefix=full_path,
-                                      depth=depth + 1))
+                                      depth=depth + 1,
+                                      allow_method_list=allow_method_list,
+                                      command_prefix=group_path))
         else:
             items.append({'display': display, 'is_group': False, 'depth': depth})
     return items
@@ -285,7 +298,7 @@ def _collect_init_params(entry_cls):
 
 
 def _collect_text_doc(commands, base_cls, script_name, python_path, global_args,
-                      prefix, lines, depth):
+                      prefix, lines, depth, allow_method_list=None, command_prefix=''):
     """递归收集纯文本格式的命令文档"""
     for cmd_name, cmd_info in commands.items():
         full_path = '{} {}'.format(prefix, cmd_name).strip() if prefix else cmd_name
@@ -297,10 +310,15 @@ def _collect_text_doc(commands, base_cls, script_name, python_path, global_args,
             lines.append('')
             lines.append('{}[{}]  {}'.format(indent, full_path, group_doc))
             group_instance = _safe_instantiate(group_cls)
+            group_path = '{}/{}'.format(command_prefix, cmd_name) if command_prefix else cmd_name
             sub_commands = discover_commands(group_instance, base_cls,
-                                             include_builtins=False, enable_exec=False)
+                                             include_builtins=False, enable_exec=False,
+                                             allow_method_list=allow_method_list,
+                                             command_prefix=group_path)
             _collect_text_doc(sub_commands, base_cls, script_name, python_path,
-                              global_args, full_path, lines, depth=depth + 1)
+                              global_args, full_path, lines, depth=depth + 1,
+                              allow_method_list=allow_method_list,
+                              command_prefix=group_path)
         else:
             method = cmd_info['method']
             doc = cmd_info.get('doc', '')
@@ -322,7 +340,7 @@ def _collect_text_doc(commands, base_cls, script_name, python_path, global_args,
 
 
 def _collect_md_doc(commands, base_cls, script_name, python_path, global_args,
-                    prefix, lines, depth):
+                    prefix, lines, depth, allow_method_list=None, command_prefix=''):
     """递归收集 Markdown 格式的命令文档"""
     from .type_utils import (
         is_optional, unwrap_optional, type_display_name,
@@ -342,10 +360,15 @@ def _collect_md_doc(commands, base_cls, script_name, python_path, global_args,
                 lines.append('> {}'.format(group_doc))
                 lines.append('')
             group_instance = _safe_instantiate(group_cls)
+            group_path = '{}/{}'.format(command_prefix, cmd_name) if command_prefix else cmd_name
             sub_commands = discover_commands(group_instance, base_cls,
-                                             include_builtins=False, enable_exec=False)
+                                             include_builtins=False, enable_exec=False,
+                                             allow_method_list=allow_method_list,
+                                             command_prefix=group_path)
             _collect_md_doc(sub_commands, base_cls, script_name, python_path,
-                            global_args, full_path, lines, depth=depth + 1)
+                            global_args, full_path, lines, depth=depth + 1,
+                            allow_method_list=allow_method_list,
+                            command_prefix=group_path)
         else:
             method = cmd_info['method']
             doc = cmd_info.get('doc', '')
@@ -427,6 +450,14 @@ def _find_base_cls(entry_cls):
     """找到 NbCmd 基类"""
     from .base import NbCmd
     return NbCmd
+
+
+def _get_allow_method_list(entry_cls):
+    """从 entry_cls.Meta 获取命令白名单（为空表示不过滤）。"""
+    meta = getattr(entry_cls, 'Meta', None)
+    if meta is None:
+        return None
+    return getattr(meta, 'allow_method_list', None)
 
 
 def _find_command_path(entry_cls, target_cls, base_cls):

@@ -51,7 +51,9 @@ def start_web_server(instance, base_cls, host=None, port=None):
     _colors_mod._COLOR_ENABLED = True
 
     _enable_exec = getattr(meta, 'enable_exec', True)
-    commands = discover_commands(instance, base_cls, enable_exec=_enable_exec)
+    _allow_methods = getattr(meta, 'allow_method_list', None)
+    commands = discover_commands(instance, base_cls, enable_exec=_enable_exec,
+                                 allow_method_list=_allow_methods)
     description = inspect.getdoc(instance) or instance.__class__.__name__
 
     from ..core._io_dispatch import _tls, install as _install_io
@@ -61,24 +63,28 @@ def start_web_server(instance, base_cls, host=None, port=None):
     has_built_frontend = os.path.isfile(os.path.join(static_dir, 'index.html'))
 
     from ..modes.api_mode import _register_routes as _register_pydantic_routes
-    _register_pydantic_routes(app, instance, commands, base_cls=base_cls)
+    _register_pydantic_routes(app, instance, commands, base_cls=base_cls,
+                              allow_method_list=_allow_methods, command_prefix='')
 
-    def _build_group_result(cmds_dict):
+    def _build_group_result(cmds_dict, command_prefix=''):
         """递归构建命令组的结构（含嵌套子命令组）"""
         result = {}
         for name, info in cmds_dict.items():
             if info.get('is_group'):
                 g_cls = info['cls']
                 g_kwargs = info.get('init_kwargs', {})
+                group_path = '{}/{}'.format(command_prefix, name) if command_prefix else name
                 try:
                     g_inst = g_cls(**g_kwargs) if g_kwargs else g_cls()
                 except TypeError:
                     g_inst = g_cls.__new__(g_cls)
-                g_cmds = discover_commands(g_inst, base_cls, include_builtins=False)
+                g_cmds = discover_commands(g_inst, base_cls, include_builtins=False,
+                                           allow_method_list=_allow_methods,
+                                           command_prefix=group_path)
                 result[name] = {
                     'type': 'group',
                     'description': info.get('doc', ''),
-                    'sub_commands': _build_group_result(g_cmds),
+                    'sub_commands': _build_group_result(g_cmds, group_path),
                 }
             else:
                 result[name] = _build_cmd_info(info)
@@ -86,7 +92,7 @@ def start_web_server(instance, base_cls, host=None, port=None):
 
     @app.get('/api/commands', summary='获取所有命令及参数定义')
     async def get_commands():
-        return _build_group_result(commands)
+        return _build_group_result(commands, '')
 
     init_params_info = _build_init_params_info(instance)
     _user_cls = instance.__class__
@@ -229,11 +235,13 @@ def start_web_server(instance, base_cls, host=None, port=None):
             root_inst = _make_instance(raw_init_params)
             current_cmds = commands
             current_inst = root_inst
+            current_path = ''
             for i, part in enumerate(parts):
                 if part not in current_cmds:
                     break
                 info = current_cmds[part]
                 if info.get('is_group'):
+                    current_path = '{}/{}'.format(current_path, part) if current_path else part
                     g_cls = info['cls']
                     g_kwargs = info.get('init_kwargs', {})
                     try:
@@ -245,7 +253,9 @@ def start_web_server(instance, base_cls, host=None, port=None):
                         child_inst.nbctx = parent_ctx
                     current_inst = child_inst
                     current_cmds = discover_commands(current_inst, base_cls,
-                                                     include_builtins=False)
+                                                     include_builtins=False,
+                                                     allow_method_list=_allow_methods,
+                                                     command_prefix=current_path)
                 elif i == len(parts) - 1 and current_inst is not None:
                     return info['method'], current_inst, info
         return None, None, None

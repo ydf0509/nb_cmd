@@ -17,7 +17,7 @@ class _RawDefaultsHelpFormatter(argparse.RawDescriptionHelpFormatter,
     pass
 
 
-def build_parser(instance, commands, meta, base_cls=None):
+def build_parser(instance, commands, meta, base_cls=None, allow_method_list=None):
     """
     为顶层 NbCmd 实例构建完整的 argparse 解析器。
 
@@ -72,7 +72,9 @@ def build_parser(instance, commands, meta, base_cls=None):
                 description=group_doc,
                 formatter_class=_RawDefaultsHelpFormatter,
             )
-            _build_group_subparser(sub, group_cls, base_cls, group_kwargs)
+            _build_group_subparser(sub, group_cls, base_cls, group_kwargs,
+                                   allow_method_list=allow_method_list,
+                                   command_prefix=cmd_name)
         else:
             param_hint = _build_param_hint(cmd_info)
             help_text = cmd_info['doc']
@@ -118,9 +120,12 @@ def print_easy_help(instance, base_cls):
     """打印简易帮助（argparse 原生格式）"""
     meta = getattr(instance.__class__, 'Meta', type('Meta', (), {}))
     _enable_exec = getattr(meta, 'enable_exec', True)
+    _allow_methods = getattr(meta, 'allow_method_list', None)
     from .discovery import discover_commands
-    commands = discover_commands(instance, base_cls, enable_exec=_enable_exec)
-    parser = build_parser(instance, commands, meta, base_cls=base_cls)
+    commands = discover_commands(instance, base_cls, enable_exec=_enable_exec,
+                                 allow_method_list=_allow_methods)
+    parser = build_parser(instance, commands, meta, base_cls=base_cls,
+                          allow_method_list=_allow_methods)
     parser.print_help()
 
 
@@ -145,7 +150,9 @@ def _build_full_help_lines(instance, base_cls, color=True):
 
     meta = getattr(instance.__class__, 'Meta', type('Meta', (), {}))
     _enable_exec = getattr(meta, 'enable_exec', True)
-    commands = discover_commands(instance, base_cls, enable_exec=_enable_exec)
+    _allow_methods = getattr(meta, 'allow_method_list', None)
+    commands = discover_commands(instance, base_cls, enable_exec=_enable_exec,
+                                 allow_method_list=_allow_methods)
     description = inspect.getdoc(instance) or instance.__class__.__name__
     version = getattr(meta, 'version', '0.0.1')
 
@@ -173,12 +180,15 @@ def _build_full_help_lines(instance, base_cls, color=True):
         lines.append('')
 
     lines.append('-' * 56)
-    lines.extend(_build_group_command_lines(commands, base_cls, prefix='', color=color))
+    lines.extend(_build_group_command_lines(commands, base_cls, prefix='', color=color,
+                                            allow_method_list=_allow_methods,
+                                            command_prefix=''))
 
     return lines
 
 
-def _build_group_command_lines(commands, base_cls, prefix='', color=True):
+def _build_group_command_lines(commands, base_cls, prefix='', color=True,
+                               allow_method_list=None, command_prefix=''):
     """递归收集命令组及其所有子命令的帮助行"""
     from .discovery import discover_commands
 
@@ -186,6 +196,7 @@ def _build_group_command_lines(commands, base_cls, prefix='', color=True):
     for cmd_name, cmd_info in commands.items():
         cli_name = cmd_name.replace('_', '-')
         full_name = '{} {}'.format(prefix, cli_name).strip() if prefix else cli_name
+        cmd_path = '{}/{}'.format(command_prefix, cmd_name) if command_prefix else cmd_name
 
         if cmd_info.get('is_group'):
             tag = '\033[36m[子命令组]\033[0m' if color else '[子命令组]'
@@ -197,9 +208,13 @@ def _build_group_command_lines(commands, base_cls, prefix='', color=True):
             except TypeError:
                 group_inst = group_cls.__new__(group_cls)
             group_cmds = discover_commands(group_inst, base_cls,
-                                           include_builtins=False)
+                                           include_builtins=False,
+                                           allow_method_list=allow_method_list,
+                                           command_prefix=cmd_path)
             lines.extend(_build_group_command_lines(group_cmds, base_cls,
-                                                    prefix=full_name, color=color))
+                                                    prefix=full_name, color=color,
+                                                    allow_method_list=allow_method_list,
+                                                    command_prefix=cmd_path))
             lines.append('')
         else:
             if prefix:
@@ -458,7 +473,8 @@ def _add_method_arguments(sub_parser, cmd_info, meta):
                 sub_parser.add_argument(param_name, **kwargs)
 
 
-def _build_group_subparser(parent_parser, group_cls, base_cls, init_kwargs=None, depth=1):
+def _build_group_subparser(parent_parser, group_cls, base_cls, init_kwargs=None, depth=1,
+                           allow_method_list=None, command_prefix=''):
     """递归为子命令组构建 subparser"""
     from .discovery import discover_commands
 
@@ -472,7 +488,9 @@ def _build_group_subparser(parent_parser, group_cls, base_cls, init_kwargs=None,
             except TypeError:
                 pass
 
-    group_commands = discover_commands(group_instance, base_cls, include_builtins=False)
+    group_commands = discover_commands(group_instance, base_cls, include_builtins=False,
+                                       allow_method_list=allow_method_list,
+                                       command_prefix=command_prefix)
 
     if not group_commands:
         return
@@ -495,7 +513,10 @@ def _build_group_subparser(parent_parser, group_cls, base_cls, init_kwargs=None,
                 description=nested_doc,
                 formatter_class=_RawDefaultsHelpFormatter,
             )
-            _build_group_subparser(nested_sub, nested_cls, base_cls, nested_kwargs, depth + 1)
+            _build_group_subparser(nested_sub, nested_cls, base_cls, nested_kwargs, depth + 1,
+                                   allow_method_list=allow_method_list,
+                                   command_prefix='{}/{}'.format(command_prefix, cmd_name)
+                                   if command_prefix else cmd_name)
         else:
             sub = group_subparsers.add_parser(
                 cli_name,
