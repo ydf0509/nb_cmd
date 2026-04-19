@@ -237,10 +237,16 @@ NbCmd Meta 配置基类。
             use_nb_log = True
 `````
 
+#### 📦 Imports
+
+- `from typing import Dict`
+- `from typing import List`
+- `from typing import Optional`
+
 #### 🏛️ Classes (1)
 
 ##### 📌 `class NbCmdMeta(object)`
-*Line: 17*
+*Line: 19*
 
 **Docstring:**
 `````
@@ -249,23 +255,27 @@ NbCmd 的 Meta 配置基类。
 子类继承后可覆盖任意字段，IDE 可自动补全所有可用选项。
 `````
 
-**Class Variables (16):**
-- `name = None`
-- `version = '0.0.1'`
-- `description = None`
-- `use_nb_log = False`
-- `log_level = 'INFO'`
-- `log_file = None`
-- `auto_save_last_args = False`
-- `config_file = None`
-- `serve_host = '0.0.0.0'`
-- `serve_port = 8080`
-- `serve_workers = 1`
-- `web_title = None`
-- `web_theme = 'light'`
-- `enable_exec = True`
-- `help_mode = 'full'`
-- `aliases = {}`
+**Class Variables (20):**
+- `name: Optional[str] = None`
+- `version: str = '0.0.1'`
+- `description: Optional[str] = None`
+- `use_nb_log: bool = False`
+- `log_level: str = 'INFO'`
+- `log_file: Optional[str] = None`
+- `auto_save_last_args: bool = False`
+- `config_file: Optional[str] = None`
+- `serve_host: str = '0.0.0.0'`
+- `serve_port: int = 8080`
+- `serve_workers: int = 1`
+- `web_title: Optional[str] = None`
+- `web_theme: str = 'light'`
+- `enable_exec: bool = True`
+- `help_mode: str = 'full'`
+- `aliases: Dict[str, List[str]] = {}`
+- `allow_method_list: Optional[List[str]] = None`
+- `hide_method_list: Optional[List[str]] = None`
+- `auth_token: Optional[str] = None`
+- `timeout: int = 0`
 
 
 ---
@@ -1388,6 +1398,10 @@ class MyTool(NbCmd):
 | `enable_exec` | bool | `True` | 是否暴露内置 `exec` 命令（设为 `False` 可防止恶意执行系统命令） |
 | `help_mode` | str | `'full'` | `-h` 的默认行为：`'full'` 显示完整帮助，`'easy'` 显示 argparse 原生格式 |
 | `aliases` | dict | `{}` | 参数别名（推荐用 `Annotated[..., 'desc', 'a']` 指定短别名替代） |
+| `allow_method_list` | list | `None` | 命令白名单（仅限制 CLI/API/Web 暴露；`None` 暴露全部；Python 直接调用不受影响） |
+| `hide_method_list` | list | `None` | 命令黑名单（与白名单互斥，白名单优先；仅限制 CLI/API/Web） |
+| `auth_token` | str | `None` | 简易 Bearer token 鉴权（配置后 API/Web 请求须带 `Authorization: Bearer <token>`） |
+| `timeout` | int | `0` | 命令执行超时秒数（0=不限；作用于 CLI/API/Web 模式） |
 
 ### 10. 生命周期钩子
 
@@ -3749,6 +3763,7 @@ from dataclasses import dataclass
 from typing import Optional
 from typing import Annotated
 from nb_cmd import NbCmd, CmdGen
+from nb_cmd.core.meta import NbCmdMeta
 
 
 # ==================== 1. 定义全局上下文 ====================
@@ -3851,10 +3866,18 @@ class GhCli(NbCmd):
     """
     nbctx: GhCtx
 
-    class Meta:
+    class Meta(NbCmdMeta):
         name = 'gh-cli'
         version = '1.0.0'
         enable_exec = False
+        # 白名单示例：仅暴露 status + issue/list + pr/merge（Python 直接调用不受影响）
+        # allow_method_list = ['status', 'issue.list', 'pr/merge']
+        # 黑名单示例：隐藏 status（与白名单互斥，白名单优先）
+        # hide_method_list = ['status']
+        # 鉴权示例：API/Web 请求须带 Authorization: Bearer <token>
+        auth_token = 'my-secret-token'
+        # 超时示例：命令执行超过 60 秒自动终止
+        # timeout = 60
 
     def __init__(
         self,
@@ -3889,7 +3912,7 @@ class GhCli(NbCmd):
 
     def status(self):
         """查看 CLI 全局配置状态"""
-        print(f"=== gh-cli 全局配置 ===")
+        print("=== gh-cli 全局配置 ===")
         print(f"repo:       {self.nbctx.repo}")
         print(f"hostname:   {self.nbctx.hostname}")
         print(f"auth_token: {'***' if self.nbctx.auth_token else 'None'}")
@@ -5286,7 +5309,8 @@ else:
 from .arg import unwrap_arg
 
 
-def discover_commands(instance, base_cls, include_builtins=True, enable_exec=True):
+def discover_commands(instance, base_cls, include_builtins=True, enable_exec=True,
+                      allow_method_list=None, hide_method_list=None, command_prefix=''):
     """
     发现 instance 上所有应暴露为 CLI 子命令的方法，以及 sub_commands 中的子命令组。
 
@@ -5296,11 +5320,22 @@ def discover_commands(instance, base_cls, include_builtins=True, enable_exec=Tru
         是否包含基类内置命令（如 exec），顶层类为 True，子命令组为 False
     enable_exec : bool
         是否启用内置 exec 命令，由 Meta.enable_exec 控制
+    allow_method_list : list[str] or None
+        命令白名单。为空/None 表示不过滤；有值时仅暴露白名单命令。
+        支持写法：['status', 'db.migrate', 'db/migrate', 'db migrate']。
+    hide_method_list : list[str] or None
+        命令黑名单。为空/None 表示不过滤；有值时隐藏指定命令。
+        与 allow_method_list 互斥，同时配置时 allow_method_list 优先。
+    command_prefix : str
+        当前 discover 所在的命令路径前缀（内部递归使用）。
 
     返回: OrderedDict  { cmd_name: cmd_info_dict }
     """
     from collections import OrderedDict
     commands = OrderedDict()
+    allow_set = _normalize_allow_method_set(allow_method_list)
+    hide_set = _normalize_allow_method_set(hide_method_list) if not allow_set else set()
+    current_prefix = _normalize_command_path(command_prefix)
 
     _BUILTIN_COMMANDS = {'exec'} if (include_builtins and enable_exec) else set()
     base_methods = set(dir(base_cls)) - _BUILTIN_COMMANDS
@@ -5362,6 +5397,12 @@ def discover_commands(instance, base_cls, include_builtins=True, enable_exec=Tru
                 )
             )
 
+        full_path = _join_command_path(current_prefix, name)
+        if not _is_method_allowed(full_path, allow_set):
+            continue
+        if _is_method_hidden(full_path, hide_set):
+            continue
+
         commands[name] = {
             'method': attr,
             'signature': sig,
@@ -5374,6 +5415,12 @@ def discover_commands(instance, base_cls, include_builtins=True, enable_exec=Tru
 
     sub_cmds = getattr(instance.__class__, 'sub_commands', {})
     for group_name, group_val in sub_cmds.items():
+        group_path = _join_command_path(current_prefix, group_name)
+        if not _is_group_allowed(group_path, allow_set):
+            continue
+        if _is_group_hidden(group_path, hide_set):
+            continue
+
         if inspect.isclass(group_val) and issubclass(group_val, base_cls):
             commands[group_name] = {
                 'cls': group_val,
@@ -5391,6 +5438,146 @@ def discover_commands(instance, base_cls, include_builtins=True, enable_exec=Tru
             }
 
     return commands
+
+
+def _normalize_allow_method_set(allow_method_list):
+    """
+    归一化 allow_method_list，返回 set。
+
+    - None / [] / () / '' -> 空 set（表示不过滤）
+    - str -> 视为单条规则
+    - 路径分隔支持 '.', '/', 空格
+    - CLI 风格 '-' 自动转为 '_'（与 Python 方法名对齐）
+    """
+    if allow_method_list is None:
+        return set()
+
+    if isinstance(allow_method_list, str):
+        raw_items = [allow_method_list]
+    elif isinstance(allow_method_list, (list, tuple, set)):
+        raw_items = list(allow_method_list)
+    else:
+        raw_items = [str(allow_method_list)]
+
+    normalized = set()
+    for item in raw_items:
+        p = _normalize_command_path(item)
+        if p:
+            normalized.add(p)
+    return normalized
+
+
+def _normalize_command_path(path):
+    """将命令路径统一为 'group/sub/cmd' 形式（内部用 '_' 命名）。"""
+    if path is None:
+        return ''
+    s = str(path).strip()
+    if not s:
+        return ''
+
+    # 支持 db.migrate / db/migrate / db migrate
+    s = s.replace('\\', '/').replace('.', '/').replace(' ', '/')
+    while '//' in s:
+        s = s.replace('//', '/')
+    s = s.strip('/')
+    if not s:
+        return ''
+
+    parts = []
+    for part in s.split('/'):
+        p = part.strip()
+        if not p:
+            continue
+        parts.append(p.replace('-', '_'))
+    return '/'.join(parts)
+
+
+def _join_command_path(prefix, name):
+    """拼接完整命令路径。"""
+    p = _normalize_command_path(prefix)
+    n = _normalize_command_path(name)
+    if not p:
+        return n
+    if not n:
+        return p
+    return p + '/' + n
+
+
+def _iter_ancestor_paths(path):
+    """迭代 path 的祖先路径（不含自身），用于白名单祖先命中判断。"""
+    p = _normalize_command_path(path)
+    if not p:
+        return []
+    parts = p.split('/')
+    ancestors = []
+    # issue/list -> ['issue']
+    for i in range(1, len(parts)):
+        ancestors.append('/'.join(parts[:i]))
+    return ancestors
+
+
+def _is_method_allowed(method_path, allow_set):
+    """方法是否在白名单内（支持父组命中）。"""
+    if not allow_set:
+        return True
+
+    p = _normalize_command_path(method_path)
+    if p in allow_set:
+        return True
+
+    # allow=['issue'] 时，issue 下所有方法可见
+    for anc in _iter_ancestor_paths(p):
+        if anc in allow_set:
+            return True
+    return False
+
+
+def _is_group_allowed(group_path, allow_set):
+    """命令组是否需要暴露（自身命中、祖先命中、或有子命令命中）。"""
+    if not allow_set:
+        return True
+
+    p = _normalize_command_path(group_path)
+    if p in allow_set:
+        return True
+
+    # allow=['admin']，admin/ops 也应可见
+    for anc in _iter_ancestor_paths(p):
+        if anc in allow_set:
+            return True
+
+    # allow=['issue/list']，issue 组需保留用于路由到子命令
+    prefix = p + '/'
+    for item in allow_set:
+        if item.startswith(prefix):
+            return True
+    return False
+
+
+def _is_method_hidden(method_path, hide_set):
+    """方法是否在黑名单内（精确命中或祖先组被隐藏）。"""
+    if not hide_set:
+        return False
+    p = _normalize_command_path(method_path)
+    if p in hide_set:
+        return True
+    for anc in _iter_ancestor_paths(p):
+        if anc in hide_set:
+            return True
+    return False
+
+
+def _is_group_hidden(group_path, hide_set):
+    """命令组是否整体被隐藏（自身命中或祖先命中）。"""
+    if not hide_set:
+        return False
+    p = _normalize_command_path(group_path)
+    if p in hide_set:
+        return True
+    for anc in _iter_ancestor_paths(p):
+        if anc in hide_set:
+            return True
+    return False
 
 
 def _extract_init_kwargs(instance):
@@ -5458,6 +5645,8 @@ class CmdGen(object):
         self.python = python or sys.executable
         self.fmt = fmt
         self._base_cls = _find_base_cls(entry_cls)
+        self._allow_methods = _get_allow_method_list(entry_cls)
+        self._hide_methods = _get_hide_method_list(entry_cls)
 
     def cmd(self, method):
         """
@@ -5546,9 +5735,14 @@ class CmdGen(object):
 
         global_args = _format_init_args(self.entry_cls)
         commands = discover_commands(instance, self._base_cls,
-                                     include_builtins=False, enable_exec=False)
+                                     include_builtins=False, enable_exec=False,
+                                     allow_method_list=self._allow_methods,
+                                     hide_method_list=self._hide_methods)
         _collect_text_doc(commands, self._base_cls, self.script, self.python,
-                          global_args, '', lines, depth=0)
+                          global_args, '', lines, depth=0,
+                          allow_method_list=self._allow_methods,
+                          hide_method_list=self._hide_methods,
+                          command_prefix='')
 
         return '\n'.join(lines)
 
@@ -5561,7 +5755,9 @@ class CmdGen(object):
         description = inspect.getdoc(instance) or self.entry_cls.__name__
 
         commands = discover_commands(instance, self._base_cls,
-                                     include_builtins=False, enable_exec=False)
+                                     include_builtins=False, enable_exec=False,
+                                     allow_method_list=self._allow_methods,
+                                     hide_method_list=self._hide_methods)
         global_args = _format_init_args(self.entry_cls)
 
         lines = []
@@ -5571,7 +5767,10 @@ class CmdGen(object):
         lines.append('> {}'.format(description))
         lines.append('')
 
-        toc_items = _collect_toc(commands, self._base_cls, prefix='')
+        toc_items = _collect_toc(commands, self._base_cls, prefix='',
+                                 allow_method_list=self._allow_methods,
+                                 hide_method_list=self._hide_methods,
+                                 command_prefix='')
         if toc_items:
             lines.append('## Table of Contents')
             lines.append('')
@@ -5646,12 +5845,16 @@ class CmdGen(object):
         lines.append('')
 
         _collect_md_doc(commands, self._base_cls, self.script, self.python,
-                        global_args, '', lines, depth=0)
+                        global_args, '', lines, depth=0,
+                        allow_method_list=self._allow_methods,
+                        hide_method_list=self._hide_methods,
+                        command_prefix='')
 
         return '\n'.join(lines)
 
 
-def _collect_toc(commands, base_cls, prefix='', depth=0):
+def _collect_toc(commands, base_cls, prefix='', depth=0, allow_method_list=None,
+                 hide_method_list=None, command_prefix=''):
     """递归收集命令目录结构"""
     items = []
     for cmd_name, cmd_info in commands.items():
@@ -5662,10 +5865,17 @@ def _collect_toc(commands, base_cls, prefix='', depth=0):
             items.append({'display': display, 'is_group': True, 'depth': depth})
             group_cls = cmd_info['cls']
             group_instance = _safe_instantiate(group_cls)
+            group_path = '{}/{}'.format(command_prefix, cmd_name) if command_prefix else cmd_name
             sub_commands = discover_commands(group_instance, base_cls,
-                                             include_builtins=False, enable_exec=False)
+                                             include_builtins=False, enable_exec=False,
+                                             allow_method_list=allow_method_list,
+                                             hide_method_list=hide_method_list,
+                                             command_prefix=group_path)
             items.extend(_collect_toc(sub_commands, base_cls, prefix=full_path,
-                                      depth=depth + 1))
+                                      depth=depth + 1,
+                                      allow_method_list=allow_method_list,
+                                      hide_method_list=hide_method_list,
+                                      command_prefix=group_path))
         else:
             items.append({'display': display, 'is_group': False, 'depth': depth})
     return items
@@ -5705,7 +5915,8 @@ def _collect_init_params(entry_cls):
 
 
 def _collect_text_doc(commands, base_cls, script_name, python_path, global_args,
-                      prefix, lines, depth):
+                      prefix, lines, depth, allow_method_list=None,
+                      hide_method_list=None, command_prefix=''):
     """递归收集纯文本格式的命令文档"""
     for cmd_name, cmd_info in commands.items():
         full_path = '{} {}'.format(prefix, cmd_name).strip() if prefix else cmd_name
@@ -5717,10 +5928,17 @@ def _collect_text_doc(commands, base_cls, script_name, python_path, global_args,
             lines.append('')
             lines.append('{}[{}]  {}'.format(indent, full_path, group_doc))
             group_instance = _safe_instantiate(group_cls)
+            group_path = '{}/{}'.format(command_prefix, cmd_name) if command_prefix else cmd_name
             sub_commands = discover_commands(group_instance, base_cls,
-                                             include_builtins=False, enable_exec=False)
+                                             include_builtins=False, enable_exec=False,
+                                             allow_method_list=allow_method_list,
+                                             hide_method_list=hide_method_list,
+                                             command_prefix=group_path)
             _collect_text_doc(sub_commands, base_cls, script_name, python_path,
-                              global_args, full_path, lines, depth=depth + 1)
+                              global_args, full_path, lines, depth=depth + 1,
+                              allow_method_list=allow_method_list,
+                              hide_method_list=hide_method_list,
+                              command_prefix=group_path)
         else:
             method = cmd_info['method']
             doc = cmd_info.get('doc', '')
@@ -5742,7 +5960,8 @@ def _collect_text_doc(commands, base_cls, script_name, python_path, global_args,
 
 
 def _collect_md_doc(commands, base_cls, script_name, python_path, global_args,
-                    prefix, lines, depth):
+                    prefix, lines, depth, allow_method_list=None,
+                    hide_method_list=None, command_prefix=''):
     """递归收集 Markdown 格式的命令文档"""
     from .type_utils import (
         is_optional, unwrap_optional, type_display_name,
@@ -5762,10 +5981,17 @@ def _collect_md_doc(commands, base_cls, script_name, python_path, global_args,
                 lines.append('> {}'.format(group_doc))
                 lines.append('')
             group_instance = _safe_instantiate(group_cls)
+            group_path = '{}/{}'.format(command_prefix, cmd_name) if command_prefix else cmd_name
             sub_commands = discover_commands(group_instance, base_cls,
-                                             include_builtins=False, enable_exec=False)
+                                             include_builtins=False, enable_exec=False,
+                                             allow_method_list=allow_method_list,
+                                             hide_method_list=hide_method_list,
+                                             command_prefix=group_path)
             _collect_md_doc(sub_commands, base_cls, script_name, python_path,
-                            global_args, full_path, lines, depth=depth + 1)
+                            global_args, full_path, lines, depth=depth + 1,
+                            allow_method_list=allow_method_list,
+                            hide_method_list=hide_method_list,
+                            command_prefix=group_path)
         else:
             method = cmd_info['method']
             doc = cmd_info.get('doc', '')
@@ -5847,6 +6073,22 @@ def _find_base_cls(entry_cls):
     """找到 NbCmd 基类"""
     from .base import NbCmd
     return NbCmd
+
+
+def _get_allow_method_list(entry_cls):
+    """从 entry_cls.Meta 获取命令白名单（为空表示不过滤）。"""
+    meta = getattr(entry_cls, 'Meta', None)
+    if meta is None:
+        return None
+    return getattr(meta, 'allow_method_list', None)
+
+
+def _get_hide_method_list(entry_cls):
+    """从 entry_cls.Meta 获取命令黑名单（为空表示不过滤）。"""
+    meta = getattr(entry_cls, 'Meta', None)
+    if meta is None:
+        return None
+    return getattr(meta, 'hide_method_list', None)
 
 
 def _find_command_path(entry_cls, target_cls, base_cls):
@@ -5964,6 +6206,8 @@ NbCmd Meta 配置基类。
             use_nb_log = True
 """
 
+from typing import Dict, List, Optional
+
 
 class NbCmdMeta(object):
     """
@@ -5971,22 +6215,26 @@ class NbCmdMeta(object):
 
     子类继承后可覆盖任意字段，IDE 可自动补全所有可用选项。
     """
-    name = None               # type: str   # CLI/API 名称（默认用类名）
-    version = '0.0.1'         # type: str   # 版本号（--cmd-version 显示）
-    description = None        # type: str   # 描述（默认用类的 docstring）
-    use_nb_log = False         # type: bool  # 启用 nb_log 增强日志
-    log_level = 'INFO'         # type: str   # 日志级别
-    log_file = None            # type: str   # 日志文件路径
-    auto_save_last_args = False  # type: bool  # 自动保存上次参数
-    config_file = None         # type: str   # 配置持久化文件路径
-    serve_host = '0.0.0.0'    # type: str   # Web/API 绑定地址
-    serve_port = 8080          # type: int   # Web/API 默认端口
-    serve_workers = 1          # type: int   # 工作进程数
-    web_title = None           # type: str   # Web UI 页面标题
-    web_theme = 'light'        # type: str   # Web UI 主题 ('light' / 'dark')
-    enable_exec = True         # type: bool  # 是否暴露内置 exec 命令（False 可防止恶意执行）
-    help_mode = 'full'         # type: str   # -h 帮助模式: 'full'(完整帮助) / 'easy'(简易帮助)
-    aliases = {}               # type: dict  # 参数别名（推荐用 Annotated 替代）
+    name: Optional[str] = None               # CLI/API 名称（默认用类名）
+    version: str = '0.0.1'                   # 版本号（--cmd-version 显示）
+    description: Optional[str] = None        # 描述（默认用类的 docstring）
+    use_nb_log: bool = False                 # 启用 nb_log 增强日志
+    log_level: str = 'INFO'                  # 日志级别
+    log_file: Optional[str] = None           # 日志文件路径
+    auto_save_last_args: bool = False        # 自动保存上次参数
+    config_file: Optional[str] = None        # 配置持久化文件路径
+    serve_host: str = '0.0.0.0'              # Web/API 绑定地址
+    serve_port: int = 8080                   # Web/API 默认端口
+    serve_workers: int = 1                   # 工作进程数
+    web_title: Optional[str] = None          # Web UI 页面标题
+    web_theme: str = 'light'                 # Web UI 主题 ('light' / 'dark')
+    enable_exec: bool = True                 # 是否暴露内置 exec 命令（False 可防止恶意执行）
+    help_mode: str = 'full'                  # -h 帮助模式: 'full'(完整帮助) / 'easy'(简易帮助)
+    aliases: Dict[str, List[str]] = {}       # 参数别名（推荐用 Annotated 替代）
+    allow_method_list: Optional[List[str]] = None  # 命令白名单（仅限制 CLI/API/Web 暴露；Python 直接调用不受影响）
+    hide_method_list: Optional[List[str]] = None   # 命令黑名单（与白名单互斥；仅限制 CLI/API/Web 暴露）
+    auth_token: Optional[str] = None               # 简易鉴权 token（配置后 API/Web 请求须带 Authorization: Bearer <token>）
+    timeout: int = 0                               # 命令执行超时秒数（0=不限；仅作用于 CLI/API/Web 模式）
 
 `````
 
@@ -6017,7 +6265,8 @@ class _RawDefaultsHelpFormatter(argparse.RawDescriptionHelpFormatter,
     pass
 
 
-def build_parser(instance, commands, meta, base_cls=None):
+def build_parser(instance, commands, meta, base_cls=None, allow_method_list=None,
+                 hide_method_list=None):
     """
     为顶层 NbCmd 实例构建完整的 argparse 解析器。
 
@@ -6072,7 +6321,10 @@ def build_parser(instance, commands, meta, base_cls=None):
                 description=group_doc,
                 formatter_class=_RawDefaultsHelpFormatter,
             )
-            _build_group_subparser(sub, group_cls, base_cls, group_kwargs)
+            _build_group_subparser(sub, group_cls, base_cls, group_kwargs,
+                                   allow_method_list=allow_method_list,
+                                   hide_method_list=hide_method_list,
+                                   command_prefix=cmd_name)
         else:
             param_hint = _build_param_hint(cmd_info)
             help_text = cmd_info['doc']
@@ -6118,9 +6370,15 @@ def print_easy_help(instance, base_cls):
     """打印简易帮助（argparse 原生格式）"""
     meta = getattr(instance.__class__, 'Meta', type('Meta', (), {}))
     _enable_exec = getattr(meta, 'enable_exec', True)
+    _allow_methods = getattr(meta, 'allow_method_list', None)
+    _hide_methods = getattr(meta, 'hide_method_list', None)
     from .discovery import discover_commands
-    commands = discover_commands(instance, base_cls, enable_exec=_enable_exec)
-    parser = build_parser(instance, commands, meta, base_cls=base_cls)
+    commands = discover_commands(instance, base_cls, enable_exec=_enable_exec,
+                                 allow_method_list=_allow_methods,
+                                 hide_method_list=_hide_methods)
+    parser = build_parser(instance, commands, meta, base_cls=base_cls,
+                          allow_method_list=_allow_methods,
+                          hide_method_list=_hide_methods)
     parser.print_help()
 
 
@@ -6145,7 +6403,11 @@ def _build_full_help_lines(instance, base_cls, color=True):
 
     meta = getattr(instance.__class__, 'Meta', type('Meta', (), {}))
     _enable_exec = getattr(meta, 'enable_exec', True)
-    commands = discover_commands(instance, base_cls, enable_exec=_enable_exec)
+    _allow_methods = getattr(meta, 'allow_method_list', None)
+    _hide_methods = getattr(meta, 'hide_method_list', None)
+    commands = discover_commands(instance, base_cls, enable_exec=_enable_exec,
+                                 allow_method_list=_allow_methods,
+                                 hide_method_list=_hide_methods)
     description = inspect.getdoc(instance) or instance.__class__.__name__
     version = getattr(meta, 'version', '0.0.1')
 
@@ -6173,12 +6435,17 @@ def _build_full_help_lines(instance, base_cls, color=True):
         lines.append('')
 
     lines.append('-' * 56)
-    lines.extend(_build_group_command_lines(commands, base_cls, prefix='', color=color))
+    lines.extend(_build_group_command_lines(commands, base_cls, prefix='', color=color,
+                                            allow_method_list=_allow_methods,
+                                            hide_method_list=_hide_methods,
+                                            command_prefix=''))
 
     return lines
 
 
-def _build_group_command_lines(commands, base_cls, prefix='', color=True):
+def _build_group_command_lines(commands, base_cls, prefix='', color=True,
+                               allow_method_list=None, hide_method_list=None,
+                               command_prefix=''):
     """递归收集命令组及其所有子命令的帮助行"""
     from .discovery import discover_commands
 
@@ -6186,6 +6453,7 @@ def _build_group_command_lines(commands, base_cls, prefix='', color=True):
     for cmd_name, cmd_info in commands.items():
         cli_name = cmd_name.replace('_', '-')
         full_name = '{} {}'.format(prefix, cli_name).strip() if prefix else cli_name
+        cmd_path = '{}/{}'.format(command_prefix, cmd_name) if command_prefix else cmd_name
 
         if cmd_info.get('is_group'):
             tag = '\033[36m[子命令组]\033[0m' if color else '[子命令组]'
@@ -6197,9 +6465,15 @@ def _build_group_command_lines(commands, base_cls, prefix='', color=True):
             except TypeError:
                 group_inst = group_cls.__new__(group_cls)
             group_cmds = discover_commands(group_inst, base_cls,
-                                           include_builtins=False)
+                                           include_builtins=False,
+                                           allow_method_list=allow_method_list,
+                                           hide_method_list=hide_method_list,
+                                           command_prefix=cmd_path)
             lines.extend(_build_group_command_lines(group_cmds, base_cls,
-                                                    prefix=full_name, color=color))
+                                                    prefix=full_name, color=color,
+                                                    allow_method_list=allow_method_list,
+                                                    hide_method_list=hide_method_list,
+                                                    command_prefix=cmd_path))
             lines.append('')
         else:
             if prefix:
@@ -6458,7 +6732,8 @@ def _add_method_arguments(sub_parser, cmd_info, meta):
                 sub_parser.add_argument(param_name, **kwargs)
 
 
-def _build_group_subparser(parent_parser, group_cls, base_cls, init_kwargs=None, depth=1):
+def _build_group_subparser(parent_parser, group_cls, base_cls, init_kwargs=None, depth=1,
+                           allow_method_list=None, hide_method_list=None, command_prefix=''):
     """递归为子命令组构建 subparser"""
     from .discovery import discover_commands
 
@@ -6472,7 +6747,10 @@ def _build_group_subparser(parent_parser, group_cls, base_cls, init_kwargs=None,
             except TypeError:
                 pass
 
-    group_commands = discover_commands(group_instance, base_cls, include_builtins=False)
+    group_commands = discover_commands(group_instance, base_cls, include_builtins=False,
+                                       allow_method_list=allow_method_list,
+                                       hide_method_list=hide_method_list,
+                                       command_prefix=command_prefix)
 
     if not group_commands:
         return
@@ -6495,7 +6773,11 @@ def _build_group_subparser(parent_parser, group_cls, base_cls, init_kwargs=None,
                 description=nested_doc,
                 formatter_class=_RawDefaultsHelpFormatter,
             )
-            _build_group_subparser(nested_sub, nested_cls, base_cls, nested_kwargs, depth + 1)
+            _build_group_subparser(nested_sub, nested_cls, base_cls, nested_kwargs, depth + 1,
+                                   allow_method_list=allow_method_list,
+                                   hide_method_list=hide_method_list,
+                                   command_prefix='{}/{}'.format(command_prefix, cmd_name)
+                                   if command_prefix else cmd_name)
         else:
             sub = group_subparsers.add_parser(
                 cli_name,
@@ -6947,8 +7229,20 @@ def start_api_server(instance, base_cls, host=None, port=None):
     )
 
     _enable_exec = getattr(meta, 'enable_exec', True)
-    commands = discover_commands(instance, base_cls, enable_exec=_enable_exec)
-    _register_routes(app, instance, commands, base_cls=base_cls)
+    _allow_methods = getattr(meta, 'allow_method_list', None)
+    _hide_methods = getattr(meta, 'hide_method_list', None)
+    _auth_token = getattr(meta, 'auth_token', None)
+    _timeout = getattr(meta, 'timeout', 0)
+    commands = discover_commands(instance, base_cls, enable_exec=_enable_exec,
+                                 allow_method_list=_allow_methods,
+                                 hide_method_list=_hide_methods)
+
+    if _auth_token:
+        _install_auth_middleware(app, _auth_token)
+
+    _register_routes(app, instance, commands, base_cls=base_cls,
+                     allow_method_list=_allow_methods, hide_method_list=_hide_methods,
+                     command_prefix='', timeout=_timeout)
 
     from fastapi.responses import RedirectResponse
 
@@ -7004,13 +7298,16 @@ def _safe_default(value):
     return str(value)
 
 
-def _register_routes(app, instance, commands, base_cls=None, prefix=''):
+def _register_routes(app, instance, commands, base_cls=None, prefix='',
+                     allow_method_list=None, hide_method_list=None,
+                     command_prefix='', timeout=0):
     """为每个命令注册 POST 路由，支持递归注册子命令组"""
     for cmd_name, cmd_info in commands.items():
         if cmd_info.get('is_group'):
             if base_cls is not None:
                 group_cls = cmd_info['cls']
                 group_kwargs = cmd_info.get('init_kwargs', {})
+                group_path = '{}/{}'.format(command_prefix, cmd_name) if command_prefix else cmd_name
                 try:
                     group_instance = group_cls(**group_kwargs) if group_kwargs else group_cls()
                 except TypeError:
@@ -7019,10 +7316,16 @@ def _register_routes(app, instance, commands, base_cls=None, prefix=''):
                 if parent_ctx is not None:
                     group_instance.nbctx = parent_ctx
                 group_commands = discover_commands(group_instance, base_cls,
-                                                   include_builtins=False)
+                                                   include_builtins=False,
+                                                   allow_method_list=allow_method_list,
+                                                   hide_method_list=hide_method_list,
+                                                   command_prefix=group_path)
                 group_prefix = '{}/{}'.format(prefix, cmd_name) if prefix else cmd_name
                 _register_routes(app, group_instance, group_commands,
-                                 base_cls=base_cls, prefix=group_prefix)
+                                 base_cls=base_cls, prefix=group_prefix,
+                                 allow_method_list=allow_method_list,
+                                 hide_method_list=hide_method_list,
+                                 command_prefix=group_path, timeout=timeout)
             continue
 
         sig = cmd_info['signature']
@@ -7077,7 +7380,7 @@ def _register_routes(app, instance, commands, base_cls=None, prefix=''):
         except Exception:
             RequestModel = None
 
-        _make_route(app, route_path, doc, cmd_name, instance, RequestModel, hints)
+        _make_route(app, route_path, doc, cmd_name, instance, RequestModel, hints, timeout=timeout)
 
 
 def _get_init_kwargs(instance):
@@ -7118,7 +7421,7 @@ def _get_init_types(instance):
     return types
 
 
-def _make_route(app, path, summary, cmd_name, instance, request_model, type_hints):
+def _make_route(app, path, summary, cmd_name, instance, request_model, type_hints, timeout=0):
     """创建单个 API 路由，每次请求新建实例执行命令，支持 init_params 覆盖全局参数"""
     _cmd_name = cmd_name
     _cls = instance.__class__
@@ -7126,6 +7429,7 @@ def _make_route(app, path, summary, cmd_name, instance, request_model, type_hint
     _init_types = _get_init_types(instance)
     _hints = type_hints
     _path = path
+    _timeout = timeout
 
     def _fresh(raw_init_params=None):
         if not raw_init_params or not _init_types:
@@ -7171,6 +7475,12 @@ def _make_route(app, path, summary, cmd_name, instance, request_model, type_hint
             _api_tls.captured_stderr = None
         return result, captured_out.getvalue(), captured_err.getvalue()
 
+    async def _exec_with_timeout(fresh_inst, kwargs):
+        coro = _run_in_thread(_exec_in_thread, fresh_inst, kwargs)
+        if _timeout > 0:
+            return await asyncio.wait_for(coro, timeout=_timeout)
+        return await coro
+
     if request_model is not None:
         @app.post('/{}'.format(path), summary=summary)
         async def endpoint(request: request_model):
@@ -7180,8 +7490,8 @@ def _make_route(app, path, summary, cmd_name, instance, request_model, type_hint
             fresh_inst = _fresh(raw_init)
             fresh_inst.before_run()
             try:
-                result, stdout_output, stderr_output = await _run_in_thread(
-                    _exec_in_thread, fresh_inst, kwargs)
+                result, stdout_output, stderr_output = await _exec_with_timeout(
+                    fresh_inst, kwargs)
                 api_result = handle_api_result(result)
                 duration_ms = int((time.time() - start) * 1000)
                 return {
@@ -7189,6 +7499,13 @@ def _make_route(app, path, summary, cmd_name, instance, request_model, type_hint
                     "result": api_result,
                     "stdout": stdout_output if stdout_output else None,
                     "stderr": stderr_output if stderr_output else None,
+                    "duration_ms": duration_ms,
+                }
+            except asyncio.TimeoutError:
+                duration_ms = int((time.time() - start) * 1000)
+                return {
+                    "status": "error",
+                    "error": "命令执行超时（{} 秒）".format(_timeout),
                     "duration_ms": duration_ms,
                 }
             except Exception as e:
@@ -7208,8 +7525,8 @@ def _make_route(app, path, summary, cmd_name, instance, request_model, type_hint
             fresh_inst = _fresh(raw_init)
             fresh_inst.before_run()
             try:
-                result, stdout_output, stderr_output = await _run_in_thread(
-                    _exec_in_thread, fresh_inst, request)
+                result, stdout_output, stderr_output = await _exec_with_timeout(
+                    fresh_inst, request)
                 api_result = handle_api_result(result)
                 duration_ms = int((time.time() - start) * 1000)
                 return {
@@ -7217,6 +7534,13 @@ def _make_route(app, path, summary, cmd_name, instance, request_model, type_hint
                     "result": api_result,
                     "stdout": stdout_output if stdout_output else None,
                     "stderr": stderr_output if stderr_output else None,
+                    "duration_ms": duration_ms,
+                }
+            except asyncio.TimeoutError:
+                duration_ms = int((time.time() - start) * 1000)
+                return {
+                    "status": "error",
+                    "error": "命令执行超时（{} 秒）".format(_timeout),
                     "duration_ms": duration_ms,
                 }
             except Exception as e:
@@ -7228,6 +7552,42 @@ def _make_route(app, path, summary, cmd_name, instance, request_model, type_hint
                 }
             finally:
                 fresh_inst.after_run()
+
+
+def _install_auth_middleware(app, token, exempt_prefixes=None):
+    """
+    安装 Bearer token 认证中间件。
+
+    Parameters
+    ----------
+    exempt_prefixes : list[str], optional
+        额外的免认证路径前缀列表。
+        默认已豁免 /docs /redoc /openapi.json。
+        Web 模式会传入 /api/ /ws/ 等前缀，使页面可以正常访问。
+    """
+    from starlette.middleware.base import BaseHTTPMiddleware
+    from starlette.responses import JSONResponse
+
+    _always_exempt = ('/', '/docs', '/redoc', '/openapi.json')
+    _extra_prefixes = tuple(exempt_prefixes) if exempt_prefixes else ()
+
+    class _AuthMiddleware(BaseHTTPMiddleware):
+        async def dispatch(self, request, call_next):
+            path = request.url.path
+            if path in _always_exempt:
+                return await call_next(request)
+            for prefix in _extra_prefixes:
+                if path.startswith(prefix):
+                    return await call_next(request)
+            auth_header = request.headers.get('authorization', '')
+            if not auth_header.startswith('Bearer '):
+                return JSONResponse({'detail': 'Missing or invalid Authorization header'},
+                                    status_code=401)
+            if auth_header[7:] != token:
+                return JSONResponse({'detail': 'Invalid token'}, status_code=403)
+            return await call_next(request)
+
+    app.add_middleware(_AuthMiddleware)
 
 `````
 
@@ -7260,6 +7620,22 @@ def _run_method(method, kwargs):
     return result
 
 
+def _run_method_with_timeout(method, kwargs, timeout):
+    """执行方法并在超时后抛出 TimeoutError（timeout=0 表示不限）"""
+    if timeout <= 0:
+        return _run_method(method, kwargs)
+
+    import concurrent.futures
+    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+        future = executor.submit(_run_method, method, kwargs)
+        try:
+            return future.result(timeout=timeout)
+        except concurrent.futures.TimeoutError:
+            raise TimeoutError(
+                '命令执行超时（{} 秒）。可通过 Meta.timeout 调整超时时间。'.format(timeout)
+            )
+
+
 def run_cli(instance, base_cls, args=None):
     """
     以 CLI 模式执行 NbCmd 实例。
@@ -7272,8 +7648,15 @@ def run_cli(instance, base_cls, args=None):
     """
     meta = getattr(instance.__class__, 'Meta', type('Meta', (), {}))
     _enable_exec = getattr(meta, 'enable_exec', True)
-    commands = discover_commands(instance, base_cls, enable_exec=_enable_exec)
-    parser = build_parser(instance, commands, meta, base_cls=base_cls)
+    _allow_methods = getattr(meta, 'allow_method_list', None)
+    _hide_methods = getattr(meta, 'hide_method_list', None)
+    _timeout = getattr(meta, 'timeout', 0)
+    commands = discover_commands(instance, base_cls, enable_exec=_enable_exec,
+                                 allow_method_list=_allow_methods,
+                                 hide_method_list=_hide_methods)
+    parser = build_parser(instance, commands, meta, base_cls=base_cls,
+                          allow_method_list=_allow_methods,
+                          hide_method_list=_hide_methods)
 
     parsed = parser.parse_args(args)
 
@@ -7288,7 +7671,9 @@ def run_cli(instance, base_cls, args=None):
     python_name = command_name.replace('-', '_')
 
     if python_name in commands and commands[python_name].get('is_group'):
-        _run_group_command(instance, commands[python_name], parsed, base_cls, depth=1)
+        _run_group_command(instance, commands[python_name], parsed, base_cls, depth=1,
+                           allow_method_list=_allow_methods, hide_method_list=_hide_methods,
+                           command_prefix=python_name)
         return
 
     if python_name not in commands:
@@ -7301,7 +7686,7 @@ def run_cli(instance, base_cls, args=None):
 
     instance.before_run()
     try:
-        result = _run_method(method, kwargs)
+        result = _run_method_with_timeout(method, kwargs, _timeout)
         handle_cli_result(result)
     except Exception as e:
         instance.on_error(command_name, e)
@@ -7372,7 +7757,8 @@ def _inject_nbctx(parent, child):
         child.nbctx = parent_ctx
 
 
-def _run_group_command(instance, group_info, parsed, base_cls, depth=1):
+def _run_group_command(instance, group_info, parsed, base_cls, depth=1,
+                       allow_method_list=None, hide_method_list=None, command_prefix=''):
     """执行子命令组中的命令"""
     group_cls = group_info['cls']
     group_kwargs = group_info.get('init_kwargs', {})
@@ -7391,11 +7777,17 @@ def _run_group_command(instance, group_info, parsed, base_cls, depth=1):
         return
 
     sub_python_name = sub_command.replace('-', '_')
-    sub_commands = discover_commands(group_instance, base_cls)
+    sub_commands = discover_commands(group_instance, base_cls,
+                                     allow_method_list=allow_method_list,
+                                     hide_method_list=hide_method_list,
+                                     command_prefix=command_prefix)
 
     if sub_python_name in sub_commands and sub_commands[sub_python_name].get('is_group'):
+        next_prefix = '{}/{}'.format(command_prefix, sub_python_name) if command_prefix else sub_python_name
         _run_group_command(group_instance, sub_commands[sub_python_name], parsed, base_cls,
-                           depth=depth + 1)
+                           depth=depth + 1, allow_method_list=allow_method_list,
+                           hide_method_list=hide_method_list,
+                           command_prefix=next_prefix)
         return
 
     if sub_python_name not in sub_commands:
@@ -7406,9 +7798,12 @@ def _run_group_command(instance, group_info, parsed, base_cls, depth=1):
     method = cmd_info['method']
     kwargs = _extract_kwargs(method, cmd_info, parsed)
 
+    meta = getattr(instance.__class__, 'Meta', type('Meta', (), {}))
+    _timeout = getattr(meta, 'timeout', 0)
+
     group_instance.before_run()
     try:
-        result = _run_method(method, kwargs)
+        result = _run_method_with_timeout(method, kwargs, _timeout)
         handle_cli_result(result)
     except Exception as e:
         group_instance.on_error(sub_command, e)
@@ -7479,7 +7874,13 @@ def start_web_server(instance, base_cls, host=None, port=None):
     _colors_mod._COLOR_ENABLED = True
 
     _enable_exec = getattr(meta, 'enable_exec', True)
-    commands = discover_commands(instance, base_cls, enable_exec=_enable_exec)
+    _allow_methods = getattr(meta, 'allow_method_list', None)
+    _hide_methods = getattr(meta, 'hide_method_list', None)
+    _auth_token = getattr(meta, 'auth_token', None)
+    _timeout = getattr(meta, 'timeout', 0)
+    commands = discover_commands(instance, base_cls, enable_exec=_enable_exec,
+                                 allow_method_list=_allow_methods,
+                                 hide_method_list=_hide_methods)
     description = inspect.getdoc(instance) or instance.__class__.__name__
 
     from ..core._io_dispatch import _tls, install as _install_io
@@ -7488,25 +7889,38 @@ def start_web_server(instance, base_cls, host=None, port=None):
     static_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'ui', 'static')
     has_built_frontend = os.path.isfile(os.path.join(static_dir, 'index.html'))
 
-    from ..modes.api_mode import _register_routes as _register_pydantic_routes
-    _register_pydantic_routes(app, instance, commands, base_cls=base_cls)
+    if _auth_token:
+        from ..modes.api_mode import _install_auth_middleware
+        _install_auth_middleware(app, _auth_token, exempt_prefixes=[
+            '/api/', '/ws/', '/static/',
+        ])
 
-    def _build_group_result(cmds_dict):
+    from ..modes.api_mode import _register_routes as _register_pydantic_routes
+    _register_pydantic_routes(app, instance, commands, base_cls=base_cls,
+                              allow_method_list=_allow_methods,
+                              hide_method_list=_hide_methods,
+                              command_prefix='', timeout=_timeout)
+
+    def _build_group_result(cmds_dict, command_prefix=''):
         """递归构建命令组的结构（含嵌套子命令组）"""
         result = {}
         for name, info in cmds_dict.items():
             if info.get('is_group'):
                 g_cls = info['cls']
                 g_kwargs = info.get('init_kwargs', {})
+                group_path = '{}/{}'.format(command_prefix, name) if command_prefix else name
                 try:
                     g_inst = g_cls(**g_kwargs) if g_kwargs else g_cls()
                 except TypeError:
                     g_inst = g_cls.__new__(g_cls)
-                g_cmds = discover_commands(g_inst, base_cls, include_builtins=False)
+                g_cmds = discover_commands(g_inst, base_cls, include_builtins=False,
+                                           allow_method_list=_allow_methods,
+                                           hide_method_list=_hide_methods,
+                                           command_prefix=group_path)
                 result[name] = {
                     'type': 'group',
                     'description': info.get('doc', ''),
-                    'sub_commands': _build_group_result(g_cmds),
+                    'sub_commands': _build_group_result(g_cmds, group_path),
                 }
             else:
                 result[name] = _build_cmd_info(info)
@@ -7514,7 +7928,7 @@ def start_web_server(instance, base_cls, host=None, port=None):
 
     @app.get('/api/commands', summary='获取所有命令及参数定义')
     async def get_commands():
-        return _build_group_result(commands)
+        return _build_group_result(commands, '')
 
     init_params_info = _build_init_params_info(instance)
     _user_cls = instance.__class__
@@ -7657,11 +8071,13 @@ def start_web_server(instance, base_cls, host=None, port=None):
             root_inst = _make_instance(raw_init_params)
             current_cmds = commands
             current_inst = root_inst
+            current_path = ''
             for i, part in enumerate(parts):
                 if part not in current_cmds:
                     break
                 info = current_cmds[part]
                 if info.get('is_group'):
+                    current_path = '{}/{}'.format(current_path, part) if current_path else part
                     g_cls = info['cls']
                     g_kwargs = info.get('init_kwargs', {})
                     try:
@@ -7673,7 +8089,10 @@ def start_web_server(instance, base_cls, host=None, port=None):
                         child_inst.nbctx = parent_ctx
                     current_inst = child_inst
                     current_cmds = discover_commands(current_inst, base_cls,
-                                                     include_builtins=False)
+                                                     include_builtins=False,
+                                                     allow_method_list=_allow_methods,
+                                                     hide_method_list=_hide_methods,
+                                                     command_prefix=current_path)
                 elif i == len(parts) - 1 and current_inst is not None:
                     return info['method'], current_inst, info
         return None, None, None
@@ -7741,6 +8160,16 @@ def start_web_server(instance, base_cls, host=None, port=None):
             worker_thread = t
             start_ts = time.time()
             t.start()
+
+            if _timeout > 0:
+                def _auto_timeout():
+                    if not cancel_event.wait(_timeout):
+                        cancel_event.set()
+                        if t.is_alive() and t.ident:
+                            _cancel_thread(t.ident)
+                        result_holder['error'] = '命令执行超时（{} 秒）'.format(_timeout)
+                _timer = threading.Thread(target=_auto_timeout, daemon=True)
+                _timer.start()
 
             async def _listen_cancel():
                 """后台监听客户端的取消消息"""
