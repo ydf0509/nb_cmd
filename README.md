@@ -956,6 +956,10 @@ class MyTool(NbCmd):
 | `enable_exec` | bool | `True` | 是否暴露内置 `exec` 命令（设为 `False` 可防止恶意执行系统命令） |
 | `help_mode` | str | `'full'` | `-h` 的默认行为：`'full'` 显示完整帮助，`'easy'` 显示 argparse 原生格式 |
 | `aliases` | dict | `{}` | 参数别名（推荐用 `Annotated[..., 'desc', 'a']` 指定短别名替代） |
+| `allow_method_list` | list | `None` | 命令白名单（仅限制 CLI/API/Web 暴露；`None` 暴露全部；Python 直接调用不受影响） |
+| `hide_method_list` | list | `None` | 命令黑名单（与白名单互斥，白名单优先；仅限制 CLI/API/Web） |
+| `auth_token` | str | `None` | 简易 Bearer token 鉴权（配置后 API/Web 请求须带 `Authorization: Bearer <token>`） |
+| `timeout` | int | `0` | 命令执行超时秒数（0=不限；作用于 CLI/API/Web 模式） |
 
 ### 10. 生命周期钩子
 

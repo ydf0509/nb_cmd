@@ -23,7 +23,7 @@ from .arg import unwrap_arg
 
 
 def discover_commands(instance, base_cls, include_builtins=True, enable_exec=True,
-                      allow_method_list=None, command_prefix=''):
+                      allow_method_list=None, hide_method_list=None, command_prefix=''):
     """
     发现 instance 上所有应暴露为 CLI 子命令的方法，以及 sub_commands 中的子命令组。
 
@@ -36,6 +36,9 @@ def discover_commands(instance, base_cls, include_builtins=True, enable_exec=Tru
     allow_method_list : list[str] or None
         命令白名单。为空/None 表示不过滤；有值时仅暴露白名单命令。
         支持写法：['status', 'db.migrate', 'db/migrate', 'db migrate']。
+    hide_method_list : list[str] or None
+        命令黑名单。为空/None 表示不过滤；有值时隐藏指定命令。
+        与 allow_method_list 互斥，同时配置时 allow_method_list 优先。
     command_prefix : str
         当前 discover 所在的命令路径前缀（内部递归使用）。
 
@@ -44,6 +47,7 @@ def discover_commands(instance, base_cls, include_builtins=True, enable_exec=Tru
     from collections import OrderedDict
     commands = OrderedDict()
     allow_set = _normalize_allow_method_set(allow_method_list)
+    hide_set = _normalize_allow_method_set(hide_method_list) if not allow_set else set()
     current_prefix = _normalize_command_path(command_prefix)
 
     _BUILTIN_COMMANDS = {'exec'} if (include_builtins and enable_exec) else set()
@@ -109,6 +113,8 @@ def discover_commands(instance, base_cls, include_builtins=True, enable_exec=Tru
         full_path = _join_command_path(current_prefix, name)
         if not _is_method_allowed(full_path, allow_set):
             continue
+        if _is_method_hidden(full_path, hide_set):
+            continue
 
         commands[name] = {
             'method': attr,
@@ -124,6 +130,8 @@ def discover_commands(instance, base_cls, include_builtins=True, enable_exec=Tru
     for group_name, group_val in sub_cmds.items():
         group_path = _join_command_path(current_prefix, group_name)
         if not _is_group_allowed(group_path, allow_set):
+            continue
+        if _is_group_hidden(group_path, hide_set):
             continue
 
         if inspect.isclass(group_val) and issubclass(group_val, base_cls):
@@ -255,6 +263,32 @@ def _is_group_allowed(group_path, allow_set):
     prefix = p + '/'
     for item in allow_set:
         if item.startswith(prefix):
+            return True
+    return False
+
+
+def _is_method_hidden(method_path, hide_set):
+    """方法是否在黑名单内（精确命中或祖先组被隐藏）。"""
+    if not hide_set:
+        return False
+    p = _normalize_command_path(method_path)
+    if p in hide_set:
+        return True
+    for anc in _iter_ancestor_paths(p):
+        if anc in hide_set:
+            return True
+    return False
+
+
+def _is_group_hidden(group_path, hide_set):
+    """命令组是否整体被隐藏（自身命中或祖先命中）。"""
+    if not hide_set:
+        return False
+    p = _normalize_command_path(group_path)
+    if p in hide_set:
+        return True
+    for anc in _iter_ancestor_paths(p):
+        if anc in hide_set:
             return True
     return False
 

@@ -60,10 +60,19 @@ def start_api_server(instance, base_cls, host=None, port=None):
 
     _enable_exec = getattr(meta, 'enable_exec', True)
     _allow_methods = getattr(meta, 'allow_method_list', None)
+    _hide_methods = getattr(meta, 'hide_method_list', None)
+    _auth_token = getattr(meta, 'auth_token', None)
+    _timeout = getattr(meta, 'timeout', 0)
     commands = discover_commands(instance, base_cls, enable_exec=_enable_exec,
-                                 allow_method_list=_allow_methods)
+                                 allow_method_list=_allow_methods,
+                                 hide_method_list=_hide_methods)
+
+    if _auth_token:
+        _install_auth_middleware(app, _auth_token)
+
     _register_routes(app, instance, commands, base_cls=base_cls,
-                     allow_method_list=_allow_methods, command_prefix='')
+                     allow_method_list=_allow_methods, hide_method_list=_hide_methods,
+                     command_prefix='', timeout=_timeout)
 
     from fastapi.responses import RedirectResponse
 
@@ -120,7 +129,8 @@ def _safe_default(value):
 
 
 def _register_routes(app, instance, commands, base_cls=None, prefix='',
-                     allow_method_list=None, command_prefix=''):
+                     allow_method_list=None, hide_method_list=None,
+                     command_prefix='', timeout=0):
     """为每个命令注册 POST 路由，支持递归注册子命令组"""
     for cmd_name, cmd_info in commands.items():
         if cmd_info.get('is_group'):
@@ -138,12 +148,14 @@ def _register_routes(app, instance, commands, base_cls=None, prefix='',
                 group_commands = discover_commands(group_instance, base_cls,
                                                    include_builtins=False,
                                                    allow_method_list=allow_method_list,
+                                                   hide_method_list=hide_method_list,
                                                    command_prefix=group_path)
                 group_prefix = '{}/{}'.format(prefix, cmd_name) if prefix else cmd_name
                 _register_routes(app, group_instance, group_commands,
                                  base_cls=base_cls, prefix=group_prefix,
                                  allow_method_list=allow_method_list,
-                                 command_prefix=group_path)
+                                 hide_method_list=hide_method_list,
+                                 command_prefix=group_path, timeout=timeout)
             continue
 
         sig = cmd_info['signature']
@@ -198,7 +210,7 @@ def _register_routes(app, instance, commands, base_cls=None, prefix='',
         except Exception:
             RequestModel = None
 
-        _make_route(app, route_path, doc, cmd_name, instance, RequestModel, hints)
+        _make_route(app, route_path, doc, cmd_name, instance, RequestModel, hints, timeout=timeout)
 
 
 def _get_init_kwargs(instance):
@@ -239,7 +251,7 @@ def _get_init_types(instance):
     return types
 
 
-def _make_route(app, path, summary, cmd_name, instance, request_model, type_hints):
+def _make_route(app, path, summary, cmd_name, instance, request_model, type_hints, timeout=0):
     """创建单个 API 路由，每次请求新建实例执行命令，支持 init_params 覆盖全局参数"""
     _cmd_name = cmd_name
     _cls = instance.__class__
@@ -247,6 +259,7 @@ def _make_route(app, path, summary, cmd_name, instance, request_model, type_hint
     _init_types = _get_init_types(instance)
     _hints = type_hints
     _path = path
+    _timeout = timeout
 
     def _fresh(raw_init_params=None):
         if not raw_init_params or not _init_types:
@@ -292,6 +305,12 @@ def _make_route(app, path, summary, cmd_name, instance, request_model, type_hint
             _api_tls.captured_stderr = None
         return result, captured_out.getvalue(), captured_err.getvalue()
 
+    async def _exec_with_timeout(fresh_inst, kwargs):
+        coro = _run_in_thread(_exec_in_thread, fresh_inst, kwargs)
+        if _timeout > 0:
+            return await asyncio.wait_for(coro, timeout=_timeout)
+        return await coro
+
     if request_model is not None:
         @app.post('/{}'.format(path), summary=summary)
         async def endpoint(request: request_model):
@@ -301,8 +320,8 @@ def _make_route(app, path, summary, cmd_name, instance, request_model, type_hint
             fresh_inst = _fresh(raw_init)
             fresh_inst.before_run()
             try:
-                result, stdout_output, stderr_output = await _run_in_thread(
-                    _exec_in_thread, fresh_inst, kwargs)
+                result, stdout_output, stderr_output = await _exec_with_timeout(
+                    fresh_inst, kwargs)
                 api_result = handle_api_result(result)
                 duration_ms = int((time.time() - start) * 1000)
                 return {
@@ -310,6 +329,13 @@ def _make_route(app, path, summary, cmd_name, instance, request_model, type_hint
                     "result": api_result,
                     "stdout": stdout_output if stdout_output else None,
                     "stderr": stderr_output if stderr_output else None,
+                    "duration_ms": duration_ms,
+                }
+            except asyncio.TimeoutError:
+                duration_ms = int((time.time() - start) * 1000)
+                return {
+                    "status": "error",
+                    "error": "命令执行超时（{} 秒）".format(_timeout),
                     "duration_ms": duration_ms,
                 }
             except Exception as e:
@@ -329,8 +355,8 @@ def _make_route(app, path, summary, cmd_name, instance, request_model, type_hint
             fresh_inst = _fresh(raw_init)
             fresh_inst.before_run()
             try:
-                result, stdout_output, stderr_output = await _run_in_thread(
-                    _exec_in_thread, fresh_inst, request)
+                result, stdout_output, stderr_output = await _exec_with_timeout(
+                    fresh_inst, request)
                 api_result = handle_api_result(result)
                 duration_ms = int((time.time() - start) * 1000)
                 return {
@@ -338,6 +364,13 @@ def _make_route(app, path, summary, cmd_name, instance, request_model, type_hint
                     "result": api_result,
                     "stdout": stdout_output if stdout_output else None,
                     "stderr": stderr_output if stderr_output else None,
+                    "duration_ms": duration_ms,
+                }
+            except asyncio.TimeoutError:
+                duration_ms = int((time.time() - start) * 1000)
+                return {
+                    "status": "error",
+                    "error": "命令执行超时（{} 秒）".format(_timeout),
                     "duration_ms": duration_ms,
                 }
             except Exception as e:
@@ -349,3 +382,39 @@ def _make_route(app, path, summary, cmd_name, instance, request_model, type_hint
                 }
             finally:
                 fresh_inst.after_run()
+
+
+def _install_auth_middleware(app, token, exempt_prefixes=None):
+    """
+    安装 Bearer token 认证中间件。
+
+    Parameters
+    ----------
+    exempt_prefixes : list[str], optional
+        额外的免认证路径前缀列表。
+        默认已豁免 /docs /redoc /openapi.json。
+        Web 模式会传入 /api/ /ws/ 等前缀，使页面可以正常访问。
+    """
+    from starlette.middleware.base import BaseHTTPMiddleware
+    from starlette.responses import JSONResponse
+
+    _always_exempt = ('/', '/docs', '/redoc', '/openapi.json')
+    _extra_prefixes = tuple(exempt_prefixes) if exempt_prefixes else ()
+
+    class _AuthMiddleware(BaseHTTPMiddleware):
+        async def dispatch(self, request, call_next):
+            path = request.url.path
+            if path in _always_exempt:
+                return await call_next(request)
+            for prefix in _extra_prefixes:
+                if path.startswith(prefix):
+                    return await call_next(request)
+            auth_header = request.headers.get('authorization', '')
+            if not auth_header.startswith('Bearer '):
+                return JSONResponse({'detail': 'Missing or invalid Authorization header'},
+                                    status_code=401)
+            if auth_header[7:] != token:
+                return JSONResponse({'detail': 'Invalid token'}, status_code=403)
+            return await call_next(request)
+
+    app.add_middleware(_AuthMiddleware)

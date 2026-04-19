@@ -6,6 +6,41 @@ tags: []
 
 # nb_cmd 重大设计修改记录
 
+## 2026-04-19: Meta 新增 hide_method_list / auth_token / timeout 三字段
+
+**需求**: 在 `NbCmdMeta` 中新增三个控制字段，增强框架的安全性和稳定性。
+
+### 1. `hide_method_list: Optional[List[str]] = None`（命令黑名单）
+- 与 `allow_method_list`（白名单）互补的黑名单机制
+- 当同时配置白名单和黑名单时，白名单优先（黑名单被忽略）
+- 仅限制 CLI/API/Web 暴露，Python 直接调用不受影响
+- 支持路径写法：`'beta'`、`'sub.inner_b'`、`'sub/inner_b'`
+- 支持隐藏整个子命令组：`hide_method_list = ['sub']`
+
+### 2. `auth_token: Optional[str] = None`（简易 Bearer token 鉴权）
+- 配置后 API/Web 请求须带 `Authorization: Bearer <token>` 头
+- 不影响 `/docs`、`/redoc`、`/openapi.json` 等文档路径
+- 无 token 返回 401，token 错误返回 403
+- 通过 Starlette `BaseHTTPMiddleware` 实现
+
+### 3. `timeout: int = 0`（命令执行超时）
+- 0 表示不限时间（默认）
+- CLI 模式：通过 `concurrent.futures.ThreadPoolExecutor` 实现超时
+- API 模式：通过 `asyncio.wait_for` 实现超时
+- Web UI 模式：通过后台定时器线程自动取消正在执行的命令
+
+**影响文件**:
+- `nb_cmd/core/meta.py`（新增 3 个字段定义）
+- `nb_cmd/core/discovery.py`（`discover_commands` 新增 `hide_method_list` 参数 + `_is_method_hidden`/`_is_group_hidden` 判断函数）
+- `nb_cmd/modes/cli_mode.py`（传递 hide_method_list + `_run_method_with_timeout` 超时执行）
+- `nb_cmd/modes/api_mode.py`（传递 hide_method_list + `_install_auth_middleware` + `asyncio.wait_for` 超时）
+- `nb_cmd/modes/web_mode.py`（传递 hide_method_list + auth_token 中间件 + 后台超时定时器）
+- `nb_cmd/core/parser.py`（全链路传递 hide_method_list）
+- `nb_cmd/core/gen_cmd.py`（全链路传递 hide_method_list + `_get_hide_method_list`）
+- `tests/ai_codes/testnbcmds/test_hide_timeout_auth.py`（新增 13 个专项测试）
+
+---
+
 ## 2026-04-19: allow_method_list 命令白名单（仅限制 CLI/API/Web）
 
 **需求**: 增加 `Meta.allow_method_list`，当用户指定白名单时，仅暴露指定命令；未指定时暴露全部命令。该限制只作用于 CLI / REST API / Web UI，Python 代码直接调用类方法不受影响。

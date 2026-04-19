@@ -19,6 +19,22 @@ def _run_method(method, kwargs):
     return result
 
 
+def _run_method_with_timeout(method, kwargs, timeout):
+    """执行方法并在超时后抛出 TimeoutError（timeout=0 表示不限）"""
+    if timeout <= 0:
+        return _run_method(method, kwargs)
+
+    import concurrent.futures
+    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+        future = executor.submit(_run_method, method, kwargs)
+        try:
+            return future.result(timeout=timeout)
+        except concurrent.futures.TimeoutError:
+            raise TimeoutError(
+                '命令执行超时（{} 秒）。可通过 Meta.timeout 调整超时时间。'.format(timeout)
+            )
+
+
 def run_cli(instance, base_cls, args=None):
     """
     以 CLI 模式执行 NbCmd 实例。
@@ -32,10 +48,14 @@ def run_cli(instance, base_cls, args=None):
     meta = getattr(instance.__class__, 'Meta', type('Meta', (), {}))
     _enable_exec = getattr(meta, 'enable_exec', True)
     _allow_methods = getattr(meta, 'allow_method_list', None)
+    _hide_methods = getattr(meta, 'hide_method_list', None)
+    _timeout = getattr(meta, 'timeout', 0)
     commands = discover_commands(instance, base_cls, enable_exec=_enable_exec,
-                                 allow_method_list=_allow_methods)
+                                 allow_method_list=_allow_methods,
+                                 hide_method_list=_hide_methods)
     parser = build_parser(instance, commands, meta, base_cls=base_cls,
-                          allow_method_list=_allow_methods)
+                          allow_method_list=_allow_methods,
+                          hide_method_list=_hide_methods)
 
     parsed = parser.parse_args(args)
 
@@ -51,7 +71,8 @@ def run_cli(instance, base_cls, args=None):
 
     if python_name in commands and commands[python_name].get('is_group'):
         _run_group_command(instance, commands[python_name], parsed, base_cls, depth=1,
-                           allow_method_list=_allow_methods, command_prefix=python_name)
+                           allow_method_list=_allow_methods, hide_method_list=_hide_methods,
+                           command_prefix=python_name)
         return
 
     if python_name not in commands:
@@ -64,7 +85,7 @@ def run_cli(instance, base_cls, args=None):
 
     instance.before_run()
     try:
-        result = _run_method(method, kwargs)
+        result = _run_method_with_timeout(method, kwargs, _timeout)
         handle_cli_result(result)
     except Exception as e:
         instance.on_error(command_name, e)
@@ -136,7 +157,7 @@ def _inject_nbctx(parent, child):
 
 
 def _run_group_command(instance, group_info, parsed, base_cls, depth=1,
-                       allow_method_list=None, command_prefix=''):
+                       allow_method_list=None, hide_method_list=None, command_prefix=''):
     """执行子命令组中的命令"""
     group_cls = group_info['cls']
     group_kwargs = group_info.get('init_kwargs', {})
@@ -157,12 +178,14 @@ def _run_group_command(instance, group_info, parsed, base_cls, depth=1,
     sub_python_name = sub_command.replace('-', '_')
     sub_commands = discover_commands(group_instance, base_cls,
                                      allow_method_list=allow_method_list,
+                                     hide_method_list=hide_method_list,
                                      command_prefix=command_prefix)
 
     if sub_python_name in sub_commands and sub_commands[sub_python_name].get('is_group'):
         next_prefix = '{}/{}'.format(command_prefix, sub_python_name) if command_prefix else sub_python_name
         _run_group_command(group_instance, sub_commands[sub_python_name], parsed, base_cls,
                            depth=depth + 1, allow_method_list=allow_method_list,
+                           hide_method_list=hide_method_list,
                            command_prefix=next_prefix)
         return
 
@@ -174,9 +197,12 @@ def _run_group_command(instance, group_info, parsed, base_cls, depth=1,
     method = cmd_info['method']
     kwargs = _extract_kwargs(method, cmd_info, parsed)
 
+    meta = getattr(instance.__class__, 'Meta', type('Meta', (), {}))
+    _timeout = getattr(meta, 'timeout', 0)
+
     group_instance.before_run()
     try:
-        result = _run_method(method, kwargs)
+        result = _run_method_with_timeout(method, kwargs, _timeout)
         handle_cli_result(result)
     except Exception as e:
         group_instance.on_error(sub_command, e)

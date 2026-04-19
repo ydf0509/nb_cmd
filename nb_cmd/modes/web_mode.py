@@ -52,8 +52,12 @@ def start_web_server(instance, base_cls, host=None, port=None):
 
     _enable_exec = getattr(meta, 'enable_exec', True)
     _allow_methods = getattr(meta, 'allow_method_list', None)
+    _hide_methods = getattr(meta, 'hide_method_list', None)
+    _auth_token = getattr(meta, 'auth_token', None)
+    _timeout = getattr(meta, 'timeout', 0)
     commands = discover_commands(instance, base_cls, enable_exec=_enable_exec,
-                                 allow_method_list=_allow_methods)
+                                 allow_method_list=_allow_methods,
+                                 hide_method_list=_hide_methods)
     description = inspect.getdoc(instance) or instance.__class__.__name__
 
     from ..core._io_dispatch import _tls, install as _install_io
@@ -62,9 +66,17 @@ def start_web_server(instance, base_cls, host=None, port=None):
     static_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'ui', 'static')
     has_built_frontend = os.path.isfile(os.path.join(static_dir, 'index.html'))
 
+    if _auth_token:
+        from ..modes.api_mode import _install_auth_middleware
+        _install_auth_middleware(app, _auth_token, exempt_prefixes=[
+            '/api/', '/ws/', '/static/',
+        ])
+
     from ..modes.api_mode import _register_routes as _register_pydantic_routes
     _register_pydantic_routes(app, instance, commands, base_cls=base_cls,
-                              allow_method_list=_allow_methods, command_prefix='')
+                              allow_method_list=_allow_methods,
+                              hide_method_list=_hide_methods,
+                              command_prefix='', timeout=_timeout)
 
     def _build_group_result(cmds_dict, command_prefix=''):
         """递归构建命令组的结构（含嵌套子命令组）"""
@@ -80,6 +92,7 @@ def start_web_server(instance, base_cls, host=None, port=None):
                     g_inst = g_cls.__new__(g_cls)
                 g_cmds = discover_commands(g_inst, base_cls, include_builtins=False,
                                            allow_method_list=_allow_methods,
+                                           hide_method_list=_hide_methods,
                                            command_prefix=group_path)
                 result[name] = {
                     'type': 'group',
@@ -255,6 +268,7 @@ def start_web_server(instance, base_cls, host=None, port=None):
                     current_cmds = discover_commands(current_inst, base_cls,
                                                      include_builtins=False,
                                                      allow_method_list=_allow_methods,
+                                                     hide_method_list=_hide_methods,
                                                      command_prefix=current_path)
                 elif i == len(parts) - 1 and current_inst is not None:
                     return info['method'], current_inst, info
@@ -323,6 +337,16 @@ def start_web_server(instance, base_cls, host=None, port=None):
             worker_thread = t
             start_ts = time.time()
             t.start()
+
+            if _timeout > 0:
+                def _auto_timeout():
+                    if not cancel_event.wait(_timeout):
+                        cancel_event.set()
+                        if t.is_alive() and t.ident:
+                            _cancel_thread(t.ident)
+                        result_holder['error'] = '命令执行超时（{} 秒）'.format(_timeout)
+                _timer = threading.Thread(target=_auto_timeout, daemon=True)
+                _timer.start()
 
             async def _listen_cancel():
                 """后台监听客户端的取消消息"""

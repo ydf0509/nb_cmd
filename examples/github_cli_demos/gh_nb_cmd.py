@@ -24,6 +24,7 @@ from dataclasses import dataclass
 from typing import Optional
 from typing import Annotated
 from nb_cmd import NbCmd, CmdGen
+from nb_cmd.core.meta import NbCmdMeta
 
 
 # ==================== 1. 定义全局上下文 ====================
@@ -126,12 +127,18 @@ class GhCli(NbCmd):
     """
     nbctx: GhCtx
 
-    class Meta:
+    class Meta(NbCmdMeta):
         name = 'gh-cli'
         version = '1.0.0'
         enable_exec = False
         # 白名单示例：仅暴露 status + issue/list + pr/merge（Python 直接调用不受影响）
         # allow_method_list = ['status', 'issue.list', 'pr/merge']
+        # 黑名单示例：隐藏 status（与白名单互斥，白名单优先）
+        # hide_method_list = ['status']
+        # 鉴权示例：API/Web 请求须带 Authorization: Bearer <token>
+        auth_token = 'my-secret-token'
+        # 超时示例：命令执行超过 60 秒自动终止
+        # timeout = 60
 
     def __init__(
         self,
