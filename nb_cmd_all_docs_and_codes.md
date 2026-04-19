@@ -443,6 +443,8 @@ Core Files (imported by other files, sorted by import count):
 
 > 详细的多维度对比（含多层级子命令 + 全局参数的完整代码对比）请看：[nb_cmd vs click vs typer vs fire](https://github.com/ydf0509/nb_cmd/blob/main/nb_cmd_vs_click_vs_typer.md)
 
+> **GitHub CLI 实战对比：** 以真实 `gh` CLI 语义为基准（5 全局参数 + 3 子命令组 + 9 子命令），三框架完整实现对比。Click 需 49 个装饰器，Typer 需模块全局变量，nb_cmd 零装饰器 + 强类型上下文 + CmdGen 一行生成 Markdown 文档。[查看对比](examples/github_cli_demos/gh_comparison.md) | [nb_cmd 实现](examples/github_cli_demos/gh_nb_cmd.py) | [自动生成文档](examples/github_cli_demos/gh_nb_cmd_gen_doc.md)
+
 ## 目录
 
 - [为什么用 nb_cmd？](#为什么用-nb_cmd)
@@ -490,6 +492,7 @@ nb_cmd 换了一种思路：**Class 是中心，接口是投影。**
 | `print()` / `cmdui.table()` | CLI 终端输出 + Web 实时流式推送（WebSocket + ANSI 彩色渲染） |
 | `sub_commands = {'git': GitTool}` | CLI 多级子命令 + API 嵌套路由 + Web UI 折叠分组 |
 | `CmdGen(MyApp).doc(file='cli.md')` | **自动生成带 TOC + 参数表格 + 可复制命令行的 Markdown 文档** |
+| `self.nbctx = AppCtx(region=self.region)` | **跨层级强类型上下文，自动穿透到所有子命令组，IDE 补全 + 零手动传递** |
 | `MyTool().greet('张三', 3)` | **方法就是普通 Python 方法，随时直接调用、单元测试、import 复用** |
 
 **不需要写的：** 路由定义、Pydantic 模型、HTML 表单、CSS 样式、JavaScript 交互、WebSocket 端点、Swagger 注解、前后端联调、**CLI 使用文档**。
@@ -497,6 +500,8 @@ nb_cmd 换了一种思路：**Class 是中心，接口是投影。**
 > **零装饰器，方法可直接调用：** click/typer 的装饰器把函数变成了 `click.Command` 对象，无法直接 `greet('张三', 3)` 调用——必须用 `CliRunner().invoke()` 模拟 CLI 或自己拆两层。nb_cmd 的方法始终是普通的 Python 类方法，`MyTool().greet('张三', 3)` 直接就能跑，IDE 补全、断点调试、单元测试全部正常。
 
 > **文档生成吊打 `--help`：** 传统框架的文档止步于 `--help` 纯文本，click 需要第三方 `sphinx-click`，typer 只是搬运 `--help` 输出。nb_cmd 的 `CmdGen` 一行代码生成完整的 Markdown 文档——自动目录、参数表格、默认值/必填标注、可复制的 bash 命令行模板，测试人员拿到直接能用。[查看示例](https://github.com/ydf0509/nb_cmd/blob/main/examples/nbctx_demo/nbctx_demo_gen_doc.md)
+
+> **nbctx 跨层级上下文：** click 用 `ctx.obj` 字典（无类型、需手动 `@pass_context`），typer 用模块全局变量（无封装），nb_cmd 用 `self.nbctx`（强类型 dataclass + IDE 补全 + 框架自动注入到任意深度子命令组）。[nbctx 完整示例，实现github cli](examples/nbctx_demo/nbctx_demo.py)
 
 | 功能 | argparse | click | typer | fire | **nb_cmd** |
 |------|:--------:|:-----:|:-----:|:----:|:----------:|
@@ -510,6 +515,8 @@ nb_cmd 换了一种思路：**Class 是中心，接口是投影。**
 | 进度条/表格/彩色 | ✗ | ✓ | ✓(rich) | ✗ | **✓** |
 | 自动生成 CLI 文档 | ✗ | 第三方 | 基础 | ✗ | **✓（Markdown+表格+TOC+可复制命令行）** |
 | 方法可直接调用 | ✓ | ✗ | ✗ | ✓ | **✓（零装饰器，普通类方法）** |
+| 跨层级强类型上下文 | ✗ | ctx.obj(字典) | 全局变量 | ✗ | **✓（dataclass + IDE 补全 + 自动注入）** |
+| async 方法支持 | ✗ | ✗ | ✓ | ✗ | **✓（自动检测，透明执行）** |
 
 ---
 
@@ -1234,7 +1241,71 @@ $ curl -X POST http://localhost:8080/stats \
 
 > **多用户隔离：** Web 模式下，每次命令执行都会创建一个新的 `ServerTool` 实例，不同用户/请求之间互不影响。Web UI / curl 中传入的全局参数只影响当前这次执行。
 
-### 7. 参数校验
+### 7. nbctx 跨层级上下文传递
+
+多层级子命令的核心难题：**子命令组怎么拿到顶层的全局参数？**
+
+- **click** 用 `ctx.obj`（无类型字典），需要每层 `@click.pass_context` 手动传递
+- **typer** 用模块级全局变量（无封装、无类型安全）
+- **nb_cmd** 用 `self.nbctx`（强类型 dataclass），框架自动递归注入到任意深度
+
+```python
+from dataclasses import dataclass
+from typing import Annotated
+from nb_cmd import NbCmd
+
+@dataclass
+class AppCtx:
+    region: str = 'beijing'
+    env: str = 'prod'
+    debug: bool = False
+
+class DbTool(NbCmd):
+    """数据库工具"""
+    nbctx: AppCtx  # 类型注解 → IDE 补全 self.nbctx.region
+
+    def migrate(self, dry_run: Annotated[bool, '仅模拟'] = False):
+        """执行迁移"""
+        print(f'[{self.nbctx.region}/{self.nbctx.env}] 迁移 (dry_run={dry_run})')
+
+class MyApp(NbCmd):
+    """云平台管理"""
+    nbctx: AppCtx
+
+    def __init__(self,
+                 region: Annotated[str, '部署区域'] = 'beijing',
+                 env: Annotated[str, '运行环境'] = 'prod',
+                 debug: Annotated[bool, '调试模式'] = False):
+        self.region = region
+        self.env = env
+        self.debug = debug
+        # 直接赋值 nbctx，CLI/Web/API 所有模式自动拿到正确值
+        self.nbctx = AppCtx(region=self.region, env=self.env, debug=self.debug)
+
+    sub_commands = {'db': DbTool}
+```
+
+```bash
+# CLI: 全局参数自动穿透到子命令组
+$ python app.py --region tokyo db migrate --dry-run
+[tokyo/prod] 迁移 (dry_run=True)
+
+# curl: 通过 init_params 传递全局参数
+$ curl -X POST http://localhost:8080/db/migrate \
+    -d '{"dry_run": true, "init_params": {"region": "tokyo"}}'
+```
+
+**核心设计：**
+
+- 在 `__init__` 中直接 `self.nbctx = AppCtx(...)` 赋值，所有模式（CLI / Web / API / Python 直接调用）均能拿到正确的参数值
+- 也可以用 `make_nbctx()` 模板方法替代直接赋值（两种方式等价）
+- 子命令组只需写 `nbctx: AppCtx` 类型注解，IDE 自动补全 `self.nbctx.region` 等字段
+- 框架自动 `child.nbctx = parent.nbctx` 递归传递，支持任意嵌套深度
+- 不同用户/请求之间完全隔离（Web 模式下每次请求新建实例）
+
+> 完整三层嵌套示例见 [examples/nbctx_demo/](examples/nbctx_demo/nbctx_demo.py)
+
+### 8. 参数校验
 
 ```python
 from nb_cmd import NbCmd, validate
@@ -1315,6 +1386,7 @@ class MyTool(NbCmd):
 | `web_title` | str | `None` | Web UI 页面标题 |
 | `web_theme` | str | `'light'` | Web UI 主题（`'light'` / `'dark'`） |
 | `enable_exec` | bool | `True` | 是否暴露内置 `exec` 命令（设为 `False` 可防止恶意执行系统命令） |
+| `help_mode` | str | `'full'` | `-h` 的默认行为：`'full'` 显示完整帮助，`'easy'` 显示 argparse 原生格式 |
 | `aliases` | dict | `{}` | 参数别名（推荐用 `Annotated[..., 'desc', 'a']` 指定短别名替代） |
 
 ### 10. 生命周期钩子
@@ -1380,6 +1452,17 @@ deploy — 部署服务到目标主机
 stats — 查看系统状态
 ```
 
+通过 `Meta.help_mode` 可以控制 `-h` 的默认行为：
+
+```python
+class MyTool(NbCmd):
+    class Meta:
+        help_mode = 'full'   # -h 显示完整帮助（默认）
+        # help_mode = 'easy' # -h 显示 argparse 原生格式
+```
+
+> 无论 `help_mode` 设置如何，`-fh` 始终显示完整帮助，`-eh` 始终显示简易帮助。
+
 ### 12. 自动文档生成（CmdGen）—— 吊打 `--help`
 
 传统 CLI 框架的文档能力止步于 `--help`：一段纯文本，不能复制、不能跳转、不能分享。即使 typer 有 `typer utils docs`，也只是把 `--help` 搬到 Markdown 里而已。
@@ -1439,6 +1522,31 @@ g.doc(file='docs/cli_reference.md')
 | 智能路由 | 命令行输入非 NbCmd 命令时自动通过 exec 执行，可直接输入 `python xxx.py`、`docker ps` 等 |
 | 参数表单 | 根据方法签名自动推导控件（文本框、数字框、复选框、下拉选择等） |
 | 可拖拽布局 | 左右面板中间的分割条可自由拖动调整比例 |
+| 并发安全 | 每次请求新建实例，stdout/stderr 通过 `threading.local()` 隔离，多用户同时操作互不影响 |
+
+### 14. async 方法支持
+
+nb_cmd 自动检测 `async def` 方法，透明地用 `asyncio.run()` 执行，无需额外配置：
+
+```python
+import asyncio
+from nb_cmd import NbCmd
+
+class MyTool(NbCmd):
+    async def fetch(self, url: str):
+        """异步请求"""
+        import aiohttp
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url) as resp:
+                print(f'Status: {resp.status}')
+                return await resp.text()
+```
+
+```bash
+$ python my_tool.py fetch https://httpbin.org/get
+```
+
+同步和异步方法可以在同一个类中自由混用，CLI / Web / API 三种模式均自动处理。
 
 ---
 
@@ -1516,6 +1624,8 @@ g = CmdGen(entry_cls, script='app.py', python='python', fmt='text')
 ## 和竞品对比
 
 > 详细的多维度对比（含多层级子命令 + 全局参数的完整代码对比）请看：[nb_cmd vs click vs typer vs fire](https://github.com/ydf0509/nb_cmd/blob/main/nb_cmd_vs_click_vs_typer.md)
+
+> **GitHub CLI 三框架实战对比**：以真实 `gh` CLI 为基准（5 全局参数 + 3 子命令组 + 9 子命令），三框架完整可运行代码对比。[查看完整对比文档](examples/github_cli_demos/gh_comparison.md) | [Click 实现](examples/github_cli_demos/gh_click.py) | [Typer 实现](examples/github_cli_demos/gh_typer.py) | [nb_cmd 实现](examples/github_cli_demos/gh_nb_cmd.py) | [CmdGen 自动生成文档](examples/github_cli_demos/gh_nb_cmd_gen_doc.md)
 
 ### 代码对比：实现同一个工具
 
@@ -1683,7 +1793,7 @@ authors = [
 ]
 keywords = ["cli", "api", "webui", "command", "argparse", "fastapi"]
 classifiers = [
-    "Development Status :: 3 - Alpha",
+    "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Developers",
     "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
@@ -2447,6 +2557,12 @@ class GitRemote(NbCmd):
     ├── demo_inherit.py
     ├── demo_nb_log.py
     ├── demo_subcommands.py
+    ├── github_cli_demos
+    │   ├── gh_click.py
+    │   ├── gh_comparison.md
+    │   ├── gh_nb_cmd.py
+    │   ├── gh_nb_cmd_gen_doc.md
+    │   └── gh_typer.py
     └── nbctx_demo
         ├── nbctx_demo.py
         └── nbctx_demo_gen_doc.md
@@ -2456,7 +2572,7 @@ class GitRemote(NbCmd):
 ---
 
 
-## nb_cmd (relative dir: `examples`)  Included Files (total: 9 files)
+## nb_cmd (relative dir: `examples`)  Included Files (total: 14 files)
 
 
 - `examples/bigone_cmd.py`
@@ -2472,6 +2588,16 @@ class GitRemote(NbCmd):
 - `examples/demo_nb_log.py`
 
 - `examples/demo_subcommands.py`
+
+- `examples/github_cli_demos/gh_click.py`
+
+- `examples/github_cli_demos/gh_comparison.md`
+
+- `examples/github_cli_demos/gh_nb_cmd.py`
+
+- `examples/github_cli_demos/gh_nb_cmd_gen_doc.md`
+
+- `examples/github_cli_demos/gh_typer.py`
 
 - `examples/nbctx_demo/nbctx_demo.py`
 
@@ -3152,6 +3278,1049 @@ if __name__ == '__main__':
 ---
 
 
+--- **start of file: examples/github_cli_demos/gh_click.py** (project: nb_cmd) --- 
+
+`````python
+# -*- coding: utf-8 -*-
+"""
+GitHub CLI — Click 实现。
+
+演示 Click 在多层级子命令 + 全局参数场景下的典型写法：
+  - 每个子命令/组必须 @click.pass_context
+  - 取值靠 ctx.obj['key']（字符串键，无 IDE 补全）
+  - 装饰器随层级指数叠加
+
+用法:
+    python gh_click.py -R myorg/api issue list --state all
+    python gh_click.py --repo prod/web --debug pr merge --number 42 --squash
+    python gh_click.py -R team/cli --no-prompt --auth-token ghp_xxx issue create --title "Deploy failed"
+"""
+import click
+
+
+@click.group()
+@click.option('--repo', '-R', required=True, help='目标仓库 (owner/repo)')
+@click.option('--hostname', default=None, help='GitHub Enterprise 域名')
+@click.option('--auth-token', default=None, help='访问令牌 (覆盖配置)')
+@click.option('--debug', is_flag=True, help='开启调试模式')
+@click.option('--no-prompt', is_flag=True, help='禁用交互提示')
+@click.pass_context
+def cli(ctx, repo, hostname, auth_token, debug, no_prompt):
+    """gh-cli: GitHub 命令行工具 (Click 版)"""
+    ctx.ensure_object(dict)
+    ctx.obj.update(
+        repo=repo,
+        hostname=hostname,
+        auth_token=auth_token,
+        debug=debug,
+        no_prompt=no_prompt,
+    )
+
+
+# ==================== issue 子命令组 ====================
+
+@cli.group()
+@click.pass_context
+def issue(ctx):
+    """Issue 管理"""
+    pass
+
+
+@issue.command('list')
+@click.option('--state', default='open', type=click.Choice(['open', 'closed', 'all']),
+              help='Issue 状态过滤')
+@click.option('--label', default=None, help='按标签过滤')
+@click.option('--limit', default=30, type=int, help='最大返回数量')
+@click.pass_context
+def issue_list(ctx, state, label, limit):
+    """列出 Issues"""
+    c = ctx.obj
+    print(f"[issue list] repo={c['repo']}, state={state}, label={label}, limit={limit}")
+    if c['debug']:
+        print(f"  DEBUG: hostname={c['hostname']}, no_prompt={c['no_prompt']}")
+
+
+@issue.command('create')
+@click.option('--title', '-t', required=True, help='Issue 标题')
+@click.option('--body', '-b', default='', help='Issue 正文')
+@click.option('--assignee', '-a', default=None, help='指定负责人')
+@click.pass_context
+def issue_create(ctx, title, body, assignee):
+    """创建新 Issue"""
+    c = ctx.obj
+    print(f"[issue create] repo={c['repo']}, title={title}")
+    if body:
+        print(f"  body={body}")
+    if assignee:
+        print(f"  assignee={assignee}")
+
+
+@issue.command('view')
+@click.argument('number', type=int)
+@click.pass_context
+def issue_view(ctx, number):
+    """查看 Issue 详情"""
+    c = ctx.obj
+    print(f"[issue view] repo={c['repo']}, #{number}")
+
+
+# ==================== pr 子命令组 ====================
+
+@cli.group()
+@click.pass_context
+def pr(ctx):
+    """Pull Request 管理"""
+    pass
+
+
+@pr.command('list')
+@click.option('--state', default='open', type=click.Choice(['open', 'closed', 'merged', 'all']),
+              help='PR 状态过滤')
+@click.option('--author', default=None, help='按作者过滤')
+@click.pass_context
+def pr_list(ctx, state, author):
+    """列出 Pull Requests"""
+    c = ctx.obj
+    print(f"[pr list] repo={c['repo']}, state={state}, author={author}")
+
+
+@pr.command('create')
+@click.option('--title', '-t', required=True, help='PR 标题')
+@click.option('--body', '-b', default='', help='PR 描述')
+@click.option('--base', default='main', help='目标分支')
+@click.option('--draft', is_flag=True, help='创建为 Draft PR')
+@click.pass_context
+def pr_create(ctx, title, body, base, draft):
+    """创建新 Pull Request"""
+    c = ctx.obj
+    kind = 'Draft PR' if draft else 'PR'
+    print(f"[pr create] repo={c['repo']}, {kind}: {title} → {base}")
+    if c['debug']:
+        tok = '***' if c['auth_token'] else 'default'
+        print(f"  DEBUG: auth={tok}")
+
+
+@pr.command('merge')
+@click.option('--number', '-n', required=True, type=int, help='PR 编号')
+@click.option('--squash', is_flag=True, help='Squash 合并')
+@click.option('--delete-branch', is_flag=True, help='合并后删除分支')
+@click.pass_context
+def pr_merge(ctx, number, squash, delete_branch):
+    """合并 Pull Request"""
+    c = ctx.obj
+    method = 'squash' if squash else 'merge'
+    tok = '***' if c['auth_token'] else 'default'
+    print(f"[pr merge] repo={c['repo']}, #{number}, method={method}, auth={tok}")
+    if delete_branch:
+        print("  → 合并后将删除源分支")
+
+
+# ==================== repo 子命令组 ====================
+
+@cli.group()
+@click.pass_context
+def repo(ctx):
+    """仓库管理"""
+    pass
+
+
+@repo.command('clone')
+@click.argument('target_repo')
+@click.option('--depth', default=0, type=int, help='浅克隆深度 (0=完整)')
+@click.pass_context
+def repo_clone(ctx, target_repo, depth):
+    """克隆仓库"""
+    c = ctx.obj
+    depth_info = f' (depth={depth})' if depth else ''
+    print(f"[repo clone] {target_repo}{depth_info}")
+    if c['hostname']:
+        print(f"  → 从 {c['hostname']} 克隆")
+
+
+@repo.command('fork')
+@click.option('--org', default=None, help='Fork 到指定组织')
+@click.pass_context
+def repo_fork(ctx, org):
+    """Fork 仓库"""
+    c = ctx.obj
+    target = f" → {org}" if org else ''
+    print(f"[repo fork] {c['repo']}{target}")
+
+
+if __name__ == '__main__':
+    cli()
+
+`````
+
+--- **end of file: examples/github_cli_demos/gh_click.py** (project: nb_cmd) --- 
+
+---
+
+
+--- **start of file: examples/github_cli_demos/gh_comparison.md** (project: nb_cmd) --- 
+
+`````markdown
+---
+noteId: "e71b7b113bc511f1a9787921be2453f8"
+tags: []
+
+---
+
+# GitHub CLI 三框架实现对比：nb_cmd vs Click vs Typer
+
+> 以真实 GitHub CLI (`gh`) 的语义为基准，统一实现 **5 个全局参数 + 3 个子命令组 + 9 个子命令**，对比三个 Python CLI 框架的代码质量和开发体验。
+
+## 场景覆盖
+
+| 命令路径 | 功能 | 参数 |
+|---------|------|------|
+| `issue list` | 列出 Issues | `--state`, `--label`, `--limit` |
+| `issue create` | 创建 Issue | `--title/-t`, `--body/-b`, `--assignee/-a` |
+| `issue view` | 查看 Issue | `NUMBER` (必填) |
+| `pr list` | 列出 PRs | `--state`, `--author` |
+| `pr create` | 创建 PR | `--title/-t`, `--body/-b`, `--base`, `--draft` |
+| `pr merge` | 合并 PR | `--number/-n`, `--squash`, `--delete-branch` |
+| `repo clone` | 克隆仓库 | `TARGET_REPO` (必填), `--depth` |
+| `repo fork` | Fork 仓库 | `--org` |
+| `status` | 全局配置 | (无) |
+
+**全局参数**：`--repo/-R`, `--hostname`, `--auth-token`, `--debug`, `--no-prompt`
+
+---
+
+## 终端调用（三框架完全一致）
+
+```bash
+# 基础调用
+python gh_xxx.py --repo myorg/api issue list --state all
+
+# 覆盖全局参数 + 执行二级命令
+python gh_xxx.py --repo prod/web --debug pr merge --number 42 --squash
+
+# CI 场景（禁用交互 + 指定 Token）
+python gh_xxx.py -R team/cli --no-prompt --auth-token ghp_xxx issue create --title "Deploy failed"
+```
+
+---
+
+## 代码量化对比
+
+| 指标 | Click | Typer | nb_cmd |
+|------|-------|-------|--------|
+| **CLI 定义代码行** | 108 | 94 | 104 |
+| **装饰器数量** | **49 个** | 9 个 | **0 个** |
+| **全局参数传递方式** | `ctx.obj['repo']` 字典 | `state['repo']` 全局变量 | `self.nbctx.repo` 强类型 |
+| **IDE 补全/跳转** | ❌ 字符串键 | ❌ 字符串键 | ✅ dataclass 字段 |
+| **子命令独立性** | ❌ 绑定到 `@cli.group` | ❌ 绑定到 `app` 实例 | ✅ 纯 Class，可单独实例化 |
+| **自动文档生成** | ❌ 需 `sphinx-click` | ❌ 只搬运 `--help` | ✅ `CmdGen` 一行生成 Markdown |
+| **Web UI 支持** | ❌ 需额外重写 | ❌ 需额外重写 | ✅ `--web` 一键启动 |
+| **REST API 支持** | ❌ 需额外重写 | ❌ 需额外重写 | ✅ 内置 |
+
+---
+
+## 核心差异详解
+
+### 1. 全局参数定义与传递
+
+**Click** — 装饰器 + `ctx.obj` 字典：
+
+```python
+@click.group()
+@click.option('--repo', '-R', required=True, help='...')
+@click.option('--hostname', default=None, help='...')
+@click.option('--auth-token', default=None, help='...')
+@click.option('--debug', is_flag=True, help='...')
+@click.option('--no-prompt', is_flag=True, help='...')
+@click.pass_context
+def cli(ctx, repo, hostname, auth_token, debug, no_prompt):
+    ctx.ensure_object(dict)
+    ctx.obj.update(repo=repo, hostname=hostname, ...)
+```
+
+每个子命令/组必须加 `@click.pass_context`，取值靠 `ctx.obj['repo']`（拼错 key 运行时才爆发）。
+
+**Typer** — `@callback` + 模块全局字典：
+
+```python
+state = {}  # ⚠️ 破坏封装，非线程安全
+
+@app.callback()
+def main(repo: str = typer.Option(..., "--repo", "-R", help="..."), ...):
+    state.update(repo=repo, ...)
+```
+
+所有子命令读 `state['repo']` — 模块级全局变量，无法独立测试、并发时会串。
+
+**nb_cmd** — `__init__` + `make_nbctx()` 强类型上下文：
+
+```python
+@dataclass
+class GhCtx:
+    repo: Optional[str] = None
+    hostname: Optional[str] = None
+    auth_token: Optional[str] = None
+    debug: bool = False
+    no_prompt: bool = False
+
+class GhCli(NbCmd):
+    nbctx: GhCtx  # ← IDE 补全入口
+
+    def __init__(self,
+                 repo: Annotated[str, '目标仓库', 'R'] = None, ...):
+        self.repo = repo; ...
+
+    def make_nbctx(self):
+        return GhCtx(repo=self.repo, ...)
+
+    sub_commands = {'issue': IssueCmd, 'pr': PrCmd, 'repo': RepoCmd}
+```
+
+`self.nbctx.repo` 在 IDE 中自动补全、可跳转到 `GhCtx` 定义。拼写错误编译期就能发现。
+
+---
+
+### 2. 子命令组定义
+
+**Click** — 每新增一个子命令组需要 1 个 `@cli.group` + N 个 `@group.command` + N 个 `@click.pass_context`：
+
+```python
+@cli.group()
+@click.pass_context
+def issue(ctx): pass
+
+@issue.command('list')
+@click.option('--state', ...)
+@click.pass_context
+def issue_list(ctx, state):
+    c = ctx.obj  # 再次字典取值
+```
+
+**Typer** — 每新增一个子命令组需要 `Typer()` 实例 + `add_typer()` 注册：
+
+```python
+issue_app = typer.Typer(help="Issue 管理")
+app.add_typer(issue_app, name="issue")
+
+@issue_app.command("list")
+def issue_list(state_filter: str = typer.Option("open", "--state", ...)):
+    print(f"repo={state['repo']}")  # 全局变量取值
+```
+
+**nb_cmd** — 纯 Class 继承，一行声明层级：
+
+```python
+class IssueCmd(NbCmd):
+    """Issue 管理"""
+    nbctx: GhCtx  # IDE 补全
+
+    def list(self, state: Annotated[str, 'Issue 状态'] = 'open', ...):
+        print(f"repo={self.nbctx.repo}")  # 强类型取值
+```
+
+新增子命令组只需：写一个 Class + 在父级 `sub_commands` 加一项。全局参数自动穿透。
+
+---
+
+### 3. 子命令独立测试
+
+**Click/Typer** — 子命令强绑定到 `cli` / `app` 实例，无法脱离框架调用：
+
+```python
+# Click：无法直接调用 issue_list
+# Typer：需要 state 全局变量预先填充，且非线程安全
+```
+
+**nb_cmd** — 子命令组是独立 Class，可脱离框架运行/测试：
+
+```python
+# 直接实例化 + 注入 ctx，不需要启动整个 CLI 框架
+ctx = GhCtx(repo='myorg/api', debug=True)
+issue = IssueCmd()
+issue.nbctx = ctx
+issue.list(state='all')       # ✅ 直接调用
+issue.create(title='Bug')     # ✅ 直接调用
+```
+
+---
+
+### 4. 自动文档生成（nb_cmd 独有）
+
+一行代码生成完整 Markdown 文档，包含目录、参数表格、默认值标注、可复制 bash 命令行模板：
+
+```python
+from nb_cmd import CmdGen
+
+g = CmdGen(GhCli, script='gh_nb_cmd.py', fmt='markdown')
+g.doc(file='gh_nb_cmd_gen_doc.md')
+```
+
+生成结果包含：
+- Table of Contents（自动目录）
+- System Params / Global Params 表格
+- 每个命令的参数表格（Flag / Type / Default / Description）
+- 每个命令的可复制 bash 命令行模板
+
+Click 需要第三方 `sphinx-click`，Typer 只搬运 `--help` 纯文本输出。
+
+---
+
+### 5. 多模式支持（nb_cmd 独有）
+
+同一套代码自动获得 4 种接口：
+
+```bash
+# CLI 模式
+python gh_nb_cmd.py --repo myorg/api issue list
+
+# Web UI 模式（一键启动，含表单/实时输出/Swagger）
+python gh_nb_cmd.py --web --web-port 8090
+
+# REST API 模式（随 Web 一起启动）
+curl -X POST http://localhost:8090/issue/list \
+  -d '{"state": "all", "init_params": {"repo": "myorg/api"}}'
+
+# Python 直接调用
+issue = IssueCmd(); issue.nbctx = GhCtx(repo='myorg/api')
+issue.list(state='all')
+```
+
+Click 和 Typer 只提供 CLI，需额外用 FastAPI/Flask 重写才能支持 Web/API。
+
+---
+
+## 碾压点总结
+
+| 维度 | nb_cmd 优势 |
+|------|------------|
+| **上下文传递** | `make_nbctx()` → `self.nbctx.xxx` 强类型穿透，终结了 `ctx.obj` 字典和全局变量反模式 |
+| **装饰器数量** | 49 (Click) → 0 (nb_cmd)，代码噪音归零 |
+| **IDE 体验** | `self.nbctx.repo` 自动补全+类型校验，拼写错误静态可查 |
+| **可测试性** | 子命令组是独立 Class，可脱离框架单独实例化/注入 ctx/单元测试 |
+| **文档生成** | `CmdGen` 一行生成完整 Markdown，Click/Typer 无此能力 |
+| **多模式支持** | `--web` 一键获得 Web UI + REST API，Click/Typer 需额外重写 |
+| **新增子命令成本** | 写 Class + `sub_commands` 加一项，全局逻辑零改动 |
+| **架构映射** | `__init__` 即"连接/环境配置"，完美映射 gh/aws/kubectl 的全局参数语义 |
+
+---
+
+## 文件清单
+
+| 文件 | 说明 |
+|------|------|
+| `gh_click.py` | Click 实现（168 行，49 个装饰器） |
+| `gh_typer.py` | Typer 实现（154 行，9 个装饰器） |
+| `gh_nb_cmd.py` | nb_cmd 实现（216 行含本地演示，0 个装饰器） |
+| `gh_nb_cmd_gen_doc.md` | nb_cmd 自动生成的 Markdown 文档（CmdGen 产出） |
+| `gh_comparison.md` | 本文件 — 三框架对比总结 |
+
+`````
+
+--- **end of file: examples/github_cli_demos/gh_comparison.md** (project: nb_cmd) --- 
+
+---
+
+
+--- **start of file: examples/github_cli_demos/gh_nb_cmd.py** (project: nb_cmd) --- 
+
+`````python
+# -*- coding: utf-8 -*-
+"""
+GitHub CLI — nb_cmd 实现。
+
+演示 nb_cmd 在多层级子命令 + 全局参数场景下的碾压优势：
+  - 零装饰器：所有命令通过纯 Class + 方法定义
+  - __init__ 直接赋值 self.nbctx：无需 make_nbctx()，CLI/Web/API 所有模式均正确传参
+  - self.nbctx 强类型 + IDE 补全：子命令组通过类型注解获取代码补全和跳转
+  - 子命令独立可测：每个 NbCmd 子类可脱离父级单独实例化和测试
+  - CmdGen 自动文档：一行代码生成完整 Markdown 文档
+
+用法:
+    1. CLI:  python gh_nb_cmd.py --repo myorg/api issue list --state all
+    2. CLI:  python gh_nb_cmd.py --repo prod/web --debug pr merge --number 42 --squash
+    3. CLI:  python gh_nb_cmd.py -R team/cli --no-prompt --auth-token ghp_xxx issue create --title "Deploy failed"
+    4. Web:  python gh_nb_cmd.py --web --web-port 8090
+    5. 本地: python gh_nb_cmd.py  (无参数，进入本地演示)
+"""
+import sys
+import os
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
+
+from dataclasses import dataclass
+from typing import Optional
+from typing import Annotated
+from nb_cmd import NbCmd, CmdGen
+
+
+# ==================== 1. 定义全局上下文 ====================
+
+@dataclass
+class GhCtx:
+    """GitHub CLI 全局上下文，所有子命令组共享"""
+    repo: Optional[str] = None
+    hostname: Optional[str] = None
+    auth_token: Optional[str] = None
+    debug: bool = False
+    no_prompt: bool = False
+
+
+# ==================== 2. 子命令组（纯 Class，可独立测试）====================
+
+class IssueCmd(NbCmd):
+    """Issue 管理"""
+    nbctx: GhCtx
+
+    def list(self, state: Annotated[str, 'Issue 状态过滤 (open/closed/all)'] = 'open',
+             label: Annotated[str, '按标签过滤'] = None,
+             limit: Annotated[int, '最大返回数量'] = 30):
+        """列出 Issues"""
+        print(f"[issue list] repo={self.nbctx.repo}, state={state}, label={label}, limit={limit}")
+        if self.nbctx.debug:
+            print(f"  DEBUG: hostname={self.nbctx.hostname}, no_prompt={self.nbctx.no_prompt}")
+
+    def create(self, title: Annotated[str, 'Issue 标题', 't'],
+               body: Annotated[str, 'Issue 正文', 'b'] = '',
+               assignee: Annotated[str, '指定负责人', 'a'] = None):
+        """创建新 Issue"""
+        print(f"[issue create] repo={self.nbctx.repo}, title={title}")
+        if body:
+            print(f"  body={body}")
+        if assignee:
+            print(f"  assignee={assignee}")
+
+    def view(self, number: Annotated[int, 'Issue 编号']):
+        """查看 Issue 详情"""
+        print(f"[issue view] repo={self.nbctx.repo}, #{number}")
+
+
+class PrCmd(NbCmd):
+    """Pull Request 管理"""
+    nbctx: GhCtx
+
+    def list(self, state: Annotated[str, 'PR 状态过滤 (open/closed/merged/all)'] = 'open',
+             author: Annotated[str, '按作者过滤'] = None):
+        """列出 Pull Requests"""
+        print(f"[pr list] repo={self.nbctx.repo}, state={state}, author={author}")
+
+    def create(self, title: Annotated[str, 'PR 标题', 't'],
+               body: Annotated[str, 'PR 描述', 'b'] = '',
+               base: Annotated[str, '目标分支'] = 'main',
+               draft: Annotated[bool, '创建为 Draft PR'] = False):
+        """创建新 Pull Request"""
+        kind = 'Draft PR' if draft else 'PR'
+        print(f"[pr create] repo={self.nbctx.repo}, {kind}: {title} → {base}")
+        if self.nbctx.debug:
+            tok = '***' if self.nbctx.auth_token else 'default'
+            print(f"  DEBUG: auth={tok}")
+
+    def merge(self, number: Annotated[int, 'PR 编号', 'n'],
+              squash: Annotated[bool, 'Squash 合并'] = False,
+              delete_branch: Annotated[bool, '合并后删除分支'] = False):
+        """合并 Pull Request"""
+        method = 'squash' if squash else 'merge'
+        tok = '***' if self.nbctx.auth_token else 'default'
+        print(f"[pr merge] repo={self.nbctx.repo}, #{number}, method={method}, auth={tok}")
+        if delete_branch:
+            print("  → 合并后将删除源分支")
+
+
+class RepoCmd(NbCmd):
+    """仓库管理"""
+    nbctx: GhCtx
+
+    def clone(self, target_repo: Annotated[str, '要克隆的仓库'],
+              depth: Annotated[int, '浅克隆深度 (0=完整)'] = 0):
+        """克隆仓库"""
+        depth_info = f' (depth={depth})' if depth else ''
+        print(f"[repo clone] {target_repo}{depth_info}")
+        if self.nbctx.hostname:
+            print(f"  → 从 {self.nbctx.hostname} 克隆")
+
+    def fork(self, org: Annotated[str, 'Fork 到指定组织'] = None):
+        """Fork 仓库"""
+        target = f" → {org}" if org else ''
+        print(f"[repo fork] {self.nbctx.repo}{target}")
+
+
+# ==================== 3. 顶层入口 ====================
+
+class GhCli(NbCmd):
+    """
+    gh-cli: GitHub 命令行工具 (nb_cmd 版)
+
+    全局参数 repo/hostname/auth_token/debug/no_prompt 自动穿透到所有子命令组。
+    """
+    nbctx: GhCtx
+
+    class Meta:
+        name = 'gh-cli'
+        version = '1.0.0'
+        enable_exec = False
+
+    def __init__(
+        self,
+        repo: Annotated[str, '目标仓库 (owner/repo)', 'R'] = None,
+        hostname: Annotated[str, 'GitHub Enterprise 域名'] = None,
+        auth_token: Annotated[str, '访问令牌 (覆盖配置)'] = None,
+        debug: Annotated[bool, '开启调试模式'] = False,
+        no_prompt: Annotated[bool, '禁用交互提示'] = False,
+    ):
+        self.repo = repo
+        self.hostname = hostname
+        self.auth_token = auth_token
+        self.debug = debug
+        self.no_prompt = no_prompt
+        # 直接赋值 nbctx，CLI/Web/API 所有模式均能拿到正确的参数值
+        self.nbctx = GhCtx(
+            repo=self.repo,
+            hostname=self.hostname,
+            auth_token=self.auth_token,
+            debug=self.debug,
+            no_prompt=self.no_prompt,
+        )
+        # 也可以用 make_nbctx() 模板方法替代上面的直接赋值（两种方式均可）：
+        # def make_nbctx(self):
+        #     return GhCtx(repo=self.repo, ...)
+
+    sub_commands = {
+        'issue': IssueCmd,
+        'pr': PrCmd,
+        'repo': RepoCmd,
+    }
+
+    def status(self):
+        """查看 CLI 全局配置状态"""
+        print(f"=== gh-cli 全局配置 ===")
+        print(f"repo:       {self.nbctx.repo}")
+        print(f"hostname:   {self.nbctx.hostname}")
+        print(f"auth_token: {'***' if self.nbctx.auth_token else 'None'}")
+        print(f"debug:      {self.nbctx.debug}")
+        print(f"no_prompt:  {self.nbctx.no_prompt}")
+
+
+if __name__ == '__main__':
+    import sys as _sys
+
+    if len(_sys.argv) > 1:
+        GhCli().run()
+    else:
+        print('=' * 60)
+        print('GitHub CLI (nb_cmd 版) — 本地直接调用 + CmdGen 文档演示')
+        print('=' * 60)
+
+        # 场景 1: 本地直接调用（子命令独立测试）
+        print('\n--- 场景 1: 子命令独立测试（无需启动整个 CLI）---')
+        ctx = GhCtx(repo='myorg/api', debug=True)
+        issue = IssueCmd()
+        issue.nbctx = ctx
+        issue.list(state='all', limit=10)
+        issue.create(title='Bug: login failed')
+
+        # 场景 2: 多个子命令组共享同一个 ctx
+        print('\n--- 场景 2: 多子命令组共享 ctx ---')
+        ctx = GhCtx(repo='prod/web', auth_token='ghp_xxx')
+        pr = PrCmd()
+        repo = RepoCmd()
+        pr.nbctx = ctx
+        repo.nbctx = ctx
+        pr.merge(number=42, squash=True)
+        repo.fork(org='my-team')
+
+        # 场景 3: CmdGen 自动生成命令行示例
+        print('\n--- 场景 3: CmdGen 命令行示例 ---')
+        g = CmdGen(GhCli, script='gh_nb_cmd.py')
+        print(g.cmd(IssueCmd.list))
+        print(g.cmd(IssueCmd.create))
+        print(g.cmd(PrCmd.merge))
+        print(g.cmd(RepoCmd.clone))
+        print(g.cmd(GhCli.status))
+
+        # 场景 4: CmdGen.doc() 生成完整 Markdown 文档
+        print('\n--- 场景 4: CmdGen.doc() 生成 Markdown ---')
+        g_md = CmdGen(GhCli, script='gh_nb_cmd.py', fmt='markdown')
+        doc_path = os.path.join(os.path.dirname(__file__), 'gh_nb_cmd_gen_doc.md')
+        g_md.doc(file=doc_path)
+        print(f'Markdown 文档已生成: {doc_path}')
+
+`````
+
+--- **end of file: examples/github_cli_demos/gh_nb_cmd.py** (project: nb_cmd) --- 
+
+---
+
+
+--- **start of file: examples/github_cli_demos/gh_nb_cmd_gen_doc.md** (project: nb_cmd) --- 
+
+`````markdown
+# gh-cli v1.0.0
+
+> gh-cli: GitHub 命令行工具 (nb_cmd 版)
+
+全局参数 repo/hostname/auth_token/debug/no_prompt 自动穿透到所有子命令组。
+
+## Table of Contents
+
+- [`status`](#status)
+- [`issue`  *(子命令组)*](#issue-子命令组)
+  - [`issue create`](#issue-create)
+  - [`issue list`](#issue-list)
+  - [`issue view`](#issue-view)
+- [`pr`  *(子命令组)*](#pr-子命令组)
+  - [`pr create`](#pr-create)
+  - [`pr list`](#pr-list)
+  - [`pr merge`](#pr-merge)
+- [`repo`  *(子命令组)*](#repo-子命令组)
+  - [`repo clone`](#repo-clone)
+  - [`repo fork`](#repo-fork)
+
+---
+
+## System Params
+
+| Flag | Description |
+|------|-------------|
+| `-h`, `--help` | 显示帮助信息 |
+| `-fh`, `--full-help` | 显示完整帮助（所有参数详情） |
+| `-eh`, `--easy-help` | 显示简易帮助（argparse 原生格式） |
+| `--cmd-version` | 显示版本号 |
+| `--web` | 以 Web UI + REST API 模式启动 |
+| `--web-port PORT` | Web UI 服务端口（用于 `--web`） |
+
+## Global Params (`__init__`)
+
+| Flag | Type | Default | Description |
+|------|------|---------|-------------|
+| `--repo, -R` | `str` | `None` | 目标仓库 (owner/repo) |
+| `--hostname` | `str` | `None` | GitHub Enterprise 域名 |
+| `--auth-token` | `str` | `None` | 访问令牌 (覆盖配置) |
+| `--debug` | `bool` | `False` | 开启调试模式 |
+| `--no-prompt` | `bool` | `False` | 禁用交互提示 |
+
+## Quick Start
+
+```bash
+# 查看完整帮助
+D:\ProgramData\Miniconda3\envs\py39b\python.exe gh_nb_cmd.py -fh
+
+# 查看版本
+D:\ProgramData\Miniconda3\envs\py39b\python.exe gh_nb_cmd.py --cmd-version
+
+# 启动 Web UI
+D:\ProgramData\Miniconda3\envs\py39b\python.exe gh_nb_cmd.py --web
+```
+
+## 命令行约定
+
+命令格式：`python script.py [全局参数] <子命令路径> [命令参数]`
+
+| 标记 | 含义 |
+|------|------|
+| `${value}` | 带默认值的参数 — 可按需替换 |
+| `$<name>` | **必填**参数 — 必须提供值 |
+| `--flag`（无值） | 布尔开关，添加即启用 |
+
+---
+
+## Commands
+
+### `status`
+
+查看 CLI 全局配置状态
+
+```bash
+D:\ProgramData\Miniconda3\envs\py39b\python.exe gh_nb_cmd.py --repo ${None} --hostname ${None} --auth-token ${None} --debug --no-prompt status
+```
+
+### `issue` *(子命令组)*
+
+> Issue 管理
+
+#### `issue create`
+
+创建新 Issue
+
+| Param | Type | Default | Description |
+|-------|------|---------|-------------|
+| `--title, -t` | `str` | *(required)* | Issue 标题 |
+| `--body, -b` | `str` | `` | Issue 正文 |
+| `--assignee, -a` | `str` | `None` | 指定负责人 |
+
+```bash
+D:\ProgramData\Miniconda3\envs\py39b\python.exe gh_nb_cmd.py --repo ${None} --hostname ${None} --auth-token ${None} --debug --no-prompt issue create --title $<title> --body ${} --assignee ${None}
+```
+
+#### `issue list`
+
+列出 Issues
+
+| Param | Type | Default | Description |
+|-------|------|---------|-------------|
+| `--state` | `str` | `open` | Issue 状态过滤 (open/closed/all) |
+| `--label` | `str` | `None` | 按标签过滤 |
+| `--limit` | `int` | `30` | 最大返回数量 |
+
+```bash
+D:\ProgramData\Miniconda3\envs\py39b\python.exe gh_nb_cmd.py --repo ${None} --hostname ${None} --auth-token ${None} --debug --no-prompt issue list --state ${open} --label ${None} --limit ${30}
+```
+
+#### `issue view`
+
+查看 Issue 详情
+
+| Param | Type | Default | Description |
+|-------|------|---------|-------------|
+| `--number` | `int` | *(required)* | Issue 编号 |
+
+```bash
+D:\ProgramData\Miniconda3\envs\py39b\python.exe gh_nb_cmd.py --repo ${None} --hostname ${None} --auth-token ${None} --debug --no-prompt issue view --number $<number>
+```
+
+### `pr` *(子命令组)*
+
+> Pull Request 管理
+
+#### `pr create`
+
+创建新 Pull Request
+
+| Param | Type | Default | Description |
+|-------|------|---------|-------------|
+| `--title, -t` | `str` | *(required)* | PR 标题 |
+| `--body, -b` | `str` | `` | PR 描述 |
+| `--base` | `str` | `main` | 目标分支 |
+| `--draft` | `bool` | `False` | 创建为 Draft PR |
+
+```bash
+D:\ProgramData\Miniconda3\envs\py39b\python.exe gh_nb_cmd.py --repo ${None} --hostname ${None} --auth-token ${None} --debug --no-prompt pr create --title $<title> --body ${} --base ${main} --draft
+```
+
+#### `pr list`
+
+列出 Pull Requests
+
+| Param | Type | Default | Description |
+|-------|------|---------|-------------|
+| `--state` | `str` | `open` | PR 状态过滤 (open/closed/merged/all) |
+| `--author` | `str` | `None` | 按作者过滤 |
+
+```bash
+D:\ProgramData\Miniconda3\envs\py39b\python.exe gh_nb_cmd.py --repo ${None} --hostname ${None} --auth-token ${None} --debug --no-prompt pr list --state ${open} --author ${None}
+```
+
+#### `pr merge`
+
+合并 Pull Request
+
+| Param | Type | Default | Description |
+|-------|------|---------|-------------|
+| `--number, -n` | `int` | *(required)* | PR 编号 |
+| `--squash` | `bool` | `False` | Squash 合并 |
+| `--delete-branch` | `bool` | `False` | 合并后删除分支 |
+
+```bash
+D:\ProgramData\Miniconda3\envs\py39b\python.exe gh_nb_cmd.py --repo ${None} --hostname ${None} --auth-token ${None} --debug --no-prompt pr merge --number $<number> --squash --delete-branch
+```
+
+### `repo` *(子命令组)*
+
+> 仓库管理
+
+#### `repo clone`
+
+克隆仓库
+
+| Param | Type | Default | Description |
+|-------|------|---------|-------------|
+| `--target-repo` | `str` | *(required)* | 要克隆的仓库 |
+| `--depth` | `int` | `0` | 浅克隆深度 (0=完整) |
+
+```bash
+D:\ProgramData\Miniconda3\envs\py39b\python.exe gh_nb_cmd.py --repo ${None} --hostname ${None} --auth-token ${None} --debug --no-prompt repo clone --target-repo $<target_repo> --depth ${0}
+```
+
+#### `repo fork`
+
+Fork 仓库
+
+| Param | Type | Default | Description |
+|-------|------|---------|-------------|
+| `--org` | `str` | `None` | Fork 到指定组织 |
+
+```bash
+D:\ProgramData\Miniconda3\envs\py39b\python.exe gh_nb_cmd.py --repo ${None} --hostname ${None} --auth-token ${None} --debug --no-prompt repo fork --org ${None}
+```
+
+`````
+
+--- **end of file: examples/github_cli_demos/gh_nb_cmd_gen_doc.md** (project: nb_cmd) --- 
+
+---
+
+
+--- **start of file: examples/github_cli_demos/gh_typer.py** (project: nb_cmd) --- 
+
+`````python
+# -*- coding: utf-8 -*-
+"""
+GitHub CLI — Typer 实现。
+
+演示 Typer 在多层级子命令 + 全局参数场景下的典型写法：
+  - 必须用模块级全局 state 字典穿透参数（破坏封装、非线程安全）
+  - add_typer() 手动管理多个 Typer 实例
+  - 子命令与全局状态强耦合，无法独立测试
+
+用法:
+    python gh_typer.py --repo myorg/api issue list --state all
+    python gh_typer.py --repo prod/web --debug pr merge --number 42 --squash
+    python gh_typer.py -R team/cli --no-prompt --auth-token ghp_xxx issue create --title "Deploy failed"
+"""
+import typer
+from typing import Optional
+
+app = typer.Typer(help="gh-cli: GitHub 命令行工具 (Typer 版)")
+
+# ⚠️ 模块级全局字典 — 破坏封装，非线程安全
+state = {}
+
+
+@app.callback()
+def main(
+    repo: str = typer.Option(..., "--repo", "-R", help="目标仓库 (owner/repo)"),
+    hostname: Optional[str] = typer.Option(None, help="GitHub Enterprise 域名"),
+    auth_token: Optional[str] = typer.Option(None, help="访问令牌 (覆盖配置)"),
+    debug: bool = typer.Option(False, help="开启调试模式"),
+    no_prompt: bool = typer.Option(False, help="禁用交互提示"),
+):
+    """全局参数入口"""
+    state.update(
+        repo=repo,
+        hostname=hostname,
+        auth_token=auth_token,
+        debug=debug,
+        no_prompt=no_prompt,
+    )
+
+
+# ==================== issue 子命令组 ====================
+
+issue_app = typer.Typer(help="Issue 管理")
+app.add_typer(issue_app, name="issue")
+
+
+@issue_app.command("list")
+def issue_list(
+    state_filter: str = typer.Option("open", "--state", help="Issue 状态过滤 (open/closed/all)"),
+    label: Optional[str] = typer.Option(None, help="按标签过滤"),
+    limit: int = typer.Option(30, help="最大返回数量"),
+):
+    """列出 Issues"""
+    print(f"[issue list] repo={state['repo']}, state={state_filter}, label={label}, limit={limit}")
+    if state['debug']:
+        print(f"  DEBUG: hostname={state['hostname']}, no_prompt={state['no_prompt']}")
+
+
+@issue_app.command("create")
+def issue_create(
+    title: str = typer.Option(..., "--title", "-t", help="Issue 标题"),
+    body: str = typer.Option("", "--body", "-b", help="Issue 正文"),
+    assignee: Optional[str] = typer.Option(None, "--assignee", "-a", help="指定负责人"),
+):
+    """创建新 Issue"""
+    print(f"[issue create] repo={state['repo']}, title={title}")
+    if body:
+        print(f"  body={body}")
+    if assignee:
+        print(f"  assignee={assignee}")
+
+
+@issue_app.command("view")
+def issue_view(
+    number: int = typer.Argument(..., help="Issue 编号"),
+):
+    """查看 Issue 详情"""
+    print(f"[issue view] repo={state['repo']}, #{number}")
+
+
+# ==================== pr 子命令组 ====================
+
+pr_app = typer.Typer(help="Pull Request 管理")
+app.add_typer(pr_app, name="pr")
+
+
+@pr_app.command("list")
+def pr_list(
+    state_filter: str = typer.Option("open", "--state", help="PR 状态过滤 (open/closed/merged/all)"),
+    author: Optional[str] = typer.Option(None, help="按作者过滤"),
+):
+    """列出 Pull Requests"""
+    print(f"[pr list] repo={state['repo']}, state={state_filter}, author={author}")
+
+
+@pr_app.command("create")
+def pr_create(
+    title: str = typer.Option(..., "--title", "-t", help="PR 标题"),
+    body: str = typer.Option("", "--body", "-b", help="PR 描述"),
+    base: str = typer.Option("main", help="目标分支"),
+    draft: bool = typer.Option(False, help="创建为 Draft PR"),
+):
+    """创建新 Pull Request"""
+    kind = 'Draft PR' if draft else 'PR'
+    print(f"[pr create] repo={state['repo']}, {kind}: {title} → {base}")
+    if state['debug']:
+        tok = '***' if state['auth_token'] else 'default'
+        print(f"  DEBUG: auth={tok}")
+
+
+@pr_app.command("merge")
+def pr_merge(
+    number: int = typer.Option(..., "--number", "-n", help="PR 编号"),
+    squash: bool = typer.Option(False, help="Squash 合并"),
+    delete_branch: bool = typer.Option(False, help="合并后删除分支"),
+):
+    """合并 Pull Request"""
+    method = 'squash' if squash else 'merge'
+    tok = '***' if state['auth_token'] else 'default'
+    print(f"[pr merge] repo={state['repo']}, #{number}, method={method}, auth={tok}")
+    if delete_branch:
+        print("  → 合并后将删除源分支")
+
+
+# ==================== repo 子命令组 ====================
+
+repo_app = typer.Typer(help="仓库管理")
+app.add_typer(repo_app, name="repo")
+
+
+@repo_app.command("clone")
+def repo_clone(
+    target_repo: str = typer.Argument(..., help="要克隆的仓库"),
+    depth: int = typer.Option(0, help="浅克隆深度 (0=完整)"),
+):
+    """克隆仓库"""
+    depth_info = f' (depth={depth})' if depth else ''
+    print(f"[repo clone] {target_repo}{depth_info}")
+    if state['hostname']:
+        print(f"  → 从 {state['hostname']} 克隆")
+
+
+@repo_app.command("fork")
+def repo_fork(
+    org: Optional[str] = typer.Option(None, help="Fork 到指定组织"),
+):
+    """Fork 仓库"""
+    target = f" → {org}" if org else ''
+    print(f"[repo fork] {state['repo']}{target}")
+
+
+if __name__ == "__main__":
+    app()
+
+`````
+
+--- **end of file: examples/github_cli_demos/gh_typer.py** (project: nb_cmd) --- 
+
+---
+
+
 --- **start of file: examples/nbctx_demo/nbctx_demo.py** (project: nb_cmd) --- 
 
 `````python
@@ -3785,6 +4954,7 @@ def unwrap_arg(hint):
     - Annotated[str, '描述']                     → (str, _ArgMeta(desc='描述'))
     - Annotated[str, '描述', 'n']                → (str, _ArgMeta(desc='描述', aliases=['-n']))
     - Annotated[str, Param(desc='描述', alias='n')]  → 同上
+    - Optional[Annotated[str, '描述']]           → (str, _ArgMeta(desc='描述'))
     - str                                        → (str, None)
     """
     if Annotated is not None and get_origin(hint) is Annotated:
@@ -3807,7 +4977,32 @@ def unwrap_arg(hint):
             return real_type, _ArgMeta(desc=desc, aliases=aliases)
         return real_type, None
 
+    # Optional[Annotated[...]] — get_type_hints 对 default=None 的参数自动包装 Optional
+    if _is_optional(hint):
+        inner = _unwrap_optional(hint)
+        if inner is not hint and Annotated is not None and get_origin(inner) is Annotated:
+            return unwrap_arg(inner)
+
     return hint, None
+
+
+def _is_optional(tp):
+    """判断 tp 是否为 Optional[X]（即 Union[X, None]），兼容 Python 3.7+"""
+    import typing
+    origin = getattr(tp, '__origin__', None)
+    if origin is getattr(typing, 'Union', None):
+        args = getattr(tp, '__args__', ())
+        return type(None) in args
+    return False
+
+
+def _unwrap_optional(tp):
+    """Optional[X] → X，兼容 Python 3.7+"""
+    args = getattr(tp, '__args__', ())
+    non_none = [a for a in args if a is not type(None)]
+    if len(non_none) == 1:
+        return non_none[0]
+    return tp
 
 `````
 
@@ -6116,20 +7311,32 @@ def run_cli(instance, base_cls, args=None):
 
 
 def _apply_init_args(instance, parsed):
-    """将解析出的全局选项（__init__参数）应用到实例上"""
+    """
+    将解析出的全局选项（__init__参数）应用到实例上。
+
+    通过重新调用 __init__（带 CLI 解析值）来更新实例状态，
+    这样用户在 __init__ 中直接赋值 self.nbctx = XxxCtx(...) 也能拿到正确的 CLI 值。
+    """
     init_method = instance.__class__.__init__
     if init_method is object.__init__:
         return
 
     sig = inspect.signature(init_method)
+    kwargs = {}
     for param_name in sig.parameters:
         if param_name == 'self':
             continue
         attr_name = '_nb_init_' + param_name
         if hasattr(parsed, attr_name):
-            val = getattr(parsed, attr_name)
-            if val is not None:
-                setattr(instance, param_name, val)
+            cli_val = getattr(parsed, attr_name)
+            if cli_val is not None:
+                kwargs[param_name] = cli_val
+            elif hasattr(instance, param_name):
+                kwargs[param_name] = getattr(instance, param_name)
+        elif hasattr(instance, param_name):
+            kwargs[param_name] = getattr(instance, param_name)
+
+    instance.__init__(**kwargs)
 
 
 def _extract_kwargs(method, cmd_info, parsed):
