@@ -28,7 +28,7 @@
 | `-h`, `--help` | 显示帮助信息 |
 | `-fh`, `--full-help` | 显示完整帮助（所有参数详情） |
 | `-eh`, `--easy-help` | 显示简易帮助（argparse 原生格式） |
-| `--version` | 显示版本号 |
+| `--cmd-version` | 显示版本号 |
 | `--web` | 以 Web UI + REST API 模式启动 |
 | `--web-port PORT` | Web UI 服务端口（用于 `--web`） |
 
@@ -44,13 +44,13 @@
 
 ```bash
 # 查看完整帮助
-D:\ProgramData\Miniconda3\envs\py39b\python.exe nbctx_demo.py -fh
+D:\ProgramData\Miniconda3\envs\py39b\python.exe d:/codes/nb_cmd/examples/nbctx_demo/nbctx_demo.py -fh
 
 # 查看版本
-D:\ProgramData\Miniconda3\envs\py39b\python.exe nbctx_demo.py --version
+D:\ProgramData\Miniconda3\envs\py39b\python.exe d:/codes/nb_cmd/examples/nbctx_demo/nbctx_demo.py --cmd-version
 
 # 启动 Web UI
-D:\ProgramData\Miniconda3\envs\py39b\python.exe nbctx_demo.py --web
+D:\ProgramData\Miniconda3\envs\py39b\python.exe d:/codes/nb_cmd/examples/nbctx_demo/nbctx_demo.py --web
 ```
 
 ## 命令行约定
@@ -72,7 +72,7 @@ D:\ProgramData\Miniconda3\envs\py39b\python.exe nbctx_demo.py --web
 查看全局状态
 
 ```bash
-D:\ProgramData\Miniconda3\envs\py39b\python.exe nbctx_demo.py --region ${beijing} --env ${prod} --debug status
+D:\ProgramData\Miniconda3\envs\py39b\python.exe d:/codes/nb_cmd/examples/nbctx_demo/nbctx_demo.py --region ${beijing} --env ${prod} --debug status
 ```
 
 ### `whoami`
@@ -80,7 +80,7 @@ D:\ProgramData\Miniconda3\envs\py39b\python.exe nbctx_demo.py --region ${beijing
 显示当前用户信息
 
 ```bash
-D:\ProgramData\Miniconda3\envs\py39b\python.exe nbctx_demo.py --region ${beijing} --env ${prod} --debug whoami
+D:\ProgramData\Miniconda3\envs\py39b\python.exe d:/codes/nb_cmd/examples/nbctx_demo/nbctx_demo.py --region ${beijing} --env ${prod} --debug whoami
 ```
 
 ### `db` *(子命令组)*
@@ -96,7 +96,7 @@ D:\ProgramData\Miniconda3\envs\py39b\python.exe nbctx_demo.py --region ${beijing
 | `--compress` | `bool` | `True` | 启用压缩 |
 
 ```bash
-D:\ProgramData\Miniconda3\envs\py39b\python.exe nbctx_demo.py --region ${beijing} --env ${prod} --debug db backup
+D:\ProgramData\Miniconda3\envs\py39b\python.exe d:/codes/nb_cmd/examples/nbctx_demo/nbctx_demo.py --region ${beijing} --env ${prod} --debug db backup
 ```
 
 #### `db migrate`
@@ -108,7 +108,7 @@ D:\ProgramData\Miniconda3\envs\py39b\python.exe nbctx_demo.py --region ${beijing
 | `--dry-run` | `bool` | `False` | 仅模拟，不执行 |
 
 ```bash
-D:\ProgramData\Miniconda3\envs\py39b\python.exe nbctx_demo.py --region ${beijing} --env ${prod} --debug db migrate --dry-run
+D:\ProgramData\Miniconda3\envs\py39b\python.exe d:/codes/nb_cmd/examples/nbctx_demo/nbctx_demo.py --region ${beijing} --env ${prod} --debug db migrate --dry-run
 ```
 
 #### `db status`
@@ -116,7 +116,7 @@ D:\ProgramData\Miniconda3\envs\py39b\python.exe nbctx_demo.py --region ${beijing
 查看数据库连接状态
 
 ```bash
-D:\ProgramData\Miniconda3\envs\py39b\python.exe nbctx_demo.py --region ${beijing} --env ${prod} --debug db status
+D:\ProgramData\Miniconda3\envs\py39b\python.exe d:/codes/nb_cmd/examples/nbctx_demo/nbctx_demo.py --region ${beijing} --env ${prod} --debug db status
 ```
 
 ### `server` *(子命令组)*
@@ -128,7 +128,7 @@ D:\ProgramData\Miniconda3\envs\py39b\python.exe nbctx_demo.py --region ${beijing
 查看服务器信息
 
 ```bash
-D:\ProgramData\Miniconda3\envs\py39b\python.exe nbctx_demo.py --region ${beijing} --env ${prod} --debug server info
+D:\ProgramData\Miniconda3\envs\py39b\python.exe d:/codes/nb_cmd/examples/nbctx_demo/nbctx_demo.py --region ${beijing} --env ${prod} --debug server info
 ```
 
 #### `server ssh`
@@ -140,7 +140,7 @@ SSH 登录
 | `--user` | `str` | `root` | 登录用户名 |
 
 ```bash
-D:\ProgramData\Miniconda3\envs\py39b\python.exe nbctx_demo.py --region ${beijing} --env ${prod} --debug server ssh --user ${root}
+D:\ProgramData\Miniconda3\envs\py39b\python.exe d:/codes/nb_cmd/examples/nbctx_demo/nbctx_demo.py --region ${beijing} --env ${prod} --debug server ssh --user ${root}
 ```
 
 #### `server ops` *(子命令组)*
@@ -153,11 +153,11 @@ D:\ProgramData\Miniconda3\envs\py39b\python.exe nbctx_demo.py --region ${beijing
 
 | Param | Type | Default | Description |
 |-------|------|---------|-------------|
-| `--version` | `str` | *(required)* | 目标版本号 |
+| `--version, -v` | `str` | *(required)* | 目标版本号 |
 | `--rollback` | `bool` | `False` | 是否回滚 |
 
 ```bash
-D:\ProgramData\Miniconda3\envs\py39b\python.exe nbctx_demo.py --region ${beijing} --env ${prod} --debug server ops deploy --version $<version> --rollback
+D:\ProgramData\Miniconda3\envs\py39b\python.exe d:/codes/nb_cmd/examples/nbctx_demo/nbctx_demo.py --region ${beijing} --env ${prod} --debug server ops deploy --version $<version> --rollback
 ```
 
 ##### `server ops restart`
@@ -165,5 +165,5 @@ D:\ProgramData\Miniconda3\envs\py39b\python.exe nbctx_demo.py --region ${beijing
 重启服务
 
 ```bash
-D:\ProgramData\Miniconda3\envs\py39b\python.exe nbctx_demo.py --region ${beijing} --env ${prod} --debug server ops restart
+D:\ProgramData\Miniconda3\envs\py39b\python.exe d:/codes/nb_cmd/examples/nbctx_demo/nbctx_demo.py --region ${beijing} --env ${prod} --debug server ops restart
 ```

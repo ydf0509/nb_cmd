@@ -28,19 +28,46 @@ tags: []
 - `nb_cmd/core/parser.py` (新增 `print_easy_help()`，更新帮助文本)
 - `nb_cmd/core/meta.py` (新增 `help_mode` 配置项)
 
-## 2026-04-18: 所有方法参数统一使用 -- 风格（废弃位置参数）
+## 2026-04-18: 系统参数 `--version` 改名为 `--cmd-version`
 
-**问题**: 无默认值的方法参数注册为 argparse 位置参数（如 `deploy 2.0.0`），用户不知道 `2.0.0` 代表什么含义。
+**问题**: 系统参数 `--version`（显示应用版本号）与用户方法参数名 `version`（如 `deploy --version v2`）冲突。argparse 在顶层解析器就拦截了 `--version`，导致子命令方法收不到。
 
-**修复**: 所有方法参数统一使用 `--param-name` 风格，无默认值的参数设为 `required=True`。
+**修复**: 将系统参数从 `--version` 改为 `--cmd-version`，释放 `--version` 给用户业务参数。
 
-**修改前**: `python app.py deploy 2.0.0` → 用户不知道 `2.0.0` 是什么
-**修改后**: `python app.py deploy --version 2.0.0` → 自文档化，清晰
+**修改前**: `python app.py --version` 显示版本号，但 `deploy --version v2` 会被顶层拦截报错
+**修改后**: `python app.py --cmd-version` 显示版本号，`deploy --version v2`（需 Annotated alias）正常传参
 
 **影响文件**:
-- `nb_cmd/core/parser.py` (`_add_method_arguments` 中无默认值参数从 positional 改为 `--flag required=True`；`_build_param_hint` 和 `_print_params` 统一显示)
+- `nb_cmd/core/parser.py` (`--version` → `--cmd-version` 注册 + full help 文本)
+- `nb_cmd/core/gen_cmd.py` (Markdown System Params 表格 + Quick Start 示例)
+- `nb_cmd/core/meta.py` (注释更新)
+- `README.md` (所有系统参数 `--version` 引用更新)
+- `examples/nbctx_demo/nbctx_demo.py` (`deploy.version` 加 `-v` 别名以支持 `--version` flag 调用)
+- `examples/nbctx_demo/nbctx_demo_gen_doc.md` (重新生成)
+
+---
+
+## 2026-04-18: CLI 参数双模式（位置参数 + `--` 风格并存）
+
+**需求**: CLI 既要保持 `deploy 2.0.0` 的简短用法（向后兼容），又希望自动生成的文档用 `deploy --version $<version>` 风格（自文档化、清晰）。
+
+**实现**:
+- **无 Annotated alias 的必填参数** → 注册为 argparse 位置参数（如 `deploy VERSION`），位置参数和 `--` 风格都能用
+- **有 Annotated alias 的必填参数** → 注册为 `--flag required=True`（如 `deploy --host HOST -H HOST`）
+- **`gen_cmd` 文档生成** → 统一用 `--flag` 风格展示（如 `--version $<version>`），即使 CLI 支持位置参数
+
+**CLI 用法**:
+```
+python app.py deploy 2.0.0              # ✓ 位置参数（简短）
+python app.py deploy -H 10.0.0.1        # ✓ Annotated alias
+```
+
+**生成文档显示**: `deploy --version $<version>`（推荐风格，自文档化）
+
+**影响文件**:
+- `nb_cmd/core/parser.py` (`_add_method_arguments` 无 alias 时保持 positional，有 alias 时用 `--flag required=True`)
 - `nb_cmd/core/gen_cmd.py` (`_format_method_args` 中无默认值参数生成 `--flag $<name>`)
-- `tests/ai_codes/testnbcmds/test_all_features.py` (8 处测试用例同步改为 `--` 风格)
+- `tests/ai_codes/testnbcmds/test_all_features.py` (测试用例使用位置参数风格)
 
 ## 2026-04-18: CmdGen 命令行示例生成器
 

@@ -176,7 +176,7 @@ class CmdGen(object):
             ('`-h`, `--help`', '显示帮助信息'),
             ('`-fh`, `--full-help`', '显示完整帮助（所有参数详情）'),
             ('`-eh`, `--easy-help`', '显示简易帮助（argparse 原生格式）'),
-            ('`--version`', '显示版本号'),
+            ('`--cmd-version`', '显示版本号'),
             ('`--web`', '以 Web UI + REST API 模式启动'),
             ('`--web-port PORT`', 'Web UI 服务端口（用于 `--web`）'),
         ]
@@ -202,7 +202,7 @@ class CmdGen(object):
         lines.append('{} {} -fh'.format(self.python, self.script))
         lines.append('')
         lines.append('# 查看版本')
-        lines.append('{} {} --version'.format(self.python, self.script))
+        lines.append('{} {} --cmd-version'.format(self.python, self.script))
         lines.append('')
         lines.append('# 启动 Web UI')
         lines.append('{} {} --web'.format(self.python, self.script))

@@ -35,7 +35,7 @@ class OpsTool(NbCmd):
     """运维操作（第三级子命令组）"""
     nbctx: AppCtx
 
-    def deploy(self, version: Annotated[str, '目标版本号'], rollback: Annotated[bool, '是否回滚'] = False):
+    def deploy(self, version: Annotated[str, '目标版本号', '-v'], rollback: Annotated[bool, '是否回滚'] = False):
         """部署指定版本"""
         action = '回滚' if rollback else '部署'
         print(f'[{self.nbctx.region}/{self.nbctx.env}] {action} v{version}')
@@ -188,7 +188,7 @@ if __name__ == '__main__':
         print(g.cmd(MyApp.status))
         print(g.cmd(ServerTool.ssh))
         print()
-        g_md = CmdGen(MyApp, script='nbctx_demo.py', fmt='markdown')
+        g_md = CmdGen(MyApp, script='d:/codes/nb_cmd/examples/nbctx_demo/nbctx_demo.py', fmt='markdown')
         print(g_md.cmd(DbTool.migrate))
 
         # 场景 6: CmdGen.doc() 生成完整文档

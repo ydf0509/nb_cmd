@@ -223,7 +223,7 @@ $ python my_tool.py --help
 
 system params:
   -h, --help           显示帮助信息
-  --version            show program's version number and exit
+  --cmd-version        show program's version number and exit
   --full-help, -fh     显示所有命令的完整参数详情
   --web                以Web UI + REST API模式启动
   --web-port WEB_PORT  Web UI 服务端口（用于 --web）
@@ -731,7 +731,7 @@ if __name__ == '__main__':
 $ python server_tool.py --help
 system params:
   -h, --help           显示帮助信息
-  --version            show program's version number and exit
+  --cmd-version        show program's version number and exit
   --full-help, -fh     显示所有命令的完整参数详情
 
 init params:
@@ -870,7 +870,7 @@ class MyTool(NbCmd):
 | 字段 | 类型 | 默认值 | 说明 |
 |------|------|--------|------|
 | `name` | str | `None` | CLI/API 名称（默认用类名） |
-| `version` | str | `'0.0.1'` | 版本号（`--version` 显示） |
+| `version` | str | `'0.0.1'` | 版本号（`--cmd-version` 显示） |
 | `description` | str | `None` | 描述（默认用类的 docstring） |
 | `use_nb_log` | bool | `False` | 启用 [nb_log](https://github.com/ydf0509/nb_log) 增强日志 |
 | `log_level` | str | `'INFO'` | 日志级别 |
@@ -932,7 +932,7 @@ $ python server_tool.py --full-help   # 或 -fh
 system params:
     --help, -h               显示简要帮助
     --full-help, -fh         显示本完整帮助
-    --version                显示版本号
+    --cmd-version            显示版本号
     --web                    以Web UI + REST API模式启动
     --web-port PORT          Web UI 服务端口
 

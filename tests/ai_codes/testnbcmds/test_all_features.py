@@ -87,7 +87,7 @@ def test_cli_mode():
     old_stdout = sys.stdout
     sys.stdout = captured = io.StringIO()
     try:
-        run_cli(tool, NbCmd, ['greet', '--name', '张三', '--times', '2'])
+        run_cli(tool, NbCmd, ['greet', '张三', '--times', '2'])
     finally:
         sys.stdout = old_stdout
     
@@ -97,7 +97,7 @@ def test_cli_mode():
     # 测试 add 命令
     sys.stdout = captured = io.StringIO()
     try:
-        run_cli(tool, NbCmd, ['add', '--a', '10', '--b', '20'])
+        run_cli(tool, NbCmd, ['add', '10', '20'])
     finally:
         sys.stdout = old_stdout
     
@@ -197,7 +197,7 @@ def test_enum_cli():
     old_stdout = sys.stdout
     sys.stdout = captured = io.StringIO()
     try:
-        run_cli(tool, NbCmd, ['deploy', '--host', '10.0.0.1', '--env', 'prod'])
+        run_cli(tool, NbCmd, ['deploy', '10.0.0.1', '--env', 'prod'])
     finally:
         sys.stdout = old_stdout
     
@@ -382,7 +382,7 @@ def test_init_params_cli():
     old_stdout = sys.stdout
     sys.stdout = captured = io.StringIO()
     try:
-        run_cli(tool, NbCmd, ['deploy', '--host', '10.0.0.1'])
+        run_cli(tool, NbCmd, ['deploy', '10.0.0.1'])
     finally:
         sys.stdout = old_stdout
     
@@ -433,7 +433,7 @@ def test_async_cli():
     old_stdout = sys.stdout
     sys.stdout = captured = io.StringIO()
     try:
-        run_cli(tool, NbCmd, ['async-deploy', '--host', '10.0.0.1', '--port', '8080'])
+        run_cli(tool, NbCmd, ['async-deploy', '10.0.0.1', '--port', '8080'])
     finally:
         sys.stdout = old_stdout
     
@@ -537,7 +537,7 @@ def test_validation_cli():
     old_stdout = sys.stdout
     sys.stdout = captured = io.StringIO()
     try:
-        run_cli(tool, NbCmd, ['process', '--count', '100', '--ratio', '2.5'])
+        run_cli(tool, NbCmd, ['process', '100', '--ratio', '2.5'])
     finally:
         sys.stdout = old_stdout
     
@@ -922,7 +922,7 @@ def test_optional_list_cli():
     old_stdout = sys.stdout
     sys.stdout = captured = io.StringIO()
     try:
-        run_cli(tool, NbCmd, ['search', '--keyword', 'hello', '--tags', 'python', 'web'])
+        run_cli(tool, NbCmd, ['search', 'hello', '--tags', 'python', 'web'])
     finally:
         sys.stdout = old_stdout
 
@@ -941,7 +941,7 @@ def test_subcommands_nested_cli():
     old_stdout = sys.stdout
     sys.stdout = captured = io.StringIO()
     try:
-        run_cli(git, NbCmd, ['remote', 'add', '--name', 'origin', '--url', 'https://example.com'])
+        run_cli(git, NbCmd, ['remote', 'add', 'origin', 'https://example.com'])
     finally:
         sys.stdout = old_stdout
 

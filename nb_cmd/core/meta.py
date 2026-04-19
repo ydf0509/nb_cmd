@@ -21,7 +21,7 @@ class NbCmdMeta(object):
     子类继承后可覆盖任意字段，IDE 可自动补全所有可用选项。
     """
     name = None               # type: str   # CLI/API 名称（默认用类名）
-    version = '0.0.1'         # type: str   # 版本号（--version 显示）
+    version = '0.0.1'         # type: str   # 版本号（--cmd-version 显示）
     description = None        # type: str   # 描述（默认用类的 docstring）
     use_nb_log = False         # type: bool  # 启用 nb_log 增强日志
     log_level = 'INFO'         # type: str   # 日志级别

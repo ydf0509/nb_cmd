@@ -43,7 +43,7 @@ def build_parser(instance, commands, meta, base_cls=None):
     sys_group = parser.add_argument_group('system params')
     sys_group.add_argument('-h', '--help', action='help',
                            default=argparse.SUPPRESS, help='显示帮助信息（-h 行为由 Meta.help_mode 控制）')
-    sys_group.add_argument('--version', action='version', version=version)
+    sys_group.add_argument('--cmd-version', action='version', version=version)
     sys_group.add_argument('-fh', '--full-help', action='store_true',
                            default=False, help='显示所有命令的完整参数详情')
     sys_group.add_argument('-eh', '--easy-help', action='store_true',
@@ -161,7 +161,7 @@ def _build_full_help_lines(instance, base_cls, color=True):
         '    {:<24s} {}'.format('--help, -h', '显示帮助信息'),
         '    {:<24s} {}'.format('--full-help, -fh', '显示完整帮助（所有参数详情）'),
         '    {:<24s} {}'.format('--easy-help, -eh', '显示简易帮助（argparse 原生格式）'),
-        '    {:<24s} {}'.format('--version', '显示版本号'),
+        '    {:<24s} {}'.format('--cmd-version', '显示版本号'),
         '    {:<24s} {}'.format('--web', '以Web UI + REST API模式启动'),
         '    {:<24s} {}'.format('--web-port PORT', 'Web UI 服务端口（用于 --web）'),
         '',
@@ -430,19 +430,32 @@ def _add_method_arguments(sub_parser, cmd_info, meta):
                 kwargs['choices'] = choices
             sub_parser.add_argument(*flags, **kwargs)
         else:
-            flags = [cli_flag] + extra_flags
             auto_help = '({}, 必填)'.format(type_name)
-            kwargs = dict(
-                type=ap_type,
-                required=True,
-                dest=param_name,
-                help='{} {}'.format(desc, auto_help) if desc else auto_help,
-            )
-            if nargs is not None:
-                kwargs['nargs'] = nargs
-            if choices is not None:
-                kwargs['choices'] = choices
-            sub_parser.add_argument(*flags, **kwargs)
+            help_text = '{} {}'.format(desc, auto_help) if desc else auto_help
+            if extra_flags:
+                flags = [cli_flag] + extra_flags
+                kwargs = dict(
+                    type=ap_type,
+                    required=True,
+                    dest=param_name,
+                    help=help_text,
+                )
+                if nargs is not None:
+                    kwargs['nargs'] = nargs
+                if choices is not None:
+                    kwargs['choices'] = choices
+                sub_parser.add_argument(*flags, **kwargs)
+            else:
+                kwargs = dict(
+                    type=ap_type,
+                    help=help_text,
+                    metavar=param_name.upper(),
+                )
+                if nargs is not None:
+                    kwargs['nargs'] = nargs
+                if choices is not None:
+                    kwargs['choices'] = choices
+                sub_parser.add_argument(param_name, **kwargs)
 
 
 def _build_group_subparser(parent_parser, group_cls, base_cls, init_kwargs=None, depth=1):
