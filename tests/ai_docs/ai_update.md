@@ -6,6 +6,19 @@ tags: []
 
 # nb_cmd 重大设计修改记录
 
+## 2026-04-19: README 全面更新（nbctx + async + help_mode + 并发安全）
+
+**更新内容**:
+1. 新增 "nbctx 跨层级上下文传递" 章节（第 7 节），展示 dataclass + 直接赋值模式
+2. 竞品对比表新增 "跨层级强类型上下文" 和 "async 方法支持" 两行
+3. "你写什么→你得到什么" 表格新增 `self.nbctx` 行
+4. Meta 配置表新增 `help_mode` 字段说明
+5. 帮助系统章节补充 `Meta.help_mode` 配置用法
+6. 新增 "async 方法支持" 章节（第 14 节）
+7. Web UI 特性表新增 "并发安全" 行
+
+**影响文件**: `README.md`
+
 ## 2026-04-19: CLI 模式 _apply_init_args 改为重新调用 __init__（Plan A）
 
 **问题**: 用户在 `__init__` 中直接赋值 `self.nbctx = GhCtx(repo=self.repo, ...)` 时，CLI 模式下 `self.nbctx` 拿到的是默认值而非 CLI 传入的值。原因是 CLI 执行流程为：

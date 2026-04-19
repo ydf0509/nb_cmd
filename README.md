@@ -60,6 +60,7 @@ nb_cmd 换了一种思路：**Class 是中心，接口是投影。**
 | `print()` / `cmdui.table()` | CLI 终端输出 + Web 实时流式推送（WebSocket + ANSI 彩色渲染） |
 | `sub_commands = {'git': GitTool}` | CLI 多级子命令 + API 嵌套路由 + Web UI 折叠分组 |
 | `CmdGen(MyApp).doc(file='cli.md')` | **自动生成带 TOC + 参数表格 + 可复制命令行的 Markdown 文档** |
+| `self.nbctx = AppCtx(region=self.region)` | **跨层级强类型上下文，自动穿透到所有子命令组，IDE 补全 + 零手动传递** |
 | `MyTool().greet('张三', 3)` | **方法就是普通 Python 方法，随时直接调用、单元测试、import 复用** |
 
 **不需要写的：** 路由定义、Pydantic 模型、HTML 表单、CSS 样式、JavaScript 交互、WebSocket 端点、Swagger 注解、前后端联调、**CLI 使用文档**。
@@ -67,6 +68,8 @@ nb_cmd 换了一种思路：**Class 是中心，接口是投影。**
 > **零装饰器，方法可直接调用：** click/typer 的装饰器把函数变成了 `click.Command` 对象，无法直接 `greet('张三', 3)` 调用——必须用 `CliRunner().invoke()` 模拟 CLI 或自己拆两层。nb_cmd 的方法始终是普通的 Python 类方法，`MyTool().greet('张三', 3)` 直接就能跑，IDE 补全、断点调试、单元测试全部正常。
 
 > **文档生成吊打 `--help`：** 传统框架的文档止步于 `--help` 纯文本，click 需要第三方 `sphinx-click`，typer 只是搬运 `--help` 输出。nb_cmd 的 `CmdGen` 一行代码生成完整的 Markdown 文档——自动目录、参数表格、默认值/必填标注、可复制的 bash 命令行模板，测试人员拿到直接能用。[查看示例](https://github.com/ydf0509/nb_cmd/blob/main/examples/nbctx_demo/nbctx_demo_gen_doc.md)
+
+> **nbctx 跨层级上下文：** click 用 `ctx.obj` 字典（无类型、需手动 `@pass_context`），typer 用模块全局变量（无封装），nb_cmd 用 `self.nbctx`（强类型 dataclass + IDE 补全 + 框架自动注入到任意深度子命令组）。[nbctx 完整示例，实现github cli](examples/nbctx_demo/nbctx_demo.py)
 
 | 功能 | argparse | click | typer | fire | **nb_cmd** |
 |------|:--------:|:-----:|:-----:|:----:|:----------:|
@@ -80,6 +83,8 @@ nb_cmd 换了一种思路：**Class 是中心，接口是投影。**
 | 进度条/表格/彩色 | ✗ | ✓ | ✓(rich) | ✗ | **✓** |
 | 自动生成 CLI 文档 | ✗ | 第三方 | 基础 | ✗ | **✓（Markdown+表格+TOC+可复制命令行）** |
 | 方法可直接调用 | ✓ | ✗ | ✗ | ✓ | **✓（零装饰器，普通类方法）** |
+| 跨层级强类型上下文 | ✗ | ctx.obj(字典) | 全局变量 | ✗ | **✓（dataclass + IDE 补全 + 自动注入）** |
+| async 方法支持 | ✗ | ✗ | ✓ | ✗ | **✓（自动检测，透明执行）** |
 
 ---
 
@@ -804,7 +809,71 @@ $ curl -X POST http://localhost:8080/stats \
 
 > **多用户隔离：** Web 模式下，每次命令执行都会创建一个新的 `ServerTool` 实例，不同用户/请求之间互不影响。Web UI / curl 中传入的全局参数只影响当前这次执行。
 
-### 7. 参数校验
+### 7. nbctx 跨层级上下文传递
+
+多层级子命令的核心难题：**子命令组怎么拿到顶层的全局参数？**
+
+- **click** 用 `ctx.obj`（无类型字典），需要每层 `@click.pass_context` 手动传递
+- **typer** 用模块级全局变量（无封装、无类型安全）
+- **nb_cmd** 用 `self.nbctx`（强类型 dataclass），框架自动递归注入到任意深度
+
+```python
+from dataclasses import dataclass
+from typing import Annotated
+from nb_cmd import NbCmd
+
+@dataclass
+class AppCtx:
+    region: str = 'beijing'
+    env: str = 'prod'
+    debug: bool = False
+
+class DbTool(NbCmd):
+    """数据库工具"""
+    nbctx: AppCtx  # 类型注解 → IDE 补全 self.nbctx.region
+
+    def migrate(self, dry_run: Annotated[bool, '仅模拟'] = False):
+        """执行迁移"""
+        print(f'[{self.nbctx.region}/{self.nbctx.env}] 迁移 (dry_run={dry_run})')
+
+class MyApp(NbCmd):
+    """云平台管理"""
+    nbctx: AppCtx
+
+    def __init__(self,
+                 region: Annotated[str, '部署区域'] = 'beijing',
+                 env: Annotated[str, '运行环境'] = 'prod',
+                 debug: Annotated[bool, '调试模式'] = False):
+        self.region = region
+        self.env = env
+        self.debug = debug
+        # 直接赋值 nbctx，CLI/Web/API 所有模式自动拿到正确值
+        self.nbctx = AppCtx(region=self.region, env=self.env, debug=self.debug)
+
+    sub_commands = {'db': DbTool}
+```
+
+```bash
+# CLI: 全局参数自动穿透到子命令组
+$ python app.py --region tokyo db migrate --dry-run
+[tokyo/prod] 迁移 (dry_run=True)
+
+# curl: 通过 init_params 传递全局参数
+$ curl -X POST http://localhost:8080/db/migrate \
+    -d '{"dry_run": true, "init_params": {"region": "tokyo"}}'
+```
+
+**核心设计：**
+
+- 在 `__init__` 中直接 `self.nbctx = AppCtx(...)` 赋值，所有模式（CLI / Web / API / Python 直接调用）均能拿到正确的参数值
+- 也可以用 `make_nbctx()` 模板方法替代直接赋值（两种方式等价）
+- 子命令组只需写 `nbctx: AppCtx` 类型注解，IDE 自动补全 `self.nbctx.region` 等字段
+- 框架自动 `child.nbctx = parent.nbctx` 递归传递，支持任意嵌套深度
+- 不同用户/请求之间完全隔离（Web 模式下每次请求新建实例）
+
+> 完整三层嵌套示例见 [examples/nbctx_demo/](examples/nbctx_demo/nbctx_demo.py)
+
+### 8. 参数校验
 
 ```python
 from nb_cmd import NbCmd, validate
@@ -885,6 +954,7 @@ class MyTool(NbCmd):
 | `web_title` | str | `None` | Web UI 页面标题 |
 | `web_theme` | str | `'light'` | Web UI 主题（`'light'` / `'dark'`） |
 | `enable_exec` | bool | `True` | 是否暴露内置 `exec` 命令（设为 `False` 可防止恶意执行系统命令） |
+| `help_mode` | str | `'full'` | `-h` 的默认行为：`'full'` 显示完整帮助，`'easy'` 显示 argparse 原生格式 |
 | `aliases` | dict | `{}` | 参数别名（推荐用 `Annotated[..., 'desc', 'a']` 指定短别名替代） |
 
 ### 10. 生命周期钩子
@@ -950,6 +1020,17 @@ deploy — 部署服务到目标主机
 stats — 查看系统状态
 ```
 
+通过 `Meta.help_mode` 可以控制 `-h` 的默认行为：
+
+```python
+class MyTool(NbCmd):
+    class Meta:
+        help_mode = 'full'   # -h 显示完整帮助（默认）
+        # help_mode = 'easy' # -h 显示 argparse 原生格式
+```
+
+> 无论 `help_mode` 设置如何，`-fh` 始终显示完整帮助，`-eh` 始终显示简易帮助。
+
 ### 12. 自动文档生成（CmdGen）—— 吊打 `--help`
 
 传统 CLI 框架的文档能力止步于 `--help`：一段纯文本，不能复制、不能跳转、不能分享。即使 typer 有 `typer utils docs`，也只是把 `--help` 搬到 Markdown 里而已。
@@ -1009,6 +1090,31 @@ g.doc(file='docs/cli_reference.md')
 | 智能路由 | 命令行输入非 NbCmd 命令时自动通过 exec 执行，可直接输入 `python xxx.py`、`docker ps` 等 |
 | 参数表单 | 根据方法签名自动推导控件（文本框、数字框、复选框、下拉选择等） |
 | 可拖拽布局 | 左右面板中间的分割条可自由拖动调整比例 |
+| 并发安全 | 每次请求新建实例，stdout/stderr 通过 `threading.local()` 隔离，多用户同时操作互不影响 |
+
+### 14. async 方法支持
+
+nb_cmd 自动检测 `async def` 方法，透明地用 `asyncio.run()` 执行，无需额外配置：
+
+```python
+import asyncio
+from nb_cmd import NbCmd
+
+class MyTool(NbCmd):
+    async def fetch(self, url: str):
+        """异步请求"""
+        import aiohttp
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url) as resp:
+                print(f'Status: {resp.status}')
+                return await resp.text()
+```
+
+```bash
+$ python my_tool.py fetch https://httpbin.org/get
+```
+
+同步和异步方法可以在同一个类中自由混用，CLI / Web / API 三种模式均自动处理。
 
 ---
 
