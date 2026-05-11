@@ -6,9 +6,9 @@
 
 | 特性 | 说明 |
 |------|------|
-| **全局传参** | `--verbose` / `-v` 和 `--config-dir` / `-C` 两个全局参数穿透到所有子命令 |
+| **全局传参** | `--verbose` / `-v` 和 `--path` / `-C` 两个全局参数穿透到所有子命令 |
 | **多层级子命令** | `remote`、`branch`（二级），`config → user`（三级） |
-| **深层子命令使用全局参数** | `config user name/email` 读取全局 `--config-dir` 和 `--verbose` |
+| **深层子命令使用全局参数** | `config user name/email` 读取全局 `--path` 和 `--verbose` |
 
 ---
 
@@ -26,7 +26,7 @@
 ```
 git-tool
 ├── --verbose / -v          # 全局参数：详细输出
-├── --config-dir / -C       # 全局参数：配置文件目录
+├── --path / -C             # 全局参数：工作目录路径
 │
 ├── status                  # 一级命令
 ├── log [--oneline] [--graph] [-n]   # 一级命令
@@ -43,8 +43,8 @@ git-tool
 │
 └── config                  # 二级子命令组
     └── user                # 三级深层子命令组
-        ├── name [value]    ← 使用全局 --config-dir 和 --verbose
-        └── email [value]   ← 使用全局 --config-dir 和 --verbose
+        ├── name [value]    ← 使用全局 --path 和 --verbose
+        └── email [value]   ← 使用全局 --path 和 --verbose
 ```
 
 ---
@@ -56,11 +56,11 @@ git-tool
 ```python
 @click.group()
 @click.option('--verbose', '-v', is_flag=True)
-@click.option('--config-dir', '-C', default='~/.git')
+@click.option('--path', '-C', default='.')
 @click.pass_context
-def cli(ctx, verbose, config_dir):
+def cli(ctx, verbose, path):
     ctx.ensure_object(dict)
-    ctx.obj.update(verbose=verbose, config_dir=config_dir)
+    ctx.obj.update(verbose=verbose, path=path)
 
 # 每个子命令都要加 @click.pass_context
 @remote.command('add')
@@ -84,13 +84,13 @@ def remote_add(ctx, name, url):
 @dataclass
 class GitCtx:
     verbose: bool = False
-    config_dir: str = '~/.git'
+    path: str = '.'
 
 class GitTool(NbCmd):
     nbctx: GitCtx
 
-    def __init__(self, verbose: bool = False, config_dir: str = '~/.git'):
-        self.nbctx = GitCtx(verbose=verbose, config_dir=config_dir)
+    def __init__(self, verbose: bool = False, path: str = '.'):
+        self.nbctx = GitCtx(verbose=verbose, path=path)
 
     sub_commands = {'remote': RemoteCmd, 'branch': BranchCmd, 'config': ConfigCmd}
 
@@ -100,7 +100,7 @@ class RemoteCmd(NbCmd):
 
     def add(self, name: str, url: str):
         if self.nbctx.verbose:    # 强类型属性，IDE 自动补全
-            print(self.nbctx.config_dir)
+            print(self.nbctx.path)
 ```
 
 **优势：**
@@ -172,7 +172,7 @@ class UserConfigCmd(NbCmd):
 
 ## 深层子命令使用全局参数
 
-### Click 版（`config user name` 使用 `--config-dir`）
+### Click 版（`config user name` 使用 `--path`）
 
 ```python
 @user.command('name')
@@ -180,25 +180,24 @@ class UserConfigCmd(NbCmd):
 @click.pass_context
 def user_name(ctx, value):
     c = ctx.obj
-    config_file = c['config_dir']       # 从 ctx.obj 取全局参数
+    work_path = c['path']               # 从 ctx.obj 取全局参数
     if c['verbose']:                    # 从 ctx.obj 取全局参数
-        print(f'详细模式: {config_file}')
-    print(f'git config --file {config_file} user.name "{value}"')
+        print(f'详细模式: 工作目录={work_path}')
+    print(f'git -C {work_path} config user.name "{value}"')
 ```
 
-### nb_cmd 版（`config user name` 使用 `--config-dir`）
+### nb_cmd 版（`config user name` 使用 `--path`）
 
 ```python
 class UserConfigCmd(NbCmd):
     nbctx: GitCtx
 
     def name(self, value: str = None):
-        config_file = self.nbctx.config_dir   # 强类型属性访问
-        if self.nbctx.verbose:                # 强类型属性访问
-            print(f'详细模式: {config_file}')
-        print(f'git config --file {config_file} user.name "{value}"')
+        work_path = self.nbctx.path     # 强类型属性访问
+        if self.nbctx.verbose:          # 强类型属性访问
+            print(f'详细模式: 工作目录={work_path}')
+        print(f'git -C {work_path} config user.name "{value}"')
 ```
-
 **关键差异：** nb_cmd 的 `self.nbctx` 由框架自动从父级传递到子级，`UserConfigCmd` 不需要任何额外代码就能拿到全局参数。Click 需要每层都加 `@click.pass_context` 并手动从 `ctx.obj` 取值。
 
 ---
@@ -210,7 +209,7 @@ class UserConfigCmd(NbCmd):
 python git_click.py --verbose status
 python git_nb_cmd.py --verbose status
 
-# 2. 添加远程仓库（指定配置文件目录）
+# 2. 添加远程仓库（指定工作目录）
 python git_click.py -C /etc/git remote add origin https://github.com/user/repo.git
 python git_nb_cmd.py -C /etc/git remote add origin https://github.com/user/repo.git
 
@@ -218,7 +217,7 @@ python git_nb_cmd.py -C /etc/git remote add origin https://github.com/user/repo.
 python git_click.py --verbose branch create feature/login --from-branch develop
 python git_nb_cmd.py --verbose branch create feature/login --from-branch develop
 
-# 4. 深层子命令：设置用户名（使用全局 --config-dir）
+# 4. 深层子命令：设置用户名（使用全局 -C）
 python git_click.py -C ~/my-config config user name "John Doe"
 python git_nb_cmd.py -C ~/my-config config user name "John Doe"
 
