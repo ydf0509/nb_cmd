@@ -4,7 +4,7 @@
 
 ---
 
-## 一、同一个需求，四种写法
+## 一、同一个需求，五种写法
 
 ### 需求：部署工具
 
@@ -127,7 +127,7 @@ if __name__ == '__main__':
 
 ---
 
-### 5. nb_cmd（写一次，四种接口）
+### 5. nb_cmd（一次编写，五种能力）
 
 ```python
 from nb_cmd import NbCmd
@@ -154,7 +154,7 @@ python deploy.py deploy web-01 --port 2222 --verbose   # CLI
 python deploy.py --web                                   # Web UI + REST API
 ```
 
-**优点：** 代码量和 fire 接近，但强制类型注解、自动类型校验、支持四种接口模式。
+**优点：** 代码量和 fire 接近，但强制类型注解、自动类型校验、支持五种能力（Python 直接调用 + CLI + REST API + Web UI + Markdown 文档）。
 
 ---
 
@@ -371,6 +371,8 @@ python tool.py --region beijing status
 ### click 实现（约 60 行）
 
 光看这一坨装饰器就头皮发麻——`@click.group()` 套 `@click.pass_context` 套 `@click.option()` 套 `@click.argument()`，一个子命令 4 层装饰器起步。你写的不是业务逻辑，你写的是装饰器俄罗斯套娃。半年后回来看自己的代码，第一反应是"这谁写的"。很多 Python 码农看到 click 的写法，转头就回去抱 argparse 了——至少 argparse 虽然笨，但看得懂。
+
+这样写命令行，作者和读者都真的很想撞墙啊。
 
 ```python
 import click

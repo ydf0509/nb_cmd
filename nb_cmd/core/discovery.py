@@ -150,6 +150,14 @@ def discover_commands(instance, base_cls, include_builtins=True, enable_exec=Tru
                 'init_kwargs': _extract_init_kwargs(group_val),
             }
 
+    if _BUILTIN_COMMANDS:
+        ordered = OrderedDict()
+        for builtin_name in sorted(_BUILTIN_COMMANDS):
+            if builtin_name in commands:
+                ordered[builtin_name] = commands.pop(builtin_name)
+        ordered.update(commands)
+        return ordered
+
     return commands
 
 

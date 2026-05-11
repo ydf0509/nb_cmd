@@ -1,6 +1,15 @@
 # nb_cmd
 
-**Python 码农的低代码平台** —— 写一个 class，自动获得 CLI + REST API + Web UI + Python 直接调用 四种接口。不写路由、不写前端、不写文档，全自动。
+**Python 码农的低代码平台** —— 写一个 class，自动获得五种能力：Python 直接调用 + CLI + REST API + Web UI + Markdown 文档。不写路由、不写前端、不写文档，全自动。
+
+**nb-cmd: 不是"更好的 CLI 框架"，而是"低代码平台"**
+
+用户只需要写一个 class，nb_cmd 自动生成 `python类自身正常直接调用` + `CLI` + `REST API` + `Web UI(含 WebSocket 实时控制台)` +  `自动生成Markdown使用文档` 五种能力。
+- 类自身完全照常使用（Python 直接调用）
+- 自动生成 CLI 命令行
+- 自动生成 REST API（含 Swagger 文档）
+- 自动生成 Markdown 使用文档（CmdGen）
+- 自动生成前端 Web UI（含 WebSocket 实时控制台）
 
 [![Python](https://img.shields.io/badge/python-3.7%2B-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
@@ -38,17 +47,21 @@
 
 **每次都是重写。**
 
-nb_cmd 换了一种思路：**Class 是中心，接口是投影。**
+nb_cmd 换了一种思路：**Class 是中心，能力是投影。**
 
 ```
-             ┌── CLI 模式（默认）
+             ┌── Python 直接调用（类自身完全照常使用）
              │
-业务逻辑(class) ─┼── REST API 模式（自动 Swagger）
+             ├── CLI 命令行（自动生成）
              │
-             └── Web UI 模式（自动生成页面）
+业务逻辑(class) ─┼── REST API（自动 Swagger 文档）
+             │
+             ├── Web UI（自动生成页面 + WebSocket 实时控制台）
+             │
+             └── Markdown 使用文档（CmdGen 自动生成）
 ```
 
-写一次业务逻辑，四种接口自动生成，不改一行代码。
+一次编写，五种能力全自动，不改一行代码。
 
 **你写什么 → 你得到什么：**
 
@@ -1249,7 +1262,7 @@ def status():
 # 想加 API？对不起，请重写一遍...
 ```
 
-**nb_cmd（写一次，四种接口）：**
+**nb_cmd（一次编写，五种能力）：**
 
 ```python
 from nb_cmd import NbCmd
@@ -1274,7 +1287,7 @@ python deploy.py deploy web-01            # CLI
 python deploy.py --web --web-port 8080     # Web UI + REST API
 ```
 
-**核心差异：** argparse / click / typer 的世界观是"CLI 是终点"。nb_cmd 的世界观是"Class 是中心，接口是投影"——CLI、API、Web UI 只是同一份业务逻辑的不同表现形式。
+**核心差异：** argparse / click / typer 的世界观是"CLI 是终点"。nb_cmd 的世界观是"Class 是中心，能力是投影"——Python 直接调用、CLI、API、Web UI、Markdown 文档 只是同一份业务逻辑的五种不同表现形式。
 
 ### vs 传统前后端开发
 
@@ -1290,7 +1303,7 @@ python deploy.py --web --web-port 8080     # Web UI + REST API
 | 新增 1 个参数 | 改 3 处（后端/前端/文档） | **改 1 处（方法签名）** |
 | 前端开发者 | 需要 | **不需要** |
 
-> **本质区别：** 传统开发是"手动映射"——后端定义接口，前端照着文档手写表单；nb_cmd 是"自动投影"——Python 类是唯一真相源，CLI/API/Web UI/Python 直接调用 是它的四个不同维度的影子。改真相源，影子自动跟着变。
+> **本质区别：** 传统开发是"手动映射"——后端定义接口，前端照着文档手写表单；nb_cmd 是"自动投影"——Python 类是唯一真相源，Python 直接调用 / CLI / REST API / Web UI / Markdown 文档 是它的五个不同维度的投影。改真相源，投影自动跟着变。
 
 ---
 

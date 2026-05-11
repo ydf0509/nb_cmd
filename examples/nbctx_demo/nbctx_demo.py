@@ -4,11 +4,12 @@ nb_cmd nbctx 跨层级上下文传递 demo。
 
 演示：顶层全局参数（region/env/debug）如何自动穿透到任意深度的子命令组。
 
-四种使用方式：
-    1. CLI:  python nbctx_demo.py --region shanghai db migrate
-    2. Web:  python nbctx_demo.py --web --web-port 8085
-    3. API:  curl -X POST http://localhost:8085/db/migrate -d '{"init_params":{"region":"shanghai"}}'
-    4. 本地: 见本文件底部 if __name__ == '__main__' 部分
+五种能力：
+    1. Python 直接调用: 见本文件底部 if __name__ == '__main__' 部分
+    2. CLI:  python nbctx_demo.py --region shanghai db migrate
+    3. REST API:  curl -X POST http://localhost:8085/db/migrate -d '{"init_params":{"region":"shanghai"}}'
+    4. Web UI:  python nbctx_demo.py --web --web-port 8085
+    5. 文档生成: 见本文件底部 CmdGen 示例
 """
 import sys
 import os

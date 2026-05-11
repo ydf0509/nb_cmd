@@ -6,6 +6,25 @@ tags: []
 
 # nb_cmd 重大设计修改记录
 
+## 2026-04-20: exec 内置命令始终排在命令列表最前面
+
+**需求**: `exec` 万能命令在 CLI --help、Web UI、API 文档中应始终排在所有命令的最前面，不参与字母排序。
+
+**问题**: `discover_commands()` 中 `for name in sorted(dir(instance))` 按字母排序遍历方法，`exec` 被排在 `e` 开头的位置。
+
+**修复**: 在 `discover_commands()` 返回前，将内置命令（`exec`）从 `OrderedDict` 中提取出来，重新构造一个新的 `OrderedDict`，内置命令在前，其余命令保持字母排序在后。
+
+**设计要点**:
+- 仅在 `_BUILTIN_COMMANDS` 非空时（即 `include_builtins=True` 且 `enable_exec=True`）才做排序调整
+- 子命令组（`include_builtins=False`）不受影响
+- CLI / Web / API 三个模式都使用 `discover_commands` 返回的 `OrderedDict`，因此只需修改一处即可全部生效
+
+**影响文件**:
+- `nb_cmd/core/discovery.py`（`discover_commands` 函数末尾新增内置命令置顶逻辑）
+- `tests/ai_codes/regression_testing/test_exec_order.py`（新增 5 个专项测试）
+
+---
+
 ## 2026-04-19: Meta 新增 hide_method_list / auth_token / timeout 三字段
 
 **需求**: 在 `NbCmdMeta` 中新增三个控制字段，增强框架的安全性和稳定性。
