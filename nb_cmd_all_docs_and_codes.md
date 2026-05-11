@@ -1,8 +1,10 @@
 ﻿
 # 🤖 AI 上下文阅读协议 (由 nb_ai_context 生成)
 
+> **此文档生成时间**：2026-05-11 15:28:28
 > **系统指令**：你正在解析一份由工具 **`nb_ai_context`** 自动生成的**结构化项目快照**。
-> **文档性质**：这**不是**一份普通的面向人类的文档，而是专为 AI 大模型（LLM）设计的上下文数据流。它将项目文档、源代码和 AST 架构元数据进行了特殊的结构化合并，请开启“代码解析器”的心智模式。
+> **文档性质**：这**不是**一份普通的面向人类的文档，而是专为 AI 大模型（LLM）设计的上下文数据流。它将项目文档、源代码和 AST 架构元数据进行了特殊的结构化合并，请开启"代码解析器"的心智模式。
+
 
 ## 🧠 AI 认知与解析准则
 
@@ -2587,6 +2589,10 @@ class GitRemote(NbCmd):
     ├── demo_subcommands.py
     ├── five_in_one_demo.py
     ├── five_in_one_demo_doc.md
+    ├── git_demos
+    │   ├── README.md
+    │   ├── git_click.py
+    │   └── git_nb_cmd.py
     ├── github_cli_demos
     │   ├── gh_click.py
     │   ├── gh_comparison.md
@@ -2602,7 +2608,7 @@ class GitRemote(NbCmd):
 ---
 
 
-## nb_cmd (relative dir: `examples`)  Included Files (total: 17 files)
+## nb_cmd (relative dir: `examples`)  Included Files (total: 20 files)
 
 
 - `examples/bigone_cmd.py`
@@ -2634,6 +2640,12 @@ class GitRemote(NbCmd):
 - `examples/github_cli_demos/gh_nb_cmd_gen_doc.md`
 
 - `examples/github_cli_demos/gh_typer.py`
+
+- `examples/git_demos/git_click.py`
+
+- `examples/git_demos/git_nb_cmd.py`
+
+- `examples/git_demos/README.md`
 
 - `examples/nbctx_demo/nbctx_demo.py`
 
@@ -4619,6 +4631,691 @@ if __name__ == "__main__":
 `````
 
 --- **end of file: examples/github_cli_demos/gh_typer.py** (project: nb_cmd) --- 
+
+---
+
+
+--- **start of file: examples/git_demos/git_click.py** (project: nb_cmd) --- 
+
+`````python
+# -*- coding: utf-8 -*-
+"""
+Git 命令行工具 — Click 实现。
+
+演示 Click 在多层级子命令 + 全局参数场景下的典型写法：
+  - 全局参数通过 @click.group() + @click.pass_context 传递
+  - 子命令组通过 @cli.group() 嵌套
+  - 深层子命令 (config → user → name/email) 通过 ctx.obj 访问全局参数
+  - 每个子命令都要加 @click.pass_context 才能访问全局参数
+
+用法:
+    python git_click.py --verbose status
+    python git_click.py -C /etc/git remote add origin https://github.com/user/repo.git
+    python git_click.py --verbose branch create feature/login --from-branch develop
+    python git_click.py -C ~/my-config config user name "John Doe"
+    python git_click.py --verbose config user email
+"""
+import click
+
+
+@click.group()
+@click.option('--verbose', '-v', is_flag=True, help='详细输出')
+@click.option('--path', '-C', default='.', help='工作目录路径')
+@click.pass_context
+def cli(ctx, verbose, path):
+    """Git 命令行工具 (Click 版)"""
+    ctx.ensure_object(dict)
+    ctx.obj.update(
+        verbose=verbose,
+        path=path,
+    )
+
+
+# ==================== 一级命令 ====================
+
+@cli.command()
+@click.pass_context
+def status(ctx):
+    """查看仓库状态"""
+    c = ctx.obj
+    verbose_flag = ' (详细模式)' if c['verbose'] else ''
+    print(f'[status] 检查仓库状态{verbose_flag}')
+    print(f'  工作目录: {c["path"]}')
+    print('  On branch main')
+    print('  nothing to commit, working tree clean')
+
+
+@cli.command()
+@click.option('--oneline', is_flag=True, help='单行显示')
+@click.option('--graph', is_flag=True, help='图形化显示')
+@click.option('--max-count', '-n', default=10, type=int, help='最大显示数量')
+@click.pass_context
+def log(ctx, oneline, graph, max_count):
+    """查看提交历史"""
+    c = ctx.obj
+    if c['verbose']:
+        print(f'[log] 工作目录: {c["path"]}')
+    fmt = '--oneline' if oneline else ''
+    graph_flag = '--graph' if graph else ''
+    print(f'git log {fmt} {graph_flag} -{max_count}')
+    print('  commit a1b2c3d4 (HEAD -> main)')
+    print('  Author: User <user@example.com>')
+    print('  Date:   2026-05-11')
+    print('      initial commit')
+
+
+# ==================== remote 子命令组 (二级) ====================
+
+@cli.group()
+@click.pass_context
+def remote(ctx):
+    """远程仓库管理"""
+    pass
+
+
+@remote.command('add')
+@click.argument('name')
+@click.argument('url')
+@click.pass_context
+def remote_add(ctx, name, url):
+    """添加远程仓库"""
+    c = ctx.obj
+    if c['verbose']:
+        print(f'[remote add] 工作目录: {c["path"]}')
+    print(f'git remote add {name} {url}')
+
+
+@remote.command('remove')
+@click.argument('name')
+@click.pass_context
+def remote_remove(ctx, name):
+    """删除远程仓库"""
+    c = ctx.obj
+    print(f'git remote remove {name}')
+    if c['verbose']:
+        print(f'  (工作目录: {c["path"]})')
+
+
+@remote.command('show')
+@click.argument('name', required=False, default=None)
+@click.pass_context
+def remote_show(ctx, name):
+    """显示远程仓库信息"""
+    c = ctx.obj
+    target = name or 'origin'
+    print(f'git remote show {target}')
+    if c['verbose']:
+        print(f'  工作目录: {c["path"]}')
+    print(f'  Fetch URL: https://github.com/user/{target}.git')
+    print(f'  Push  URL: https://github.com/user/{target}.git')
+
+
+# ==================== branch 子命令组 (二级) ====================
+
+@cli.group()
+@click.pass_context
+def branch(ctx):
+    """分支管理"""
+    pass
+
+
+@branch.command('create')
+@click.argument('name')
+@click.option('--from-branch', default='main', help='基于哪个分支')
+@click.pass_context
+def branch_create(ctx, name, from_branch):
+    """创建分支"""
+    c = ctx.obj
+    print(f'git checkout -b {name} {from_branch}')
+    if c['verbose']:
+        print(f'  (工作目录: {c["path"]})')
+
+
+@branch.command('delete')
+@click.argument('name')
+@click.option('--force', '-f', is_flag=True, help='强制删除')
+@click.pass_context
+def branch_delete(ctx, name, force):
+    """删除分支"""
+    c = ctx.obj
+    flag = '-D' if force else '-d'
+    print(f'git branch {flag} {name}')
+    if c['verbose']:
+        print('  (强制模式)')
+
+
+@branch.command('list')
+@click.option('--merged', is_flag=True, help='只显示已合并的分支')
+@click.pass_context
+def branch_list(ctx, merged):
+    """列出分支"""
+    c = ctx.obj
+    filter_flag = '--merged' if merged else ''
+    print(f'git branch {filter_flag}')
+    if c['verbose']:
+        print(f'  工作目录: {c["path"]}')
+    print('  * main')
+    print('    develop')
+    print('    feature/login')
+
+
+# ==================== config → user 深层子命令组 (三级) ====================
+
+@cli.group()
+@click.pass_context
+def config(ctx):
+    """配置管理"""
+    pass
+
+
+@config.group()
+@click.pass_context
+def user(ctx):
+    """用户配置"""
+    pass
+
+
+@user.command('name')
+@click.argument('value', required=False, default=None)
+@click.pass_context
+def user_name(ctx, value):
+    """获取/设置用户名 — 深层子命令，通过 ctx.obj 访问全局参数"""
+    c = ctx.obj
+    work_path = c['path']
+    if value:
+        print(f'git -C {work_path} config user.name "{value}"')
+        print(f'  → 用户名已设置为: {value}')
+    else:
+        print(f'git -C {work_path} config user.name')
+        print(f'  → 当前用户名: User')
+    if c['verbose']:
+        print(f'  (详细模式: 工作目录={work_path})')
+
+
+@user.command('email')
+@click.argument('value', required=False, default=None)
+@click.pass_context
+def user_email(ctx, value):
+    """获取/设置用户邮箱 — 深层子命令，通过 ctx.obj 访问全局参数"""
+    c = ctx.obj
+    work_path = c['path']
+    if value:
+        print(f'git -C {work_path} config user.email "{value}"')
+        print(f'  → 邮箱已设置为: {value}')
+    else:
+        print(f'git -C {work_path} config user.email')
+        print(f'  → 当前邮箱: user@example.com')
+    if c['verbose']:
+        print(f'  (详细模式: 工作目录={work_path})')
+
+
+if __name__ == '__main__':
+    cli()
+`````
+
+--- **end of file: examples/git_demos/git_click.py** (project: nb_cmd) --- 
+
+---
+
+
+--- **start of file: examples/git_demos/git_nb_cmd.py** (project: nb_cmd) --- 
+
+`````python
+# -*- coding: utf-8 -*-
+"""
+Git 命令行工具 — nb_cmd 实现。
+
+演示 nb_cmd 在多层级子命令 + 全局参数场景下的优势：
+  - 零装饰器：所有命令通过纯 Class + 方法定义
+  - __init__ 即全局参数：self.nbctx 自动穿透到所有子命令组
+  - self.nbctx 强类型 + IDE 补全：子命令组通过类型注解获取代码补全
+  - 子命令独立可测：每个 NbCmd 子类可脱离父级单独实例化和测试
+  - 深层子命令 (config → user → name/email) 通过 self.nbctx 访问全局参数
+
+用法:
+    python git_nb_cmd.py --verbose status
+    python git_nb_cmd.py -C /etc/git remote add origin https://github.com/user/repo.git
+    python git_nb_cmd.py --verbose branch create feature/login --from-branch develop
+    python git_nb_cmd.py -C ~/my-config config user name "John Doe"
+    python git_nb_cmd.py --verbose config user email
+"""
+import sys
+import os
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
+
+from dataclasses import dataclass
+from typing import Annotated
+from nb_cmd import NbCmd
+
+
+# ==================== 1. 定义全局上下文 ====================
+
+@dataclass
+class GitCtx:
+    """Git 全局上下文，所有子命令组共享"""
+    verbose: bool = False
+    path: str = '.'
+
+
+# ==================== 2. 子命令组（纯 Class，可独立测试）====================
+
+class RemoteCmd(NbCmd):
+    """远程仓库管理 (二级子命令组)"""
+    nbctx: GitCtx
+
+    def add(self, name: Annotated[str, '远程仓库名'], url: Annotated[str, '仓库 URL']):
+        """添加远程仓库"""
+        if self.nbctx.verbose:
+            print(f'[remote add] 工作目录: {self.nbctx.path}')
+        print(f'git remote add {name} {url}')
+
+    def remove(self, name: Annotated[str, '要删除的远程名']):
+        """删除远程仓库"""
+        print(f'git remote remove {name}')
+        if self.nbctx.verbose:
+            print(f'  (工作目录: {self.nbctx.path})')
+
+    def show(self, name: Annotated[str, '远程仓库名'] = None):
+        """显示远程仓库信息"""
+        target = name or 'origin'
+        print(f'git remote show {target}')
+        if self.nbctx.verbose:
+            print(f'  工作目录: {self.nbctx.path}')
+        print(f'  Fetch URL: https://github.com/user/{target}.git')
+        print(f'  Push  URL: https://github.com/user/{target}.git')
+
+
+class BranchCmd(NbCmd):
+    """分支管理 (二级子命令组)"""
+    nbctx: GitCtx
+
+    def create(self, name: Annotated[str, '分支名'],
+               from_branch: Annotated[str, '基于哪个分支'] = 'main'):
+        """创建分支"""
+        print(f'git checkout -b {name} {from_branch}')
+        if self.nbctx.verbose:
+            print(f'  (工作目录: {self.nbctx.path})')
+
+    def delete(self, name: Annotated[str, '分支名'],
+               force: Annotated[bool, '强制删除', 'f'] = False):
+        """删除分支"""
+        flag = '-D' if force else '-d'
+        print(f'git branch {flag} {name}')
+        if self.nbctx.verbose:
+            print('  (强制模式)')
+
+    def list(self, merged: Annotated[bool, '只显示已合并的分支'] = False):
+        """列出分支"""
+        filter_flag = '--merged' if merged else ''
+        print(f'git branch {filter_flag}')
+        if self.nbctx.verbose:
+            print(f'  工作目录: {self.nbctx.path}')
+        print('  * main')
+        print('    develop')
+        print('    feature/login')
+
+
+class UserConfigCmd(NbCmd):
+    """用户配置 (三级深层子命令组，通过 self.nbctx 访问全局参数)"""
+    nbctx: GitCtx
+
+    def name(self, value: Annotated[str, '用户名 (不传则查询)'] = None):
+        """获取/设置用户名 — 深层子命令，通过 self.nbctx 访问全局参数"""
+        work_path = self.nbctx.path
+        if value:
+            print(f'git -C {work_path} config user.name "{value}"')
+            print(f'  → 用户名已设置为: {value}')
+        else:
+            print(f'git -C {work_path} config user.name')
+            print(f'  → 当前用户名: User')
+        if self.nbctx.verbose:
+            print(f'  (详细模式: 工作目录={work_path})')
+
+    def email(self, value: Annotated[str, '用户邮箱 (不传则查询)'] = None):
+        """获取/设置用户邮箱 — 深层子命令，通过 self.nbctx 访问全局参数"""
+        work_path = self.nbctx.path
+        if value:
+            print(f'git -C {work_path} config user.email "{value}"')
+            print(f'  → 邮箱已设置为: {value}')
+        else:
+            print(f'git -C {work_path} config user.email')
+            print(f'  → 当前邮箱: user@example.com')
+        if self.nbctx.verbose:
+            print(f'  (详细模式: 工作目录={work_path})')
+
+
+class ConfigCmd(NbCmd):
+    """配置管理 (二级子命令组，挂载三级子命令)"""
+    nbctx: GitCtx
+
+    sub_commands = {
+        'user': UserConfigCmd,
+    }
+
+
+# ==================== 3. 顶层入口 ====================
+
+class GitTool(NbCmd):
+    """
+    Git 命令行工具 (nb_cmd 版)
+
+    全局参数 verbose/config_dir 自动穿透到所有子命令组。
+    演示多层级子命令: remote, branch (二级), config → user (三级)
+    """
+    nbctx: GitCtx
+
+    def __init__(
+        self,
+        verbose: Annotated[bool, '详细输出', 'v'] = False,
+        path: Annotated[str, '工作目录路径', 'C'] = '.',
+    ):
+        self.verbose = verbose
+        self.path = path
+        self.nbctx = GitCtx(
+            verbose=self.verbose,
+            path=self.path,
+        )
+
+    sub_commands = {
+        'remote': RemoteCmd,
+        'branch': BranchCmd,
+        'config': ConfigCmd,
+    }
+
+    def status(self):
+        """查看仓库状态"""
+        verbose_flag = ' (详细模式)' if self.nbctx.verbose else ''
+        print(f'[status] 检查仓库状态{verbose_flag}')
+        print(f'  工作目录: {self.nbctx.path}')
+        print('  On branch main')
+        print('  nothing to commit, working tree clean')
+
+    def log(self,
+            oneline: Annotated[bool, '单行显示'] = False,
+            graph: Annotated[bool, '图形化显示'] = False,
+            max_count: Annotated[int, '最大显示数量', 'n'] = 10):
+        """查看提交历史"""
+        if self.nbctx.verbose:
+            print(f'[log] 工作目录: {self.nbctx.path}')
+        fmt = '--oneline' if oneline else ''
+        graph_flag = '--graph' if graph else ''
+        print(f'git log {fmt} {graph_flag} -{max_count}')
+        print('  commit a1b2c3d4 (HEAD -> main)')
+        print('  Author: User <user@example.com>')
+        print('  Date:   2026-05-11')
+        print('      initial commit')
+
+
+if __name__ == '__main__':
+    GitTool().run()
+`````
+
+--- **end of file: examples/git_demos/git_nb_cmd.py** (project: nb_cmd) --- 
+
+---
+
+
+--- **start of file: examples/git_demos/README.md** (project: nb_cmd) --- 
+
+`````markdown
+# Git 命令行工具 — Click vs nb_cmd 实现对比
+
+## 概述
+
+本目录用 **Click** 和 **nb_cmd** 两种框架分别实现了 Git 部分命令，重点演示三个核心特性：
+
+| 特性 | 说明 |
+|------|------|
+| **全局传参** | `--verbose` / `-v` 和 `--config-dir` / `-C` 两个全局参数穿透到所有子命令 |
+| **多层级子命令** | `remote`、`branch`（二级），`config → user`（三级） |
+| **深层子命令使用全局参数** | `config user name/email` 读取全局 `--config-dir` 和 `--verbose` |
+
+---
+
+## 文件说明
+
+| 文件 | 框架 | 装饰器数 |
+|------|------|---------|
+| `git_click.py` | Click | 18 个 |
+| `git_nb_cmd.py` | nb_cmd | **0 个** |
+
+---
+
+## 命令结构
+
+```
+git-tool
+├── --verbose / -v          # 全局参数：详细输出
+├── --config-dir / -C       # 全局参数：配置文件目录
+│
+├── status                  # 一级命令
+├── log [--oneline] [--graph] [-n]   # 一级命令
+│
+├── remote                  # 二级子命令组
+│   ├── add <name> <url>
+│   ├── remove <name>
+│   └── show [name]
+│
+├── branch                  # 二级子命令组
+│   ├── create <name> [--from-branch]
+│   ├── delete <name> [--force]
+│   └── list [--merged]
+│
+└── config                  # 二级子命令组
+    └── user                # 三级深层子命令组
+        ├── name [value]    ← 使用全局 --config-dir 和 --verbose
+        └── email [value]   ← 使用全局 --config-dir 和 --verbose
+```
+
+---
+
+## 全局传参方式对比
+
+### Click：`@click.pass_context` + `ctx.obj` 字典
+
+```python
+@click.group()
+@click.option('--verbose', '-v', is_flag=True)
+@click.option('--config-dir', '-C', default='~/.git')
+@click.pass_context
+def cli(ctx, verbose, config_dir):
+    ctx.ensure_object(dict)
+    ctx.obj.update(verbose=verbose, config_dir=config_dir)
+
+# 每个子命令都要加 @click.pass_context
+@remote.command('add')
+@click.argument('name')
+@click.argument('url')
+@click.pass_context
+def remote_add(ctx, name, url):
+    c = ctx.obj          # 字典取值，无 IDE 补全
+    if c['verbose']:     # 字符串 key，拼写错误无提示
+        ...
+```
+
+**痛点：**
+- 每个子命令都要加 `@click.pass_context` 装饰器
+- 取值靠 `ctx.obj['key']`（字符串键，无 IDE 补全，拼写错误运行时才暴露）
+- 装饰器随层级指数叠加：三级子命令 `config user name` 需要 4 个装饰器
+
+### nb_cmd：`__init__` + `self.nbctx` 强类型属性
+
+```python
+@dataclass
+class GitCtx:
+    verbose: bool = False
+    config_dir: str = '~/.git'
+
+class GitTool(NbCmd):
+    nbctx: GitCtx
+
+    def __init__(self, verbose: bool = False, config_dir: str = '~/.git'):
+        self.nbctx = GitCtx(verbose=verbose, config_dir=config_dir)
+
+    sub_commands = {'remote': RemoteCmd, 'branch': BranchCmd, 'config': ConfigCmd}
+
+# 子命令组中直接通过 self.nbctx 访问
+class RemoteCmd(NbCmd):
+    nbctx: GitCtx
+
+    def add(self, name: str, url: str):
+        if self.nbctx.verbose:    # 强类型属性，IDE 自动补全
+            print(self.nbctx.config_dir)
+```
+
+**优势：**
+- 零装饰器：`__init__` 即全局参数定义
+- `self.nbctx.verbose` 强类型访问，IDE 自动补全 + 跳转
+- 框架自动 `child.nbctx = parent.nbctx` 递归传递，任意嵌套深度无需额外代码
+
+---
+
+## 多层级子命令定义对比
+
+### Click：装饰器嵌套
+
+```python
+# 二级：@cli.group()
+@cli.group()
+@click.pass_context
+def remote(ctx): pass
+
+@remote.command('add')
+@click.pass_context
+def remote_add(ctx, name, url): ...
+
+# 三级：@cli.group() → @config.group()
+@cli.group()
+@click.pass_context
+def config(ctx): pass
+
+@config.group()
+@click.pass_context
+def user(ctx): pass
+
+@user.command('name')
+@click.pass_context
+def user_name(ctx, value): ...
+```
+
+**痛点：**
+- 每新增一个子命令组需要 `@cli.group()` + 函数定义
+- 装饰器用错实例（如 `@remote.command()` 写成 `@branch.command()`），命令跑到错误层级，不报错但行为异常
+- 函数散落各处，层级关系靠装饰器维持，代码可读性差
+
+### nb_cmd：`sub_commands` 字典
+
+```python
+class GitTool(NbCmd):
+    sub_commands = {
+        'remote': RemoteCmd,    # 二级
+        'branch': BranchCmd,    # 二级
+        'config': ConfigCmd,    # 二级 → 三级
+    }
+
+class ConfigCmd(NbCmd):
+    sub_commands = {
+        'user': UserConfigCmd,  # 三级
+    }
+
+class UserConfigCmd(NbCmd):
+    def name(self, value=None): ...   # 三级子命令
+    def email(self, value=None): ...  # 三级子命令
+```
+
+**优势：**
+- 子命令组是独立 Class，层级关系一目了然
+- 新增子命令组只需：写一个 Class + 在父级 `sub_commands` 加一项
+- 子命令组可单独实例化、单独测试、单独复用
+
+---
+
+## 深层子命令使用全局参数
+
+### Click 版（`config user name` 使用 `--config-dir`）
+
+```python
+@user.command('name')
+@click.argument('value', required=False, default=None)
+@click.pass_context
+def user_name(ctx, value):
+    c = ctx.obj
+    config_file = c['config_dir']       # 从 ctx.obj 取全局参数
+    if c['verbose']:                    # 从 ctx.obj 取全局参数
+        print(f'详细模式: {config_file}')
+    print(f'git config --file {config_file} user.name "{value}"')
+```
+
+### nb_cmd 版（`config user name` 使用 `--config-dir`）
+
+```python
+class UserConfigCmd(NbCmd):
+    nbctx: GitCtx
+
+    def name(self, value: str = None):
+        config_file = self.nbctx.config_dir   # 强类型属性访问
+        if self.nbctx.verbose:                # 强类型属性访问
+            print(f'详细模式: {config_file}')
+        print(f'git config --file {config_file} user.name "{value}"')
+```
+
+**关键差异：** nb_cmd 的 `self.nbctx` 由框架自动从父级传递到子级，`UserConfigCmd` 不需要任何额外代码就能拿到全局参数。Click 需要每层都加 `@click.pass_context` 并手动从 `ctx.obj` 取值。
+
+---
+
+## 运行示例
+
+```bash
+# 1. 查看状态（带全局参数）
+python git_click.py --verbose status
+python git_nb_cmd.py --verbose status
+
+# 2. 添加远程仓库（指定配置文件目录）
+python git_click.py -C /etc/git remote add origin https://github.com/user/repo.git
+python git_nb_cmd.py -C /etc/git remote add origin https://github.com/user/repo.git
+
+# 3. 创建分支（详细模式）
+python git_click.py --verbose branch create feature/login --from-branch develop
+python git_nb_cmd.py --verbose branch create feature/login --from-branch develop
+
+# 4. 深层子命令：设置用户名（使用全局 --config-dir）
+python git_click.py -C ~/my-config config user name "John Doe"
+python git_nb_cmd.py -C ~/my-config config user name "John Doe"
+
+# 5. 深层子命令：查询邮箱（使用全局 --verbose）
+python git_click.py --verbose config user email
+python git_nb_cmd.py --verbose config user email
+
+# 6. 查看帮助
+python git_click.py --help
+python git_nb_cmd.py --help
+
+python git_click.py remote --help
+python git_nb_cmd.py remote --help
+
+python git_click.py config user --help
+python git_nb_cmd.py config user --help
+```
+
+---
+
+## 总结
+
+| 维度 | Click | nb_cmd |
+|------|-------|--------|
+| **全局参数定义** | `@click.group()` + `@click.option()` | `__init__` 方法参数 |
+| **全局参数传递** | `@click.pass_context` + `ctx.obj['key']` | `self.nbctx.attr` 自动穿透 |
+| **子命令组定义** | `@cli.group()` 装饰器嵌套 | `sub_commands = {...}` 字典 |
+| **深层子命令** | 每层都要 `@group()` + `@pass_context` | 框架自动递归传递 `nbctx` |
+| **IDE 补全** | ❌ `ctx.obj['key']` 无补全 | ✅ `self.nbctx.attr` 强类型补全 |
+| **独立测试** | ❌ 函数绑定到 `cli` 实例 | ✅ Class 可单独实例化测试 |
+| **装饰器数量** | 18 个 | **0 个** |
+| **代码可读性** | 装饰器散落，层级关系隐式 | Class 嵌套，层级关系显式 |
+
+**结论：** 对于多层级子命令 + 全局参数的 CLI 工具，nb_cmd 的 OOP 设计（`__init__` 定义全局参数、`sub_commands` 声明层级、`self.nbctx` 自动穿透）比 Click 的函数式 + 装饰器方案更简洁、更可维护、更易测试。
+`````
+
+--- **end of file: examples/git_demos/README.md** (project: nb_cmd) --- 
 
 ---
 
