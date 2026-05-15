@@ -23,18 +23,22 @@
 | `--cmd-version` | 显示版本号 |
 | `--web` | 以 Web UI + REST API 模式启动 |
 | `--web-port PORT` | Web UI 服务端口（用于 `--web`） |
+| `--tui` | 以 TUI 终端交互模式启动 |
 
 ## Quick Start
 
 ```bash
 # 查看完整帮助
-D:\ProgramData\miniconda3\envs\py39b\python.exe five_in_one_demo.py -fh
+D:\ProgramData\miniconda3\python.exe five_in_one_demo.py -fh
 
 # 查看版本
-D:\ProgramData\miniconda3\envs\py39b\python.exe five_in_one_demo.py --cmd-version
+D:\ProgramData\miniconda3\python.exe five_in_one_demo.py --cmd-version
 
 # 启动 Web UI
-D:\ProgramData\miniconda3\envs\py39b\python.exe five_in_one_demo.py --web
+D:\ProgramData\miniconda3\python.exe five_in_one_demo.py --web
+
+# 启动 TUI 终端交互
+D:\ProgramData\miniconda3\python.exe five_in_one_demo.py --tui
 ```
 
 ## 命令行约定
@@ -61,7 +65,7 @@ D:\ProgramData\miniconda3\envs\py39b\python.exe five_in_one_demo.py --web
 | `--b` | `int` | *(required)* | - |
 
 ```bash
-D:\ProgramData\miniconda3\envs\py39b\python.exe five_in_one_demo.py calc --a $<a> --b $<b>
+D:\ProgramData\miniconda3\python.exe five_in_one_demo.py calc --a $<a> --b $<b>
 ```
 
 ### `gen-doc`
@@ -69,7 +73,7 @@ D:\ProgramData\miniconda3\envs\py39b\python.exe five_in_one_demo.py calc --a $<a
 自动生成 Markdown 使用文档
 
 ```bash
-D:\ProgramData\miniconda3\envs\py39b\python.exe five_in_one_demo.py gen-doc
+D:\ProgramData\miniconda3\python.exe five_in_one_demo.py gen-doc
 ```
 
 ### `ping`
@@ -82,7 +86,7 @@ Ping 指定主机
 | `--count` | `int` | `4` | - |
 
 ```bash
-D:\ProgramData\miniconda3\envs\py39b\python.exe five_in_one_demo.py ping --host $<host> --count ${4}
+D:\ProgramData\miniconda3\python.exe five_in_one_demo.py ping --host $<host> --count ${4}
 ```
 
 ### `scan`
@@ -96,5 +100,5 @@ D:\ProgramData\miniconda3\envs\py39b\python.exe five_in_one_demo.py ping --host 
 | `--verbose` | `bool` | `False` | - |
 
 ```bash
-D:\ProgramData\miniconda3\envs\py39b\python.exe five_in_one_demo.py scan --target $<target> --port ${80} --verbose
+D:\ProgramData\miniconda3\python.exe five_in_one_demo.py scan --target $<target> --port ${80} --verbose
 ```

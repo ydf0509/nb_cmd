@@ -34,7 +34,8 @@ classifiers = [
 [project.optional-dependencies]
 api = ["fastapi>=0.68.0", "uvicorn>=0.15.0", "pydantic>=1.8.0"]
 web = ["fastapi>=0.68.0", "uvicorn>=0.15.0", "websockets>=10.0"]
-all = ["fastapi>=0.68.0", "uvicorn>=0.15.0", "pydantic>=1.8.0", "websockets>=10.0"]
+tui = ["textual>=1.0.0"]
+all = ["fastapi>=0.68.0", "uvicorn>=0.15.0", "pydantic>=1.8.0", "websockets>=10.0", "textual>=1.0.0"]
 nb = ["nb_log"]
 
 [project.urls]

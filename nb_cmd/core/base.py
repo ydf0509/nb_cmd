@@ -139,22 +139,36 @@ class NbCmd(object):
         str (capture=True 时返回 stdout) 或 None
         """
         import subprocess
-        result = subprocess.run(
-            cmd, shell=True, capture_output=True, text=True,
-        )
-        if check and result.returncode != 0:
-            raise RuntimeError(
-                '命令执行失败 (exit {}): {}\n{}'.format(
-                    result.returncode, cmd, result.stderr
-                )
-            )
         if capture:
+            result = subprocess.run(
+                cmd, shell=True, capture_output=True, text=True,
+            )
+            if check and result.returncode != 0:
+                raise RuntimeError(
+                    '命令执行失败 (exit {}): {}\n{}'.format(
+                        result.returncode, cmd, result.stderr
+                    )
+                )
             return result.stdout.strip()
-        else:
-            if result.stdout:
-                print(result.stdout, end='')
-            if result.stderr:
-                print(result.stderr, end='', file=sys.stderr)
+
+        proc = subprocess.Popen(
+            cmd, shell=True,
+            stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+            text=True, bufsize=1,
+        )
+        try:
+            if proc.stdout:
+                for line in proc.stdout:
+                    print(line, end='')
+            proc.wait()
+        except KeyboardInterrupt:
+            proc.kill()
+            proc.wait()
+            raise
+        if check and proc.returncode != 0:
+            raise RuntimeError(
+                '命令执行失败 (exit {}): {}'.format(proc.returncode, cmd)
+            )
 
     def exec(self, cmd: str):
         """执行任意系统命令"""
@@ -179,6 +193,9 @@ class NbCmd(object):
 
         if '--web' in raw_args:
             return self._start_web_server(raw_args)
+
+        if '--tui' in raw_args:
+            return self._start_tui()
 
         from ..modes.cli_mode import run_cli
         return run_cli(self, NbCmd, args)
@@ -223,6 +240,11 @@ class NbCmd(object):
 
         from ..modes.web_mode import start_web_server
         start_web_server(self, NbCmd, host=host, port=port)
+
+    def _start_tui(self):
+        """启动 TUI 模式"""
+        from ..modes.tui_mode import start_tui
+        start_tui(self, NbCmd)
 
     @staticmethod
     def _extract_port(raw_args):

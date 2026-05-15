@@ -15,6 +15,9 @@ GitHub CLI — nb_cmd 实现。
     3. CLI:  python gh_nb_cmd.py -R team/cli --no-prompt --auth-token ghp_xxx issue create --title "Deploy failed"
     4. Web:  python gh_nb_cmd.py --web --web-port 8090
     5. 本地: python gh_nb_cmd.py  (无参数，进入本地演示)
+
+D:\ProgramData\miniconda3\envs\py39b\python.exe D:/codes/nb_cmd/examples/git_demos/git_nb_cmd.py --tui
+
 """
 import sys
 import os

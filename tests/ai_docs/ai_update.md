@@ -6,6 +6,91 @@ tags: []
 
 # nb_cmd 重大设计修改记录
 
+## 2026-05-15: TUI 生成命令 + 历史命令 + 收藏命令 + SQLite
+
+**需求**: TUI 模式缺少 Web 模式的生成命令、历史记录、收藏命令功能。
+
+**实现**:
+1. **SQLite**: 复用 Web 模式的 `nb_cmd_web.db`，相同 schema（`saved_commands` + `command_history`）
+2. **生成命令**: 左栏底部增加 `CLI:` 只读 Input，选择命令/修改参数时自动更新为完整 CLI 命令字符串
+3. **历史命令**: 每次执行自动记录到 SQLite（最近1000条），`Ctrl+H` 或"历史"按钮打开 HistoryScreen，去重显示，点击复制到剪贴板
+4. **收藏命令**: ⭐ 按钮切换收藏/取消，`Ctrl+F` 或"收藏夹"按钮打开 FavoritesScreen，支持删除和复制
+5. **快捷键**: `Ctrl+H` 历史, `Ctrl+F` 收藏夹
+
+**影响文件**: `nb_cmd/modes/tui_mode.py`
+
+---
+
+## 2026-05-15: TUI 全局参数面板（__init__ 参数输入）
+
+**需求**: TUI 模式缺少 Web 模式中的"全局选项"面板，无法输入 `__init__` 参数（如 `verbose`、`path` 等）。
+
+**实现**:
+1. 新增 `_detect_init_params()` 函数：提取 `__init__` 方法的参数信息（名称、类型、默认值、描述）
+2. 在左栏命令树下方增加"▶ 全局参数"区域，根据参数类型自动生成 Input/Switch/Select widgets
+3. 执行时通过 `_collect_init_params()` 收集当前值，`_make_instance()` 创建新实例 + 注入 nbctx
+4. 每次执行都使用新实例（与 Web 模式一致），保证全局参数变更即时生效
+
+**影响文件**: `nb_cmd/modes/tui_mode.py`
+
+---
+
+## 2026-05-15: TUI 命令中断（停止按钮 + Ctrl+X）
+
+**需求**: 用户在 TUI 中执行长时间运行的命令（exec 或普通方法）时，需要能中断停止。
+
+**实现**:
+1. **`base.py` shell()**: 对 `Popen` 流式模式增加 `except KeyboardInterrupt`，收到中断时 `proc.kill()` 杀掉子进程，然后 re-raise
+2. **`tui_mode.py`**: 新增"停止"按钮（`btn-stop`）+ `Ctrl+X` 快捷键
+   - 执行中记录 `_worker_tid`（工作线程 ID）
+   - 停止时通过 `ctypes.pythonapi.PyThreadState_SetAsyncExc` 向工作线程注入 `KeyboardInterrupt`
+   - `_do_execute` 捕获 `KeyboardInterrupt` 显示黄色 `[已取消]`
+   - 执行按钮在运行时 disabled，停止按钮反之
+
+**效果**: exec 子进程会被 kill，普通 Python 方法会收到 KeyboardInterrupt 异常中断
+
+**影响文件**: `nb_cmd/core/base.py`, `nb_cmd/modes/tui_mode.py`
+
+---
+
+## 2026-05-15: shell() 命令执行改为 Popen 流式输出
+
+**问题**: `shell(cmd, capture=False)` 使用 `subprocess.run(capture_output=True)` 全量缓冲子进程输出，必须等进程完全结束才一次性 print。在 TUI/Web 模式下，长时间运行的 exec 命令（如 `python print_many.py`）看起来"无反应"，输出不实时。
+
+**修复**: `capture=False` 分支改为 `subprocess.Popen(stdout=PIPE, stderr=STDOUT, bufsize=1)` + 逐行 `print(line, end='')`，实现实时流式输出。`capture=True` 分支保持 `subprocess.run` 不变（用于返回 stdout 字符串）。
+
+**效果**: TUI/Web/CLI 三种模式下的 `exec` 命令和 `self.shell()` 调用均可实时看到子进程输出，无需等待结束。
+
+**影响文件**: `nb_cmd/core/base.py`（`shell()` 方法）
+
+---
+
+## 2026-05-15: 新增 TUI 终端交互模式（基于 Textual）
+
+**需求**: Web 模式在多用户场景下存在先天缺陷——对象状态隔离、stdout 多用户分发、端口管理等问题。TUI 模式基于 Textual 框架，每个用户在独立终端/进程中运行，天然隔离，零配置。
+
+**核心设计**:
+1. **两阶段界面**: 首屏（DocScreen）渲染 CmdGen Markdown 文档 → 按 Enter 进入交互界面（MainScreen）
+2. **左右分栏**: 左侧 40% 命令树 + 参数表单，右侧 60% 输出控制台（RichLog，支持竖向滚动）
+3. **stdout 重定向**: `_TuiWriter` 按行缓冲，通过 `app.call_from_thread()` 安全写入 RichLog（无需 `_io_dispatch` / `threading.local()`）
+4. **类型→Widget 映射**: `str`→Input, `int/float`→Input+验证, `bool`→Switch, `Enum`→Select
+5. **命令执行**: 使用 Textual `@work(thread=True)` 在工作线程中执行，避免阻塞 UI 事件循环
+6. **nbctx 支持**: 与 Web/API 模式一致，执行前自动调用 `make_nbctx()` 并递归注入子命令组
+
+**启动方式**: `python app.py --tui`（与 `--web` 并列）
+
+**依赖**: `pip install nb-cmd[tui]`（Textual >= 1.0.0, Python >= 3.8）
+
+**影响文件**:
+- `nb_cmd/modes/tui_mode.py`（新增：TUI 入口 + DocScreen + MainScreen + NbCmdTuiApp）
+- `nb_cmd/core/base.py`（`run()` 增加 `--tui` 分支 + `_start_tui()` 方法）
+- `nb_cmd/core/parser.py`（argparse 增加 `--tui` 参数 + full-help 文本）
+- `nb_cmd/core/gen_cmd.py`（System Params 表格 + Quick Start 增加 `--tui`）
+- `pyproject.toml`（新增 `tui` 可选依赖组，`all` 组包含 textual）
+- `tests/ai_docs/tui_mode_plan.md`（详细设计方案文档）
+
+---
+
 ## 2026-04-20: exec 内置命令始终排在命令列表最前面
 
 **需求**: `exec` 万能命令在 CLI --help、Web UI、API 文档中应始终排在所有命令的最前面，不参与字母排序。

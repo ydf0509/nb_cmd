@@ -193,6 +193,7 @@ class CmdGen(object):
             ('`--cmd-version`', '显示版本号'),
             ('`--web`', '以 Web UI + REST API 模式启动'),
             ('`--web-port PORT`', 'Web UI 服务端口（用于 `--web`）'),
+            ('`--tui`', '以 TUI 终端交互模式启动'),
         ]
         for flag, desc in sys_params:
             lines.append('| {} | {} |'.format(flag, desc))
@@ -220,6 +221,9 @@ class CmdGen(object):
         lines.append('')
         lines.append('# 启动 Web UI')
         lines.append('{} {} --web'.format(self.python, self.script))
+        lines.append('')
+        lines.append('# 启动 TUI 终端交互')
+        lines.append('{} {} --tui'.format(self.python, self.script))
         lines.append('```')
         lines.append('')
 

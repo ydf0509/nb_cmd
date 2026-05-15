@@ -109,7 +109,7 @@ class UserConfigCmd(NbCmd):
             print(f'  (详细模式: 工作目录={work_path})')
 
     def email(self, value: Annotated[str, '用户邮箱 (不传则查询)'] = None):
-        """获取/设置用户邮箱 — 深层子命令，通过 self.nbctx 访问全局参数"""
+        """获取/设置用户邮箱 — 深层子命令，通过 self.nbctx 访问全局参数，传入 value 则设置，不传入则查询"""
         work_path = self.nbctx.path
         if value:
             print(f'git -C {work_path} config user.email "{value}"')

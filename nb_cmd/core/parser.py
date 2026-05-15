@@ -53,6 +53,8 @@ def build_parser(instance, commands, meta, base_cls=None, allow_method_list=None
                            help='以Web UI + REST API模式启动')
     sys_group.add_argument('--web-port', type=int, default=None,
                            help='Web UI 服务端口（用于 --web）')
+    sys_group.add_argument('--tui', action='store_true',
+                           help='以 TUI 终端交互模式启动')
 
     init_group = parser.add_argument_group('init params')
     _add_init_global_options(init_group, instance)
@@ -178,6 +180,7 @@ def _build_full_help_lines(instance, base_cls, color=True):
         '    {:<24s} {}'.format('--cmd-version', '显示版本号'),
         '    {:<24s} {}'.format('--web', '以Web UI + REST API模式启动'),
         '    {:<24s} {}'.format('--web-port PORT', 'Web UI 服务端口（用于 --web）'),
+        '    {:<24s} {}'.format('--tui', '以 TUI 终端交互模式启动'),
         '',
     ]
 
