@@ -1,15 +1,16 @@
 # nb_cmd
 
-**Python 码农的低代码平台** —— 写一个 class，自动获得五种能力：Python 直接调用 + CLI + REST API + Web UI + Markdown 文档。不写路由、不写前端、不写文档，全自动。
+**Python 码农的低代码平台** —— 写一个 class，自动获得六种能力：Python 直接调用 + CLI + REST API + Web UI + TUI 终端交互 + Markdown 文档。不写路由、不写前端、不写 UI 代码、不写文档，全自动。
 
 **nb-cmd: 不是"更好的 CLI 框架"，而是"低代码平台"**
 
-用户只需要写一个 class，nb_cmd 自动生成 `python类自身正常直接调用` + `CLI` + `REST API` + `Web UI(含 WebSocket 实时控制台)` +  `自动生成Markdown使用文档` 五种能力。
+用户只需要写一个 class，nb_cmd 自动生成 `python类自身正常直接调用` + `CLI` + `REST API` + `Web UI(含 WebSocket 实时控制台)` + `TUI 终端交互界面` + `自动生成Markdown使用文档` 六种能力。
 - 类自身完全照常使用（Python 直接调用）
 - 自动生成 CLI 命令行
 - 自动生成 REST API（含 Swagger 文档）
 - 自动生成 Markdown 使用文档（CmdGen）
 - 自动生成前端 Web UI（含 WebSocket 实时控制台）
+- 自动生成 TUI 终端交互界面（基于 Textual，命令树 + 参数表单 + 实时控制台）
 
 [![Python](https://img.shields.io/badge/python-3.7%2B-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
@@ -61,17 +62,17 @@ nb_cmd 换了一种思路：**Class 是中心，能力是投影。**
              └── Markdown 使用文档（CmdGen 自动生成）
 ```
 
-一次编写，五种能力全自动，不改一行代码。
+一次编写，六种能力全自动，不改一行代码。
 
 **你写什么 → 你得到什么：**
 
 | 你写的 | 自动获得 |
 |--------|----------|
-| 方法签名 `def deploy(self, host: str, port: int = 22)` | CLI 参数 + API 端点 + Web 表单（输入框/数字框/复选框） |
-| 方法的 docstring `"""部署到远程服务器"""` | CLI --help + Swagger 文档 + Web UI 描述 |
-| 类型注解 `env: Environment`（Enum） | CLI choices + API 校验 + Web 下拉选择 |
-| `print()` / `cmdui.table()` | CLI 终端输出 + Web 实时流式推送（WebSocket + ANSI 彩色渲染） |
-| `sub_commands = {'git': GitTool}` | CLI 多级子命令 + API 嵌套路由 + Web UI 折叠分组 |
+| 方法签名 `def deploy(self, host: str, port: int = 22)` | CLI 参数 + API 端点 + Web 表单 + TUI 参数表单 |
+| 方法的 docstring `"""部署到远程服务器"""` | CLI --help + Swagger 文档 + Web/TUI UI 描述 |
+| 类型注解 `env: Environment`（Enum） | CLI choices + API 校验 + Web/TUI 下拉选择 |
+| `print()` / `cmdui.table()` | CLI 终端输出 + Web 实时流式推送 + TUI 实时控制台 |
+| `sub_commands = {'git': GitTool}` | CLI 多级子命令 + API 嵌套路由 + Web/TUI 折叠分组 |
 | `CmdGen(MyApp).doc(file='cli.md')` | **自动生成带 TOC + 参数表格 + 可复制命令行的 Markdown 文档** |
 | `self.nbctx = AppCtx(region=self.region)` | **跨层级强类型上下文，自动穿透到所有子命令组，IDE 补全 + 零手动传递** |
 | `MyTool().greet('张三', 3)` | **方法就是普通 Python 方法，随时直接调用、单元测试、import 复用** |
@@ -969,10 +970,10 @@ class MyTool(NbCmd):
 | `enable_exec` | bool | `True` | 是否暴露内置 `exec` 命令（设为 `False` 可防止恶意执行系统命令） |
 | `help_mode` | str | `'full'` | `-h` 的默认行为：`'full'` 显示完整帮助，`'easy'` 显示 argparse 原生格式 |
 | `aliases` | dict | `{}` | 参数别名（推荐用 `Annotated[..., 'desc', 'a']` 指定短别名替代） |
-| `allow_method_list` | list | `None` | 命令白名单（仅限制 CLI/API/Web 暴露；`None` 暴露全部；Python 直接调用不受影响） |
-| `hide_method_list` | list | `None` | 命令黑名单（与白名单互斥，白名单优先；仅限制 CLI/API/Web） |
+| `allow_method_list` | list | `None` | 命令白名单（仅限制 CLI/API/Web/TUI 暴露；`None` 暴露全部；Python 直接调用不受影响） |
+| `hide_method_list` | list | `None` | 命令黑名单（与白名单互斥，白名单优先；仅限制 CLI/API/Web/TUI） |
 | `auth_token` | str | `None` | 简易 Bearer token 鉴权（配置后 API/Web 请求须带 `Authorization: Bearer <token>`） |
-| `timeout` | int | `0` | 命令执行超时秒数（0=不限；作用于 CLI/API/Web 模式） |
+| `timeout` | int | `0` | 命令执行超时秒数（0=不限；作用于 CLI/API/Web/TUI 模式） |
 
 ### 10. 生命周期钩子
 
@@ -1262,7 +1263,7 @@ def status():
 # 想加 API？对不起，请重写一遍...
 ```
 
-**nb_cmd（一次编写，五种能力）：**
+**nb_cmd（一次编写，六种能力）：**
 
 ```python
 from nb_cmd import NbCmd
@@ -1287,7 +1288,7 @@ python deploy.py deploy web-01            # CLI
 python deploy.py --web --web-port 8080     # Web UI + REST API
 ```
 
-**核心差异：** argparse / click / typer 的世界观是"CLI 是终点"。nb_cmd 的世界观是"Class 是中心，能力是投影"——Python 直接调用、CLI、API、Web UI、Markdown 文档 只是同一份业务逻辑的五种不同表现形式。
+**核心差异：** argparse / click / typer 的世界观是"CLI 是终点"。nb_cmd 的世界观是"Class 是中心，能力是投影"——Python 直接调用、CLI、API、Web UI、TUI、Markdown 文档 只是同一份业务逻辑的六种不同表现形式。
 
 ### vs 传统前后端开发
 
@@ -1303,7 +1304,7 @@ python deploy.py --web --web-port 8080     # Web UI + REST API
 | 新增 1 个参数 | 改 3 处（后端/前端/文档） | **改 1 处（方法签名）** |
 | 前端开发者 | 需要 | **不需要** |
 
-> **本质区别：** 传统开发是"手动映射"——后端定义接口，前端照着文档手写表单；nb_cmd 是"自动投影"——Python 类是唯一真相源，Python 直接调用 / CLI / REST API / Web UI / Markdown 文档 是它的五个不同维度的投影。改真相源，投影自动跟着变。
+> **本质区别：** 传统开发是"手动映射"——后端定义接口，前端照着文档手写表单；nb_cmd 是"自动投影"——Python 类是唯一真相源，Python 直接调用 / CLI / REST API / Web UI / TUI / Markdown 文档 是它的六个不同维度的投影。改真相源，投影自动跟着变。
 
 ---
 
@@ -1325,7 +1326,8 @@ nb_cmd/
 ├── modes/
 │   ├── cli_mode.py        # CLI 执行引擎
 │   ├── api_mode.py        # REST API 路由生成（FastAPI）
-│   └── web_mode.py        # Web UI 页面生成 + WebSocket 实时输出
+│   ├── web_mode.py        # Web UI 页面生成 + WebSocket 实时输出
+│   └── tui_mode.py        # TUI 终端交互界面（基于 Textual）
 ├── ui/
 │   ├── helper.py          # UIHelper（cmdui 单例）
 │   ├── colors.py          # ANSI 彩色输出
@@ -1344,6 +1346,7 @@ nb_cmd/
 |------|----------|------|
 | CLI 模式 | **无** | 纯标准库，开箱即用 |
 | Web UI + REST API | fastapi + uvicorn | `pip install nb-cmd[web]` |
+| TUI 终端交互 | textual | `pip install nb-cmd[tui]` |
 | nb_log 增强日志 | nb_log | 可选，`pip install nb_log` |
 
 ---

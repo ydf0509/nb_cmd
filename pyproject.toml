@@ -5,14 +5,14 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "nb-cmd"
 version = "0.2.1"
-description = "万能接口生成器——你写一个 Python class，自动获得 CLI + REST API + Web UI + Python 直接调用 四种操作方式，堪称python界低代码平台"
+description = "万能接口生成器——你写一个 Python class，自动获得 CLI + REST API + Web UI + TUI 终端交互 + Python 直接调用 五种操作方式，堪称python界低代码平台"
 readme = "README.md"
 license = {text = "MIT"}
 requires-python = ">=3.7"
 authors = [
     {name = "ydf", email = "ydf0509@sohu.com"},
 ]
-keywords = ["cli", "api", "webui", "command", "argparse", "fastapi"]
+keywords = ["cli", "api", "webui", "tui", "command", "argparse", "fastapi", "textual"]
 classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Developers",

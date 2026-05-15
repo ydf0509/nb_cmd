@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 nb_cmd — Python 码农的低代码平台
-写一个 class，自动获得五种能力：Python 直接调用 + CLI + REST API + Web UI + Markdown 文档。
+写一个 class，自动获得六种能力：Python 直接调用 + CLI + REST API + Web UI + TUI 终端交互 + Markdown 文档。
 
 用法::
 

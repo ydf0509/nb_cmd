@@ -1,12 +1,13 @@
 # -*- coding: utf-8 -*-
 """
-nb_cmd 五重能力演示 —— 一次编写，五处全自动
+nb_cmd 六重能力演示 —— 一次编写，六处全自动
 
     1. Python 直接调用（类自身完全照常使用）
     2. 自动生成 CLI 命令行
     3. 自动生成 REST API（含 Swagger 文档）
     4. 自动生成 Markdown 使用文档
     5. 自动生成 Web UI（含 WebSocket 实时控制台）
+    6. 自动生成 TUI 终端交互界面（基于 Textual）
 
 用法:
     # --- 能力 2: CLI ---
@@ -17,6 +18,9 @@ nb_cmd 五重能力演示 —— 一次编写，五处全自动
 
     # --- 能力 3+5: API + Web UI ---
     python five_in_one_demo.py --web
+
+    # --- 能力 6: TUI ---
+    python five_in_one_demo.py --tui
 
     # --- 能力 4: 自动生成 Markdown 文档 ---
     python five_in_one_demo.py gen-doc
@@ -73,5 +77,5 @@ if __name__ == '__main__':
     # tool.ping('127.0.0.1', count=2)
     # tool.calc(100, 200)
 
-    # --- 能力 2~5: CLI / API / Web / 文档 全自动 ---
+    # --- 能力 2~6: CLI / API / Web / TUI / 文档 全自动 ---
     NetTool().run()

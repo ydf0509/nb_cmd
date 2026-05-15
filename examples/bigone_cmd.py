@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-nb_cmd 综合入口 demo —— 把多个 NbCmd 类组合到一个统一的 CLI / Web UI / REST API
+nb_cmd 综合入口 demo —— 把多个 NbCmd 类组合到一个统一的 CLI / Web UI / TUI / REST API
 
 用法:
     python bigone_cmd.py --help

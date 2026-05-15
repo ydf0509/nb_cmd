@@ -79,7 +79,7 @@ def start_tui(instance, base_cls):
         from textual.screen import Screen
         from textual.widgets import (
             Header, Footer, Tree, RichLog, Input, Button,
-            Switch, Select, Static, Markdown, Label,
+            Switch, Select, Static, Markdown, Label, Collapsible,
         )
         from textual.containers import Horizontal, Vertical, VerticalScroll
         from textual import work
@@ -312,8 +312,8 @@ def start_tui(instance, base_cls):
     # ================================================================
     class DocScreen(Screen):
         BINDINGS = [
-            ("enter", "go_main", "进入交互模式"),
-            ("escape", "go_main", "进入交互模式"),
+            ("enter", "go_main", "请按回车键进入交互模式"),
+            ("escape", "go_main", "请按回车键进入交互模式"),
             ("ctrl+q", "quit_app", "退出"),
         ]
 
@@ -348,7 +348,8 @@ def start_tui(instance, base_cls):
             super().__init__()
             self._current_cmd = None
             self._current_path = None
-            self._log_buffer = []
+            from collections import deque
+            self._log_buffer = deque(maxlen=5000)
             self._worker_tid = None
             self._param_cache = {}
 
@@ -363,29 +364,30 @@ def start_tui(instance, base_cls):
                     yield tree
 
                     if init_params_info:
-                        yield Static(" \u25b6 全局参数", id="init-title")
-                        init_form = VerticalScroll(id="init-form")
-                        yield init_form
+                        with Collapsible(title="全局参数", id="init-collapsible", collapsed=False):
+                            init_form = VerticalScroll(id="init-form")
+                            yield init_form
 
-                    yield Static(" \u25b6 参数", id="form-title")
-                    yield VerticalScroll(
-                        Static("\u2190 请在上方选择一个命令", id="form-hint"),
-                        id="param-form",
-                    )
+                    with Collapsible(title="参数", id="param-collapsible", collapsed=False):
+                        yield VerticalScroll(
+                            Static("\u2190 请在上方选择一个命令", id="form-hint"),
+                            id="param-form",
+                        )
                     with Horizontal(id="cmd-gen-bar"):
                         yield Label("CLI:", classes="cmd-gen-label")
                         yield Input(
-                            placeholder="选择命令后自动生成",
+                            placeholder="输入命令或点击生成",
                             id="cmd-gen",
-                            disabled=True,
                         )
                         yield Button("\u2605", id="btn-star")
+                        yield Button("生成", id="btn-gen")
+                        yield Button("运行", id="btn-run")
                     with Horizontal(id="btn-bar"):
-                        yield Button("执行", variant="primary", id="btn-exec")
+                        yield Button("执行", variant="success", id="btn-exec")
                         yield Button("停止", variant="error", id="btn-stop", disabled=True)
                         yield Button("历史", id="btn-history")
                         yield Button("收藏夹", id="btn-favs")
-                        yield Button("复制输出", variant="success", id="btn-copy")
+                        yield Button("复制输出", variant="primary", id="btn-copy")
                         yield Button("清空控制台", variant="warning", id="btn-clear")
                         yield Button("退出", id="btn-quit")
 
@@ -396,6 +398,7 @@ def start_tui(instance, base_cls):
                         markup=True,
                         auto_scroll=True,
                         wrap=True,
+                        max_lines=5000,
                         id="output-log",
                     )
             yield Footer()
@@ -524,7 +527,6 @@ def start_tui(instance, base_cls):
             self._current_cmd = node_data['info']
             self._current_path = node_data['path']
             await self._refresh_form(node_data['info'])
-            self._update_cmd_gen()
 
         async def _refresh_form(self, cmd_info):
             form = self.query_one("#param-form")
@@ -638,7 +640,13 @@ def start_tui(instance, base_cls):
                 path = self._current_path or ''
             if kwargs is None:
                 kwargs = self._collect_params()
+            is_exec = (path == 'exec')
             cmd = path.replace('/', ' ').replace('_', '-')
+            if is_exec:
+                raw_cmd = kwargs.get('cmd', '')
+                if raw_cmd:
+                    cmd += ' {}'.format(raw_cmd)
+                return cmd
             for k, v in kwargs.items():
                 if isinstance(v, bool):
                     if v:
@@ -661,6 +669,132 @@ def start_tui(instance, base_cls):
                 gen_input.value = self._build_cmd_str()
             except Exception:
                 pass
+
+        def _parse_cli_text(self):
+            """解析 CLI 输入框文本 → (cmd_path, kwargs, cmd_info) 或 None"""
+            text = self.query_one("#cmd-gen", Input).value.strip()
+            if not text:
+                return None
+            import shlex
+            try:
+                tokens = shlex.split(text)
+            except ValueError:
+                tokens = text.split()
+            if not tokens:
+                return None
+
+            path_parts = []
+            current_cmds = commands
+            i = 0
+            cmd_info = None
+            while i < len(tokens):
+                token = tokens[i]
+                if token.startswith('-'):
+                    break
+                py_name = token.replace('-', '_')
+                if py_name not in current_cmds:
+                    break
+                info = current_cmds[py_name]
+                path_parts.append(py_name)
+                if info.get('is_group'):
+                    g_cls = info['cls']
+                    g_kw = info.get('init_kwargs', {})
+                    try:
+                        g_inst = g_cls(**g_kw) if g_kw else g_cls()
+                    except TypeError:
+                        g_inst = g_cls.__new__(g_cls)
+                    current_cmds = discover_commands(
+                        g_inst, base_cls, include_builtins=False,
+                        allow_method_list=_allow,
+                        hide_method_list=_hide,
+                        command_prefix='/'.join(path_parts),
+                    )
+                else:
+                    cmd_info = info
+                    i += 1
+                    break
+                i += 1
+
+            if not path_parts or cmd_info is None:
+                return None
+            cmd_path = '/'.join(path_parts)
+
+            if cmd_path == 'exec':
+                rest = self.query_one("#cmd-gen", Input).value.strip()
+                prefix = 'exec'
+                if rest.startswith(prefix):
+                    rest = rest[len(prefix):].strip()
+                sig = cmd_info.get('signature')
+                hints = cmd_info.get('type_hints', {})
+                kwargs = {'cmd': rest} if rest else {}
+                return cmd_path, kwargs, cmd_info
+
+            arg_tokens = tokens[i:]
+            raw_kwargs = {}
+            j = 0
+            while j < len(arg_tokens):
+                tok = arg_tokens[j]
+                if tok.startswith('--'):
+                    key = tok[2:].replace('-', '_')
+                    if j + 1 < len(arg_tokens) and not arg_tokens[j + 1].startswith('-'):
+                        raw_kwargs[key] = arg_tokens[j + 1]
+                        j += 2
+                    else:
+                        raw_kwargs[key] = True
+                        j += 1
+                elif tok.startswith('-') and len(tok) == 2:
+                    short_flag = tok
+                    alias_map = cmd_info.get('arg_meta', {})
+                    matched = None
+                    for pn, am in alias_map.items():
+                        if am and short_flag in am.aliases:
+                            matched = pn
+                            break
+                    key = matched or tok[1:]
+                    if j + 1 < len(arg_tokens) and not arg_tokens[j + 1].startswith('-'):
+                        raw_kwargs[key] = arg_tokens[j + 1]
+                        j += 2
+                    else:
+                        raw_kwargs[key] = True
+                        j += 1
+                else:
+                    j += 1
+
+            sig = cmd_info.get('signature')
+            hints = cmd_info.get('type_hints', {})
+            kwargs = {}
+            if sig:
+                for k, v in raw_kwargs.items():
+                    if k not in sig.parameters:
+                        continue
+                    if isinstance(v, bool):
+                        kwargs[k] = v
+                    else:
+                        ptype = hints.get(k, str)
+                        real = unwrap_optional(ptype) if _is_opt(ptype) else ptype
+                        kwargs[k] = convert_value(str(v), real)
+            else:
+                kwargs = raw_kwargs
+            return cmd_path, kwargs, cmd_info
+
+        def _execute_from_cli_text(self):
+            """解析 CLI 输入框文本并执行命令"""
+            result = self._parse_cli_text()
+            if result is None:
+                self.notify("请输入有效命令（如: log --max-count 5）", timeout=3)
+                return
+            cmd_path, kwargs, cmd_info = result
+            if self._worker_tid is not None:
+                self.notify("有命令正在执行中", timeout=2)
+                return
+            self._current_cmd = cmd_info
+            self._current_path = cmd_path
+            self._exec_log = self.query_one("#output-log", RichLog)
+            self._exec_kwargs = kwargs
+            self._exec_path = cmd_path
+            self.query_one("#btn-exec", Button).disabled = True
+            self.query_one("#btn-stop", Button).disabled = False
+            self._do_execute()
 
         # ---------- Resolve command path → (method, instance) ----------
 
@@ -720,6 +854,10 @@ def start_tui(instance, base_cls):
                 self.action_stop()
             elif bid == 'btn-star':
                 self._toggle_star()
+            elif bid == 'btn-gen':
+                self._update_cmd_gen()
+            elif bid == 'btn-run':
+                self._execute_from_cli_text()
             elif bid == 'btn-history':
                 self.action_show_history()
             elif bid == 'btn-favs':
@@ -733,11 +871,19 @@ def start_tui(instance, base_cls):
 
         def on_input_submitted(self, event):
             if event.input.id == 'cmd-gen':
+                self._execute_from_cli_text()
                 return
             self.action_execute()
 
         def action_execute(self):
+            cli_text = ''
+            try:
+                cli_text = self.query_one("#cmd-gen", Input).value.strip()
+            except Exception:
+                pass
             if not self._current_cmd or not self._current_path:
+                if cli_text:
+                    self._execute_from_cli_text()
                 return
             if self._worker_tid is not None:
                 self.notify("有命令正在执行中", timeout=2)
@@ -924,32 +1070,73 @@ def start_tui(instance, base_cls):
         }
         #left-panel {
             width: 2fr;
-            border-right: solid $primary;
+            border-right: tall #0097e6;
         }
         #right-panel {
             width: 3fr;
         }
-        #tree-title, #form-title, #log-title, #init-title {
-            background: $surface;
-            color: $text;
+        #tree-title {
+            background: #1a237e;
+            color: #64b5f6;
             text-style: bold;
             height: 1;
             padding: 0 1;
         }
-        #init-title {
-            color: $warning;
+        #init-collapsible > CollapsibleTitle {
+            background: #e65100;
+            color: #ffe0b2;
+            text-style: bold;
+            padding: 0 1;
+        }
+        #param-collapsible > CollapsibleTitle {
+            background: #1b5e20;
+            color: #a5d6a7;
+            text-style: bold;
+            padding: 0 1;
+        }
+        Collapsible {
+            border: none;
+            padding: 0;
+        }
+        #log-title {
+            background: #4a148c;
+            color: #ce93d8;
+            text-style: bold;
+            height: 1;
+            padding: 0 1;
         }
         #cmd-tree {
-            height: 4fr;
-            border-bottom: solid $surface;
+            height: auto;
+            max-height: 50%;
+            border-bottom: heavy #0f3460;
+            scrollbar-color: #0097e6;
+            scrollbar-background: #0a1929;
+        }
+        Tree > .tree--cursor {
+            background: #0d47a1;
+            color: #bbdefb;
+            text-style: bold;
+        }
+        Tree > .tree--highlight {
+            background: #1a237e;
+        }
+        #init-collapsible {
+            height: auto;
+            max-height: 10;
+        }
+        #param-collapsible {
+            height: auto;
+            max-height: 50%;
         }
         #init-form {
             height: auto;
             max-height: 8;
-            border-bottom: solid $surface;
         }
         #param-form {
-            height: 2fr;
+            height: auto;
+            max-height: 100%;
+            scrollbar-color: #00897b;
+            scrollbar-background: #0a1929;
         }
         .form-row {
             height: auto;
@@ -962,21 +1149,41 @@ def start_tui(instance, base_cls):
             height: 3;
             content-align: left middle;
             padding-right: 1;
-            color: $text-muted;
+            color: #90caf9;
         }
         .form-row Input {
             width: 1fr;
+            border: tall #37474f;
+        }
+        .form-row Input:focus {
+            border: tall #00bcd4;
         }
         .form-row Switch {
             width: auto;
             height: auto;
+            background: #1a2332;
+            border: tall #37474f;
+            padding: 0 1;
+        }
+        .form-row Switch:focus {
+            border: tall #00bcd4;
+        }
+        Switch > .switch--slider {
+            color: #90caf9;
+        }
+        Switch.-on > .switch--slider {
+            color: #00e676;
         }
         .form-row Select {
             width: 1fr;
+            border: tall #37474f;
+        }
+        .form-row Select:focus {
+            border: tall #00bcd4;
         }
         #form-hint, #no-params {
             padding: 1;
-            color: $text-disabled;
+            color: #546e7a;
         }
         #cmd-gen-bar {
             height: 3;
@@ -988,26 +1195,44 @@ def start_tui(instance, base_cls):
             width: 5;
             height: 3;
             content-align: right middle;
-            color: $text-muted;
+            color: #64b5f6;
+            text-style: bold;
         }
         #cmd-gen {
             width: 1fr;
+            border: tall #0097e6;
+            background: #0a1929;
+        }
+        #cmd-gen:focus {
+            border: tall #00e5ff;
         }
         #btn-star {
             width: 5;
             min-width: 5;
-            background: $warning;
-            color: $text;
+            background: #f57f17;
+            color: #000000;
+        }
+        #btn-gen {
+            min-width: 6;
+            background: #0288d1;
+            color: white;
+        }
+        #btn-run {
+            min-width: 6;
+            background: #2e7d32;
+            color: white;
         }
         #btn-bar {
             height: 3;
-            align: right middle;
-            padding: 0 1;
+            align: left middle;
+            padding: 0 0;
             dock: bottom;
-            background: $surface;
+            background: #0a1929;
         }
         #btn-bar Button {
-            margin: 0 1;
+            min-width: 4;
+            padding: 0 1;
+            margin: 0 0 0 1;
         }
         #btn-stop {
             background: #d32f2f;
@@ -1017,12 +1242,26 @@ def start_tui(instance, base_cls):
             background: #7f1d1d;
             color: #999999;
         }
+        #btn-history {
+            background: #00897b;
+            color: white;
+        }
+        #btn-favs {
+            background: #6a1b9a;
+            color: white;
+        }
+        #btn-quit {
+            background: #455a64;
+            color: white;
+        }
         #output-log {
             height: 1fr;
+            scrollbar-color: #7c4dff;
+            scrollbar-background: #0a1929;
         }
         #hist-title, #fav-title {
-            background: $surface;
-            color: $text;
+            background: #1a237e;
+            color: #64b5f6;
             text-style: bold;
             height: 1;
             padding: 0 1;
@@ -1033,7 +1272,7 @@ def start_tui(instance, base_cls):
         }
         .hist-empty, .fav-empty {
             padding: 2;
-            color: $text-disabled;
+            color: #546e7a;
         }
         .fav-row {
             height: auto;

@@ -225,7 +225,7 @@ python gh_nb_cmd.py --web --web-port 8090
 CmdGen(GhCli, script='gh_nb_cmd.py').doc(file='gh_nb_cmd_gen_doc.md')
 ```
 
-Click 和 Typer 只提供 CLI，需额外用 FastAPI/Flask 重写才能支持 Web/API。
+Click 和 Typer 只提供 CLI，需额外用 FastAPI/Flask 重写才能支持 Web/API/TUI。
 
 ---
 

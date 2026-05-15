@@ -4,7 +4,7 @@ GitHub CLI — nb_cmd 实现。
 
 演示 nb_cmd 在多层级子命令 + 全局参数场景下的碾压优势：
   - 零装饰器：所有命令通过纯 Class + 方法定义
-  - __init__ 直接赋值 self.nbctx：无需 make_nbctx()，CLI/Web/API 所有模式均正确传参
+  - __init__ 直接赋值 self.nbctx：无需 make_nbctx()，CLI/Web/TUI/API 所有模式均正确传参
   - self.nbctx 强类型 + IDE 补全：子命令组通过类型注解获取代码补全和跳转
   - 子命令独立可测：每个 NbCmd 子类可脱离父级单独实例化和测试
   - CmdGen 自动文档：一行代码生成完整 Markdown 文档
@@ -156,7 +156,7 @@ class GhCli(NbCmd):
         self.auth_token = auth_token
         self.debug = debug
         self.no_prompt = no_prompt
-        # 直接赋值 nbctx，CLI/Web/API 所有模式均能拿到正确的参数值
+        # 直接赋值 nbctx，CLI/Web/TUI/API 所有模式均能拿到正确的参数值
         self.nbctx = GhCtx(
             repo=self.repo,
             hostname=self.hostname,

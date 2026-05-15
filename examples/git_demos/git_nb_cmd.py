@@ -15,6 +15,10 @@ Git 命令行工具 — nb_cmd 实现。
     python git_nb_cmd.py --verbose branch create feature/login --from-branch develop
     python git_nb_cmd.py -C ~/my-config config user name "John Doe"
     python git_nb_cmd.py --verbose config user email
+
+D:/ProgramData/Miniconda3/envs/py39b/python.exe D:\codes/nb_cmd/examples/git_demos/git_nb_cmd.py --tui
+
+
 """
 import sys
 import os
@@ -97,7 +101,7 @@ class UserConfigCmd(NbCmd):
     nbctx: GitCtx
 
     def name(self, value: Annotated[str, '用户名 (不传则查询)'] = None):
-        """获取/设置用户名 — 深层子命令，通过 self.nbctx 访问全局参数"""
+        """获取/设置用户名 — 深层子命令，（通过 self.nbctx 访问全局参数）"""
         work_path = self.nbctx.path
         if value:
             print(f'git -C {work_path} config user.name "{value}"')
@@ -109,7 +113,7 @@ class UserConfigCmd(NbCmd):
             print(f'  (详细模式: 工作目录={work_path})')
 
     def email(self, value: Annotated[str, '用户邮箱 (不传则查询)'] = None):
-        """获取/设置用户邮箱 — 深层子命令，通过 self.nbctx 访问全局参数，传入 value 则设置，不传入则查询"""
+        """获取/设置用户邮箱 — 深层子命令，（通过 self.nbctx 访问全局参数，传入 value 则设置，不传入则查询）"""
         work_path = self.nbctx.path
         if value:
             print(f'git -C {work_path} config user.email "{value}"')
