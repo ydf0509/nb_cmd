@@ -42,3 +42,4 @@ class NbCmdMeta(object):
     hide_method_list: Optional[List[str]] = None   # 命令黑名单（与白名单互斥；仅限制 CLI/API/Web 暴露）
     auth_token: Optional[str] = None               # 简易鉴权 token（配置后 API/Web 请求须带 Authorization: Bearer <token>）
     timeout: int = 0                               # 命令执行超时秒数（0=不限；仅作用于 CLI/API/Web 模式）
+    db_dir: Optional[str] = None                     # SQLite 数据库目录（默认 None=当前工作目录；可设为 ~/.nb_cmd 等固定路径）

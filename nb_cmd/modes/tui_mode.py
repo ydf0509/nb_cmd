@@ -80,6 +80,7 @@ def start_tui(instance, base_cls):
         from textual.widgets import (
             Header, Footer, Tree, RichLog, Input, Button,
             Switch, Select, Static, Markdown, Label, Collapsible,
+            TextArea,
         )
         from textual.containers import Horizontal, Vertical, VerticalScroll
         from textual import work
@@ -154,7 +155,16 @@ def start_tui(instance, base_cls):
     import os as _os
     import sqlite3 as _sqlite3
 
-    _db_path = _os.path.join(_os.getcwd(), 'nb_cmd_web.db')
+    _meta_db_dir = getattr(
+        getattr(instance.__class__, 'Meta', type('Meta', (), {})),
+        'db_dir', None)
+    if _meta_db_dir:
+        _db_dir = _os.path.expanduser(_meta_db_dir)
+        if not _os.path.isdir(_db_dir):
+            _os.makedirs(_db_dir, exist_ok=True)
+    else:
+        _db_dir = _os.getcwd()
+    _db_path = _os.path.join(_db_dir, 'nb_cmd_web.db')
 
     def _get_db():
         conn = _sqlite3.connect(_db_path)
@@ -162,12 +172,17 @@ def start_tui(instance, base_cls):
             'CREATE TABLE IF NOT EXISTS saved_commands '
             '(id INTEGER PRIMARY KEY AUTOINCREMENT, '
             'command TEXT UNIQUE NOT NULL, '
+            'alias TEXT DEFAULT NULL, '
             'created_at TEXT DEFAULT CURRENT_TIMESTAMP)')
         conn.execute(
             'CREATE TABLE IF NOT EXISTS command_history '
             '(id INTEGER PRIMARY KEY AUTOINCREMENT, '
             'command TEXT NOT NULL, '
             'executed_at TEXT DEFAULT CURRENT_TIMESTAMP)')
+        try:
+            conn.execute('ALTER TABLE saved_commands ADD COLUMN alias TEXT DEFAULT NULL')
+        except Exception:
+            pass
         return conn
 
     _get_db().close()
@@ -237,11 +252,63 @@ def start_tui(instance, base_cls):
         def on_button_pressed(self, event):
             cmd = getattr(event.button, '_hist_cmd', None)
             if cmd:
+                self.app.pop_screen()
                 try:
-                    self.app.copy_to_clipboard(cmd)
-                    self.notify("已复制: {}".format(cmd[:40]), timeout=2)
+                    main = self.app.get_screen("main")
+                    gen_input = main.query_one("#cmd-gen", TextArea)
+                    gen_input.text = cmd
+                    main.notify("已填充: {}".format(cmd[:40]), timeout=2)
                 except Exception:
                     pass
+
+        def action_dismiss_screen(self):
+            self.app.pop_screen()
+
+    # ================================================================
+    #  AliasInputScreen — 别名输入弹窗
+    # ================================================================
+    class AliasInputScreen(Screen):
+        BINDINGS = [("escape", "dismiss_screen", "取消")]
+
+        def __init__(self, command, existing_alias='', on_done=None):
+            super().__init__()
+            self._command = command
+            self._existing_alias = existing_alias or ''
+            self._on_done = on_done
+
+        def compose(self):
+            yield Header()
+            with Vertical(id="alias-box"):
+                yield Static("为收藏命令设置别名（可留空跳过）", id="alias-hint")
+                yield Static("命令: {}".format(
+                    self._command[:60] + ('...' if len(self._command) > 60 else '')
+                ), id="alias-cmd-preview")
+                yield Input(
+                    value=self._existing_alias,
+                    placeholder="输入别名，如: 查看日志、部署生产...",
+                    id="alias-input",
+                )
+                with Horizontal(id="alias-btn-bar"):
+                    yield Button("确定", variant="success", id="alias-ok")
+                    yield Button("跳过", variant="default", id="alias-skip")
+            yield Footer()
+
+        def on_button_pressed(self, event):
+            if event.button.id == 'alias-ok':
+                alias = self.query_one("#alias-input", Input).value.strip()
+                self._finish(alias)
+            elif event.button.id == 'alias-skip':
+                self._finish('')
+
+        def on_input_submitted(self, event):
+            if event.input.id == 'alias-input':
+                alias = event.input.value.strip()
+                self._finish(alias)
+
+        def _finish(self, alias):
+            if self._on_done:
+                self._on_done(self._command, alias)
+            self.app.pop_screen()
 
         def action_dismiss_screen(self):
             self.app.pop_screen()
@@ -266,7 +333,7 @@ def start_tui(instance, base_cls):
             await container.remove_children()
             conn = _get_db()
             rows = conn.execute(
-                'SELECT command, created_at FROM saved_commands '
+                'SELECT command, alias, created_at FROM saved_commands '
                 'ORDER BY id DESC'
             ).fetchall()
             conn.close()
@@ -274,14 +341,39 @@ def start_tui(instance, base_cls):
                 await container.mount(
                     Static("暂无收藏命令", classes="fav-empty"))
                 return
-            for cmd, ts in rows:
+            for cmd, alias, ts in rows:
                 row = Horizontal(classes="fav-row")
                 await container.mount(row)
-                btn = Button(cmd, classes="fav-item")
+                if alias:
+                    label = Text()
+                    label.append('[{}]'.format(alias), style='bold #e65100')
+                    label.append(' {}'.format(cmd))
+                else:
+                    label = cmd
+                btn = Button(label, classes="fav-item")
                 btn._fav_cmd = cmd
+                run_btn = Button("\u25b6", variant="success", classes="fav-run")
+                run_btn._fav_cmd = cmd
+                copy_btn = Button("\u2398", variant="primary", classes="fav-copy")
+                copy_btn._fav_cmd = cmd
+                edit_btn = Button("\u270e", variant="warning", classes="fav-edit")
+                edit_btn._fav_cmd = cmd
+                edit_btn._fav_alias = alias or ''
                 del_btn = Button("\u2716", variant="error", classes="fav-del")
                 del_btn._fav_cmd = cmd
-                await row.mount(btn, del_btn)
+                await row.mount(btn, run_btn, copy_btn, edit_btn, del_btn)
+
+        def _on_alias_edited(self, command, alias):
+            conn = _get_db()
+            try:
+                conn.execute(
+                    'UPDATE saved_commands SET alias = ? WHERE command = ?',
+                    (alias if alias else None, command))
+                conn.commit()
+            finally:
+                conn.close()
+            self.notify("别名已更新" if alias else "别名已清除", timeout=2)
+            self.call_later(self._load_items)
 
         def on_button_pressed(self, event):
             cmd = getattr(event.button, '_fav_cmd', None)
@@ -297,10 +389,32 @@ def start_tui(instance, base_cls):
                     conn.close()
                 self.notify("已取消收藏", timeout=2)
                 self.call_later(self._load_items)
-            else:
+            elif 'fav-edit' in event.button.classes:
+                existing = getattr(event.button, '_fav_alias', '')
+                self.app.push_screen(
+                    AliasInputScreen(cmd, existing, self._on_alias_edited))
+            elif 'fav-run' in event.button.classes:
+                self.app.pop_screen()
+                try:
+                    main = self.app.get_screen("main")
+                    gen_input = main.query_one("#cmd-gen", TextArea)
+                    gen_input.text = cmd
+                    main._execute_from_cli_text()
+                except Exception:
+                    pass
+            elif 'fav-copy' in event.button.classes:
                 try:
                     self.app.copy_to_clipboard(cmd)
                     self.notify("已复制: {}".format(cmd[:40]), timeout=2)
+                except Exception:
+                    self.notify("复制失败", timeout=2)
+            else:
+                self.app.pop_screen()
+                try:
+                    main = self.app.get_screen("main")
+                    gen_input = main.query_one("#cmd-gen", TextArea)
+                    gen_input.text = cmd
+                    main.notify("已填充: {}".format(cmd[:40]), timeout=2)
                 except Exception:
                     pass
 
@@ -357,31 +471,35 @@ def start_tui(instance, base_cls):
             yield Header()
             with Horizontal(id="main-split"):
                 with Vertical(id="left-panel"):
-                    yield Static(" \u25b6 命令列表", id="tree-title")
-                    tree = Tree(title, id="cmd-tree")
-                    tree.root.expand()
-                    self._build_tree(tree.root, commands, '')
-                    yield tree
+                    with VerticalScroll(id="left-scroll"):
+                        yield Static(" \u25b6 命令列表", id="tree-title")
+                        tree = Tree(title, id="cmd-tree")
+                        tree.root.expand()
+                        self._build_tree(tree.root, commands, '')
+                        yield tree
 
-                    if init_params_info:
-                        with Collapsible(title="全局参数", id="init-collapsible", collapsed=False):
-                            init_form = VerticalScroll(id="init-form")
-                            yield init_form
+                        if init_params_info:
+                            with Collapsible(title="全局参数", id="init-collapsible", collapsed=False):
+                                init_form = VerticalScroll(id="init-form")
+                                yield init_form
 
-                    with Collapsible(title="参数", id="param-collapsible", collapsed=False):
-                        yield VerticalScroll(
-                            Static("\u2190 请在上方选择一个命令", id="form-hint"),
-                            id="param-form",
-                        )
+                        with Collapsible(title="参数", id="param-collapsible", collapsed=False):
+                            yield VerticalScroll(
+                                Static("\u2190 请在上方选择一个命令", id="form-hint"),
+                                id="param-form",
+                            )
                     with Horizontal(id="cmd-gen-bar"):
                         yield Label("CLI:", classes="cmd-gen-label")
-                        yield Input(
-                            placeholder="输入命令或点击生成",
+                        yield TextArea(
                             id="cmd-gen",
+                            language=None,
+                            soft_wrap=True,
+                            show_line_numbers=False,
                         )
-                        yield Button("\u2605", id="btn-star")
-                        yield Button("生成", id="btn-gen")
-                        yield Button("运行", id="btn-run")
+                        with Vertical(id="cmd-gen-btns"):
+                            yield Button("\u2605", id="btn-star")
+                            yield Button("生成", id="btn-gen")
+                            yield Button("运行", id="btn-run")
                     with Horizontal(id="btn-bar"):
                         yield Button("执行", variant="success", id="btn-exec")
                         yield Button("停止", variant="error", id="btn-stop", disabled=True)
@@ -526,6 +644,13 @@ def start_tui(instance, base_cls):
                 self._param_cache[self._current_path] = self._collect_params()
             self._current_cmd = node_data['info']
             self._current_path = node_data['path']
+            if init_params_info:
+                try:
+                    init_coll = self.query_one("#init-collapsible")
+                    is_builtin = node_data['path'] in ('exec', 'shell')
+                    init_coll.display = not is_builtin
+                except Exception:
+                    pass
             await self._refresh_form(node_data['info'])
 
         async def _refresh_form(self, cmd_info):
@@ -569,6 +694,12 @@ def start_tui(instance, base_cls):
                                 sel_val = dv
                                 break
                     widget = Select(options=opts, value=sel_val, id=wid)
+                elif pname == 'cmd' and real_type is str:
+                    val = str(default) if default is not None else ''
+                    widget = TextArea(
+                        val, id=wid, language=None,
+                        soft_wrap=True, show_line_numbers=False,
+                    )
                 else:
                     val = str(default) if default is not None else ''
                     ph = type_display_name(real_type)
@@ -601,7 +732,13 @@ def start_tui(instance, base_cls):
                     if isinstance(w, Switch):
                         w.value = bool(val)
                     elif isinstance(w, Select):
-                        w.value = val
+                        sv = val.value if hasattr(val, 'value') else val
+                        try:
+                            w.value = sv
+                        except Exception:
+                            pass
+                    elif isinstance(w, TextArea):
+                        w.text = str(val) if val is not None else ''
                     elif isinstance(w, Input):
                         w.value = str(val) if val is not None else ''
 
@@ -628,6 +765,11 @@ def start_tui(instance, base_cls):
                 elif isinstance(w, Select):
                     if w.value != Select.BLANK:
                         kwargs[pname] = convert_value(w.value, ptype)
+                elif isinstance(w, TextArea):
+                    if w.text.strip():
+                        kwargs[pname] = convert_value(w.text.strip(), ptype)
+                    elif param.default is not inspect.Parameter.empty:
+                        kwargs[pname] = param.default
                 elif isinstance(w, Input):
                     if w.value.strip():
                         kwargs[pname] = convert_value(w.value.strip(), ptype)
@@ -665,14 +807,14 @@ def start_tui(instance, base_cls):
 
         def _update_cmd_gen(self):
             try:
-                gen_input = self.query_one("#cmd-gen", Input)
-                gen_input.value = self._build_cmd_str()
+                gen_input = self.query_one("#cmd-gen", TextArea)
+                gen_input.text = self._build_cmd_str()
             except Exception:
                 pass
 
         def _parse_cli_text(self):
             """解析 CLI 输入框文本 → (cmd_path, kwargs, cmd_info) 或 None"""
-            text = self.query_one("#cmd-gen", Input).value.strip()
+            text = self.query_one("#cmd-gen", TextArea).text.strip()
             if not text:
                 return None
             import shlex
@@ -720,7 +862,7 @@ def start_tui(instance, base_cls):
             cmd_path = '/'.join(path_parts)
 
             if cmd_path == 'exec':
-                rest = self.query_one("#cmd-gen", Input).value.strip()
+                rest = self.query_one("#cmd-gen", TextArea).text.strip()
                 prefix = 'exec'
                 if rest.startswith(prefix):
                     rest = rest[len(prefix):].strip()
@@ -870,15 +1012,12 @@ def start_tui(instance, base_cls):
                 self.action_quit_app()
 
         def on_input_submitted(self, event):
-            if event.input.id == 'cmd-gen':
-                self._execute_from_cli_text()
-                return
             self.action_execute()
 
         def action_execute(self):
             cli_text = ''
             try:
-                cli_text = self.query_one("#cmd-gen", Input).value.strip()
+                cli_text = self.query_one("#cmd-gen", TextArea).text.strip()
             except Exception:
                 pass
             if not self._current_cmd or not self._current_path:
@@ -948,14 +1087,27 @@ def start_tui(instance, base_cls):
                     conn.execute(
                         'DELETE FROM saved_commands WHERE command = ?', (cmd,))
                     self.notify("已取消收藏", timeout=2)
+                    conn.commit()
                 else:
-                    conn.execute(
-                        'INSERT OR IGNORE INTO saved_commands (command) VALUES (?)',
-                        (cmd,))
-                    self.notify("已收藏", timeout=2)
+                    conn.commit()
+                    self.app.push_screen(
+                        AliasInputScreen(cmd, '', self._on_star_done))
+            finally:
+                conn.close()
+
+        def _on_star_done(self, command, alias):
+            conn = _get_db()
+            try:
+                conn.execute(
+                    'INSERT OR IGNORE INTO saved_commands (command, alias) VALUES (?, ?)',
+                    (command, alias if alias else None))
                 conn.commit()
             finally:
                 conn.close()
+            if alias:
+                self.notify("已收藏: [{}]".format(alias), timeout=2)
+            else:
+                self.notify("已收藏", timeout=2)
 
         def action_quit_app(self):
             self.app.exit()
@@ -1049,12 +1201,24 @@ def start_tui(instance, base_cls):
                 self._buf_write(
                     log, Text.from_markup('[bold red]{}[/]'.format(err)), err,
                 )
-                target_inst.on_error(path, exc)
+                try:
+                    target_inst.on_error(path, exc)
+                except Exception as hook_err:
+                    herr = '[on_error 钩子异常] {}'.format(hook_err)
+                    self._buf_write(
+                        log, Text.from_markup('[bold red]{}[/]'.format(herr)), herr,
+                    )
             finally:
                 writer.flush()
                 sys.stdout = old_stdout
                 sys.stderr = old_stderr
-                target_inst.after_run()
+                try:
+                    target_inst.after_run()
+                except Exception as hook_err:
+                    herr = '[after_run 钩子异常] {}'.format(hook_err)
+                    self._buf_write(
+                        log, Text.from_markup('[bold red]{}[/]'.format(herr)), herr,
+                    )
                 self._worker_tid = None
                 self.app.call_from_thread(self._reset_btn_state)
 
@@ -1109,8 +1273,8 @@ def start_tui(instance, base_cls):
             height: auto;
             max-height: 50%;
             border-bottom: heavy #0f3460;
-            scrollbar-color: #0097e6;
-            scrollbar-background: #0a1929;
+            scrollbar-color: #00b0ff;
+            scrollbar-background: #001a33;
         }
         Tree > .tree--cursor {
             background: #0d47a1;
@@ -1131,21 +1295,22 @@ def start_tui(instance, base_cls):
         #init-form {
             height: auto;
             max-height: 8;
+            scrollbar-color: #e040fb;
+            scrollbar-background: #1a002e;
         }
         #param-form {
             height: auto;
             max-height: 100%;
-            scrollbar-color: #00897b;
-            scrollbar-background: #0a1929;
+            scrollbar-color: #00e676;
+            scrollbar-background: #001a0d;
         }
         .form-row {
             height: auto;
-            max-height: 4;
             padding: 0 1;
         }
         .param-label {
-            width: 24;
-            min-width: 16;
+            width: 18;
+            min-width: 14;
             height: 3;
             content-align: left middle;
             padding-right: 1;
@@ -1185,8 +1350,15 @@ def start_tui(instance, base_cls):
             padding: 1;
             color: #546e7a;
         }
+        #left-scroll {
+            height: 1fr;
+            scrollbar-color: #ff6d00;
+            scrollbar-background: #1a1000;
+        }
         #cmd-gen-bar {
-            height: 3;
+            height: auto;
+            min-height: 4;
+            max-height: 10;
             padding: 0 1;
             dock: bottom;
             margin-bottom: 3;
@@ -1200,11 +1372,32 @@ def start_tui(instance, base_cls):
         }
         #cmd-gen {
             width: 1fr;
+            min-height: 3;
+            max-height: 8;
             border: tall #0097e6;
             background: #0a1929;
         }
         #cmd-gen:focus {
             border: tall #00e5ff;
+        }
+        #cmd-gen-btns {
+            width: auto;
+            height: auto;
+            padding: 0;
+        }
+        #cmd-gen-btns Button {
+            height: 3;
+            min-width: 6;
+            margin: 0 0 0 0;
+        }
+        .form-row TextArea {
+            width: 1fr;
+            min-height: 6;
+            max-height: 12;
+            border: tall #37474f;
+        }
+        .form-row TextArea:focus {
+            border: tall #00bcd4;
         }
         #btn-star {
             width: 5;
@@ -1259,38 +1452,141 @@ def start_tui(instance, base_cls):
             scrollbar-color: #7c4dff;
             scrollbar-background: #0a1929;
         }
-        #hist-title, #fav-title {
+        #hist-title {
             background: #1a237e;
             color: #64b5f6;
             text-style: bold;
             height: 1;
             padding: 0 1;
         }
+        #fav-title {
+            background: #6a1b9a;
+            color: #ffffff;
+            text-style: bold;
+            height: 1;
+            padding: 0 1;
+        }
+        #fav-list {
+            background: #12001a;
+            scrollbar-color: #ab47bc;
+            scrollbar-background: #12001a;
+        }
         .hist-item {
             width: 100%;
             margin: 0 0 1 0;
         }
-        .hist-empty, .fav-empty {
+        .hist-empty {
             padding: 2;
             color: #546e7a;
+        }
+        .fav-empty {
+            padding: 2;
+            color: #ce93d8;
         }
         .fav-row {
             height: auto;
             max-height: 4;
+            background: #1e0533;
+            border-bottom: solid #2d1b4e;
         }
         .fav-item {
             width: 1fr;
+            background: transparent;
+            color: #ffffff;
+        }
+        .fav-item:hover {
+            background: #38006b;
+            color: #00e676;
+            text-style: bold;
+        }
+        .fav-item:focus {
+            background: #4a148c;
+            color: #00e676;
+            text-style: bold;
+        }
+        .fav-run {
+            width: 5;
+            min-width: 5;
+            background: #2e7d32;
+            color: #ffffff;
+        }
+        .fav-run:hover {
+            background: #43a047;
+            color: #ffffff;
+        }
+        .fav-copy {
+            width: 5;
+            min-width: 5;
+            background: #0277bd;
+            color: #ffffff;
+        }
+        .fav-copy:hover {
+            background: #039be5;
+            color: #ffffff;
+        }
+        .fav-edit {
+            width: 5;
+            min-width: 5;
+            background: #e65100;
+            color: #ffffff;
+        }
+        .fav-edit:hover {
+            background: #ff6d00;
+            color: #ffffff;
         }
         .fav-del {
             width: 5;
             min-width: 5;
+            background: #b71c1c;
+            color: #ffffff;
+        }
+        .fav-del:hover {
+            background: #d50000;
+            color: #ffffff;
+        }
+        #alias-box {
+            align: center middle;
+            width: 70%;
+            max-width: 80;
+            height: auto;
+            margin: 4 0;
+            padding: 2;
+            border: tall #0097e6;
+            background: #0a1929;
+        }
+        #alias-hint {
+            color: #64b5f6;
+            text-style: bold;
+            height: 1;
+            margin-bottom: 1;
+        }
+        #alias-cmd-preview {
+            color: #90a4ae;
+            height: 1;
+            margin-bottom: 1;
+        }
+        #alias-input {
+            width: 100%;
+            border: tall #37474f;
+            margin-bottom: 1;
+        }
+        #alias-input:focus {
+            border: tall #00bcd4;
+        }
+        #alias-btn-bar {
+            height: 3;
+            align: center middle;
+        }
+        #alias-btn-bar Button {
+            margin: 0 1;
+            min-width: 8;
         }
         """
 
         def on_mount(self):
             self.install_screen(DocScreen(), name="doc")
             self.install_screen(MainScreen(), name="main")
-            self.push_screen("doc")
+            self.push_screen("main")
 
     app = NbCmdTuiApp()
     app.run()

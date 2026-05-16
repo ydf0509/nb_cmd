@@ -140,18 +140,32 @@ def start_web_server(instance, base_cls, host=None, port=None):
     import queue as _queue
     import sqlite3 as _sqlite3
 
-    _db_path = os.path.join(os.getcwd(), 'nb_cmd_web.db')
+    _meta_db_dir = getattr(
+        getattr(instance.__class__, 'Meta', type('Meta', (), {})),
+        'db_dir', None)
+    if _meta_db_dir:
+        _db_dir = os.path.expanduser(_meta_db_dir)
+        if not os.path.isdir(_db_dir):
+            os.makedirs(_db_dir, exist_ok=True)
+    else:
+        _db_dir = os.getcwd()
+    _db_path = os.path.join(_db_dir, 'nb_cmd_web.db')
 
     def _get_db():
         conn = _sqlite3.connect(_db_path)
         conn.execute('CREATE TABLE IF NOT EXISTS saved_commands '
                      '(id INTEGER PRIMARY KEY AUTOINCREMENT, '
                      'command TEXT UNIQUE NOT NULL, '
+                     'alias TEXT DEFAULT NULL, '
                      'created_at TEXT DEFAULT CURRENT_TIMESTAMP)')
         conn.execute('CREATE TABLE IF NOT EXISTS command_history '
                      '(id INTEGER PRIMARY KEY AUTOINCREMENT, '
                      'command TEXT NOT NULL, '
                      'executed_at TEXT DEFAULT CURRENT_TIMESTAMP)')
+        try:
+            conn.execute('ALTER TABLE saved_commands ADD COLUMN alias TEXT DEFAULT NULL')
+        except Exception:
+            pass
         return conn
 
     _get_db().close()
@@ -160,19 +174,38 @@ def start_web_server(instance, base_cls, host=None, port=None):
     async def get_saved_commands():
         conn = _get_db()
         rows = conn.execute(
-            'SELECT id, command, created_at FROM saved_commands ORDER BY id DESC'
+            'SELECT id, command, alias, created_at FROM saved_commands ORDER BY id DESC'
         ).fetchall()
         conn.close()
-        return [{'id': r[0], 'command': r[1], 'created_at': r[2]} for r in rows]
+        return [{'id': r[0], 'command': r[1], 'alias': r[2], 'created_at': r[3]} for r in rows]
 
     @app.post('/api/save-command', summary='收藏命令（去重）')
     async def save_command(body: dict):
         cmd = body.get('command', '').strip()
         if not cmd:
             return {'status': 'error', 'message': '命令不能为空'}
+        alias = body.get('alias', '').strip() or None
         conn = _get_db()
         try:
-            conn.execute('INSERT OR IGNORE INTO saved_commands (command) VALUES (?)', (cmd,))
+            conn.execute(
+                'INSERT OR IGNORE INTO saved_commands (command, alias) VALUES (?, ?)',
+                (cmd, alias))
+            conn.commit()
+        finally:
+            conn.close()
+        return {'status': 'ok'}
+
+    @app.put('/api/save-command', summary='更新收藏命令别名')
+    async def update_saved_alias(body: dict):
+        cmd = body.get('command', '').strip()
+        if not cmd:
+            return {'status': 'error', 'message': '命令不能为空'}
+        alias = body.get('alias', '').strip() or None
+        conn = _get_db()
+        try:
+            conn.execute(
+                'UPDATE saved_commands SET alias = ? WHERE command = ?',
+                (alias, cmd))
             conn.commit()
         finally:
             conn.close()
@@ -679,7 +712,11 @@ body { font-family: -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif;
 .s2-item:hover { background: var(--hover-bg); }
 .s2-item .s2-iico { margin-right: 6px; flex-shrink: 0; font-size: 11px; }
 .s2-item .s2-itxt { flex: 1; overflow: hidden; text-overflow: ellipsis; }
-.s2-item .s2-idel { flex-shrink: 0; margin-left: 6px; color: #888; cursor: pointer;
+.s2-item .s2-alias { color: #e65100; font-weight: bold; font-size: 11px; margin-right: 4px; flex-shrink: 0; }
+.s2-item .s2-iedit { flex-shrink: 0; margin-left: 4px; color: #888; cursor: pointer;
+                     border: none; background: none; font-size: 12px; padding: 0 3px; }
+.s2-item .s2-iedit:hover { color: #ffd740; }
+.s2-item .s2-idel { flex-shrink: 0; margin-left: 4px; color: #888; cursor: pointer;
                      border: none; background: none; font-size: 13px; padding: 0 4px; }
 .s2-item .s2-idel:hover { color: var(--error); }
 .s2-empty { padding: 10px; font-size: 11px; color: #636e72; text-align: center; }
@@ -1199,9 +1236,11 @@ async function loadHistory() {
 async function saveCurrentCmd() {
   var cmd = document.getElementById('cmdInput').value.trim();
   if (!cmd) return;
+  var alias = prompt('为收藏命令设置别名（可留空跳过）：', '');
+  if (alias === null) return;
   await fetch('/api/save-command', {
     method: 'POST', headers: {'Content-Type':'application/json'},
-    body: JSON.stringify({command: cmd})
+    body: JSON.stringify({command: cmd, alias: alias.trim() || ''})
   });
   await loadSavedCmds();
   renderSaved();
@@ -1212,6 +1251,18 @@ async function deleteSavedCmd(cmd, ev) {
   await fetch('/api/save-command', {
     method: 'DELETE', headers: {'Content-Type':'application/json'},
     body: JSON.stringify({command: cmd})
+  });
+  await loadSavedCmds();
+  renderSaved();
+}
+
+async function editSavedAlias(cmd, oldAlias, ev) {
+  if (ev) ev.stopPropagation();
+  var alias = prompt('修改别名（留空清除）：', oldAlias || '');
+  if (alias === null) return;
+  await fetch('/api/save-command', {
+    method: 'PUT', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({command: cmd, alias: alias.trim() || ''})
   });
   await loadSavedCmds();
   renderSaved();
@@ -1239,15 +1290,23 @@ function fuzzyMatch(query, text) {
 function renderSaved() {
   var body = document.getElementById('savedBody');
   var q = document.getElementById('savedSearch').value.trim();
-  var filtered = savedCmds.filter(function(s) { return fuzzyMatch(q, s.command); });
+  var filtered = savedCmds.filter(function(s) {
+    return fuzzyMatch(q, s.command) || (s.alias && fuzzyMatch(q, s.alias));
+  });
   document.getElementById('savedCount').textContent = savedCmds.length;
   var html = '';
   if (filtered.length > 0) {
     filtered.forEach(function(s) {
-      html += '<div class="s2-item" onclick="fillCmd(\\''+s.command.replace(/'/g,"\\\\'")+'\\')">';
+      var ce = s.command.replace(/'/g,"\\\\'");
+      var ae = (s.alias||'').replace(/'/g,"\\\\'");
+      html += '<div class="s2-item" onclick="fillCmd(\\''+ce+'\\')">';
       html += '<span class="s2-iico" style="color:#ffd740;">&#9733;</span>';
+      if (s.alias) {
+        html += '<span class="s2-alias">['+esc(s.alias)+']</span> ';
+      }
       html += '<span class="s2-itxt">' + esc(s.command) + '</span>';
-      html += '<button class="s2-idel" onclick="deleteSavedCmd(\\''+s.command.replace(/'/g,"\\\\'")+'\\'  ,event)" title="取消收藏">&times;</button>';
+      html += '<button class="s2-iedit" onclick="editSavedAlias(\\''+ce+'\\',\\''+ae+'\\',event)" title="编辑别名">&#9998;</button>';
+      html += '<button class="s2-idel" onclick="deleteSavedCmd(\\''+ce+'\\',event)" title="取消收藏">&times;</button>';
       html += '</div>';
     });
   } else {

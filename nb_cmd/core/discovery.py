@@ -141,6 +141,14 @@ def discover_commands(instance, base_cls, include_builtins=True, enable_exec=Tru
                 'is_group': True,
                 'init_kwargs': {},
             }
+        elif isinstance(group_val, dict) and 'cls' in group_val:
+            group_cls = group_val['cls']
+            commands[group_name] = {
+                'cls': group_cls,
+                'doc': group_val.get('doc', (inspect.getdoc(group_cls) or "").split('\n')[0]),
+                'is_group': True,
+                'init_kwargs': {k: v for k, v in group_val.items() if k not in ('cls', 'doc')},
+            }
         elif isinstance(group_val, base_cls):
             group_cls = group_val.__class__
             commands[group_name] = {

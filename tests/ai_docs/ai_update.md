@@ -6,6 +6,50 @@ tags: []
 
 # nb_cmd 重大设计修改记录
 
+## 2026-05-16: nbcmd 个人命令中心（零代码命令管理器）
+
+**需求**: 用户不需要写任何 Python 代码，直接在终端输入 `nbcmd --tui` 或 `nbcmd --web`，就能启动一个"个人命令中心"——通过 exec 收藏和管理所有常用系统命令。
+
+**实现**:
+1. **`nb_cmd/cli.py`**（新增）: 内置一个空壳 `_NbCmdApp(NbCmd)` 类，只有内置的 `exec` 命令，`Meta.db_dir = ~/.nb_cmd` 使收藏数据全局共享
+2. **`pyproject.toml`**: 新增 `[project.scripts]` 注册 `nbcmd = nb_cmd.cli:main` 命令行入口
+3. **`NbCmdMeta`**: 新增 `db_dir` 配置项，支持自定义 SQLite 目录路径（默认 None=当前工作目录）
+4. **`tui_mode.py` / `web_mode.py`**: `_db_path` 逻辑改为读取 `Meta.db_dir`，支持 `~` 展开和自动创建目录
+
+**用法**: `pip install nb-cmd[tui]` 后，直接运行 `nbcmd --tui` 或 `nbcmd --web`
+
+**影响文件**: `nb_cmd/cli.py`(新增), `nb_cmd/core/meta.py`, `nb_cmd/modes/tui_mode.py`, `nb_cmd/modes/web_mode.py`, `pyproject.toml`
+
+---
+
+## 2026-05-16: 收藏夹别名功能（TUI + Web 同步支持）
+
+**需求**: 收藏的命令只显示完整命令字符串，命令一长就难以辨认。希望能给收藏命令设置短别名，方便快速识别和搜索。
+
+**实现**:
+1. **数据库**: `saved_commands` 表新增 `alias TEXT DEFAULT NULL` 列，对旧数据库自动执行 `ALTER TABLE` 迁移
+2. **TUI 收藏时**: 点击星号后弹出 `AliasInputScreen`（Input + 确定/跳过按钮），用户可输入别名或留空跳过
+3. **TUI 收藏夹**: 有别名时显示 `[别名] 命令`；每行新增编辑按钮（✎），点击弹出 `AliasInputScreen` 编辑别名
+4. **Web API**: `POST /api/save-command` 接受可选 `alias` 字段；新增 `PUT /api/save-command` 用于更新别名
+5. **Web 前端**: 收藏时弹出 `prompt()` 输入别名；收藏夹列表显示 `[别名]` 标签（金色高亮）；每项新增编辑按钮（✎）；搜索同时匹配命令和别名
+6. **TUI/Web 数据互通**: 两种模式共用同一个 `nb_cmd_web.db`，别名数据双向同步
+
+**影响文件**: `nb_cmd/modes/tui_mode.py`, `nb_cmd/modes/web_mode.py`
+
+---
+
+## 2026-05-16: TUI _do_execute 异常保护（防止错误导致界面退出）
+
+**问题**: TUI 模式执行命令出错时（如缺少必填参数），`_do_execute` 的 `except` 块虽然把错误信息写入了右侧控制台，但随后调用 `target_inst.on_error(path, exc)` 时如果抛异常（如之前 `self._logger` 未初始化），异常逃逸到 Textual 的 worker 系统，导致整个 TUI 界面直接退出。
+
+**修复**:
+1. **`base.py` `on_error()`**（用户手动修复）: `self._logger` → `self.logger`（使用 property 懒初始化）
+2. **`tui_mode.py` `_do_execute()`**: 对 `target_inst.on_error(path, exc)` 和 `target_inst.after_run()` 分别包裹 `try/except`，捕获任何钩子异常并以红色文字显示在右侧控制台（`[on_error 钩子异常]` / `[after_run 钩子异常]`），而非让异常逃逸导致 TUI 崩溃退出
+
+**影响文件**: `nb_cmd/core/base.py`, `nb_cmd/modes/tui_mode.py`
+
+---
+
 ## 2026-05-15: TUI 生成命令 + 历史命令 + 收藏命令 + SQLite
 
 **需求**: TUI 模式缺少 Web 模式的生成命令、历史记录、收藏命令功能。

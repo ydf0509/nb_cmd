@@ -28,6 +28,7 @@
 - [为什么用 nb_cmd？](#为什么用-nb_cmd)
 - [核心价值与典型场景](#核心价值与典型场景)
 - [安装](#安装)
+- [nbcmd —— 零代码个人命令中心](#nbcmd--零代码个人命令中心)
 - [5 分钟快速上手](#5-分钟快速上手)
 - [核心特性](#核心特性)
 - [完整 API 速查](#完整-api-速查)
@@ -199,6 +200,76 @@ pip install nb-cmd[web]
 # 全部功能
 pip install nb-cmd[all]
 ```
+
+---
+
+## nb_cmd 的两种使用方式
+
+nb_cmd 提供两种使用方式，满足不同场景：
+
+### 方式一：`nbcmd` 内置命令 —— 零代码个人命令中心
+
+**不需要创建项目，不需要写任何一行 Python 代码。**
+
+`nbcmd` 是 nb_cmd 自带的一个开箱即用的命令行工具。安装后，在任何终端直接输入 `nbcmd --tui`，即可启动一个个人命令管理器——通过内置的 `exec` 执行任意系统命令，收藏常用命令并设置短别名，以后再也不用记复杂的命令行。
+
+```bash
+# 一次安装
+pip install nb-cmd[tui]
+
+# 随时随地，在任何终端直接启动（无需进入任何项目目录）
+nbcmd --tui
+
+# 或者用浏览器模式
+nbcmd --web
+```
+
+**工作流：**
+
+```
+1. 在任何终端输入 nbcmd --tui，打开命令中心
+2. 选择 exec → 输入命令（如 docker-compose -f /opt/project/docker-compose.yml up -d）
+3. 点击收藏 ★ → 输入别名（如"启动生产环境"）
+4. 以后直接在收藏夹里找到并一键运行，永远不用再记命令
+```
+
+**典型场景**：一台 Linux 服务器上跑着 5 个项目，每个项目有不同的启动、部署、日志查看命令。以前要记 20 多条命令，现在全部收藏到 `nbcmd`，加上别名，一目了然。
+
+| 功能 | 说明 |
+|------|------|
+| **exec 执行** | 通过内置 `exec` 命令执行任意系统命令 |
+| **收藏 + 别名** | 给常用命令加短别名（如 `[启动前端]`、`[部署生产]`、`[查看日志]`） |
+| **收藏夹运行** | 点击收藏命令直接运行，或填充到输入框修改参数后执行 |
+| **历史记录** | 自动记录最近 1000 条执行历史，可搜索、可回填 |
+| **TUI / Web 双模式** | 终端交互界面 + 浏览器界面，收藏数据自动同步 |
+| **全局数据** | 收藏和历史保存在 `~/.nb_cmd/nb_cmd_web.db`，任何目录下启动都能访问 |
+
+> **团队共享**：把常用命令收藏好，新人入职打开 `nbcmd --tui`，一眼看到所有常用操作，比任何 Wiki 文档都直观。
+
+### 方式二：继承 `NbCmd` 类 —— 写一个 class 获得六种能力
+
+**适合开发者**：继承 `NbCmd` 基类，定义业务方法，自动获得 Python 直接调用 + CLI + REST API + Web UI + TUI + Markdown 文档 六种能力。这是 nb_cmd 的核心价值，详见下文"5 分钟快速上手"。
+
+```python
+from nb_cmd import NbCmd
+
+class MyTool(NbCmd):
+    """我的运维工具"""
+    def deploy(self, host: str, port: int = 22):
+        """部署到远程服务器"""
+        print('部署到 {}:{}'.format(host, port))
+
+if __name__ == '__main__':
+    MyTool().run()
+```
+
+```bash
+python my_tool.py deploy web-01           # CLI 模式
+python my_tool.py --web                   # Web UI + REST API 模式
+python my_tool.py --tui                   # TUI 终端交互模式
+```
+
+> **两种方式的区别**：`nbcmd` 是内置的零配置工具，只有 `exec` 命令，适合"不想写代码，只想管理命令"的场景；继承 `NbCmd` 是开发者模式，适合"把业务逻辑封装成专业工具"的场景。
 
 ---
 
@@ -981,6 +1052,7 @@ class MyTool(NbCmd):
 | `hide_method_list` | list | `None` | 命令黑名单（与白名单互斥，白名单优先；仅限制 CLI/API/Web/TUI） |
 | `auth_token` | str | `None` | 简易 Bearer token 鉴权（配置后 API/Web 请求须带 `Authorization: Bearer <token>`） |
 | `timeout` | int | `0` | 命令执行超时秒数（0=不限；作用于 CLI/API/Web/TUI 模式） |
+| `db_dir` | str | `None` | SQLite 数据库目录（默认当前工作目录；设为 `~/.nb_cmd` 可全局共享收藏和历史） |
 
 ### 10. 生命周期钩子
 

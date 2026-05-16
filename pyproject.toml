@@ -38,6 +38,9 @@ tui = ["textual>=1.0.0"]
 all = ["fastapi>=0.68.0", "uvicorn>=0.15.0", "pydantic>=1.8.0", "websockets>=10.0", "textual>=1.0.0"]
 nb = ["nb_log"]
 
+[project.scripts]
+nbcmd = "nb_cmd.cli:main"
+
 [project.urls]
 Homepage = "https://github.com/ydf0509/nb_cmd"
 
