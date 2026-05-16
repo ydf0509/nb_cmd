@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "nb-cmd"
-version = "0.2.1"
+version = "0.2.2"
 description = "万能接口生成器——你写一个 Python class，自动获得 CLI + REST API + Web UI + TUI 终端交互 + Python 直接调用 五种操作方式，堪称python界低代码平台"
 readme = "README.md"
 license = {text = "MIT"}
