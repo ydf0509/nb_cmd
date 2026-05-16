@@ -37,10 +37,6 @@ class NbCmd(object):
 
     nbctx = None  # 跨层级共享的上下文对象，子类通过 nbctx: AppCtx 注解获取 IDE 补全
 
-    def __init__(self):
-        self._logger = None
-        self._setup_logging()
-
     def make_nbctx(self):
         """
         模板方法：创建跨层级共享的上下文对象。
@@ -103,8 +99,10 @@ class NbCmd(object):
         return getattr(self.__class__, 'Meta', NbCmd.Meta)
 
     @property
-    def logger(self):
-        """日志器"""
+    def logger(self) -> logging.Logger:
+        """日志器（懒初始化：子类未调 super().__init__() 时也能正常工作）"""
+        if not hasattr(self, '_logger') or self._logger is None:
+            self._setup_logging()
         return self._logger
 
     # ==================== 生命周期钩子 ====================
@@ -119,8 +117,7 @@ class NbCmd(object):
 
     def on_error(self, command, error):
         """子命令执行出错时的钩子，子类可覆写"""
-        if self._logger:
-            self._logger.error('命令 {} 执行失败: {}'.format(command, error))
+        self.logger.error('命令 {} 执行失败: {}'.format(command, error))
 
     # ==================== 系统命令工具 ====================
 

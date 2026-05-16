@@ -307,11 +307,10 @@ def start_web_server(instance, base_cls, host=None, port=None):
             def _run():
                 _tls.output_queue = output_q
                 saved_streams = []
-                if hasattr(target_inst, '_logger') and target_inst._logger:
-                    for h in target_inst._logger.handlers:
-                        if hasattr(h, 'stream'):
-                            saved_streams.append((h, h.stream))
-                            h.stream = sys.stderr
+                for h in target_inst.logger.handlers:
+                    if hasattr(h, 'stream'):
+                        saved_streams.append((h, h.stream))
+                        h.stream = sys.stderr
                 try:
                     target_inst.before_run()
                     r = method(**kwargs)

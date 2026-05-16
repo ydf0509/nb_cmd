@@ -91,7 +91,8 @@ nb_cmd 换了一种思路：**Class 是中心，能力是投影。**
 | 类型驱动 | 手动 | 手动 | ✓ | ✗ | **✓** |
 | OOP 继承/覆写 | ✗ | ✗ | ✗ | 有限 | **✓** |
 | 自动生成 REST API | ✗ | ✗ | ✗ | ✗ | **✓** |
-| 自动生成 Web UI | ✗ | ✗ | ✗ | ✗ | **✓** |
+| 自动生成 Web UI | ✗ | ✗ | ✗ |  | **✓** |
+| 自动生成 TUI | ✗ | ✗ | ✗ | ✗ | **✓（Textual 终端图形界面）** |
 | 多层级子命令 | 手动 | ✓ | ✓ | 有限 | **✓** |
 | Swagger 文档 | ✗ | ✗ | ✗ | ✗ | **✓** |
 | 进度条/表格/彩色 | ✗ | ✓ | ✓(rich) | ✗ | **✓** |
@@ -206,6 +207,12 @@ pip install nb-cmd[all]
 > `nb_cmd` 只要你写了一个继承 `NbCmd` 的类，就自动生成 FastAPI 接口和接口文档，自动生成前端输入框和按钮。让你只写普通的类，无需接触 Web 后端接口开发，更无需接触前端界面开发，更无需接触 WebSocket 实时输出——你的方法中的任何普通的日志和 `print` 都会自动实时推送到 Web 前端页面上。
 
 ![nb_cmd 网页截图](https://github.com/ydf0509/nb_cmd/blob/main/docs/images/nb_cmd_web.png)
+
+## nb_cmd TUI 截图
+
+> `nb_cmd` 只要你写了一个继承 `NbCmd` 的类，就自动生成 Textual 终端图形界面，支持命令树、参数表单、实时控制台输出、命令历史、收藏等功能。
+
+![nb_cmd TUI 截图](https://github.com/ydf0509/nb_cmd/blob/main/pictures/tui1.png)
 
 ## 5 分钟快速上手
 
