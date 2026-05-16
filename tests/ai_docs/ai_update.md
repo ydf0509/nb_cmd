@@ -6,6 +6,51 @@ tags: []
 
 # nb_cmd 重大设计修改记录
 
+## 2026-05-16: CLI 必填参数"双模式"（位置 + --flag 并存）+ exec 短别名 -c
+
+**需求**: 原来必填参数要么只能按位置传（`fa 5`），要么只能用 `--flag`（`fa --x 5`），不能混用。用户希望两种写法都支持，特别是 `exec` 命令能用 `exec CMD` / `exec --cmd CMD` / `exec -c CMD` 三种写法。
+
+**实现**:
+1. **`parser.py` `_add_method_arguments`**: 必填参数（无默认值、非 bool、非 list）同时注册为：
+   - 位置参数（`nargs='?'`, `type=str`, `help=SUPPRESS`）—— 始终以字符串接收，隐藏帮助
+   - `--flag` 参数（`default=None`，不设 `required=True`）—— 可选使用
+   - 位置与 flag 的映射通过 `set_defaults(_nb_pos_map=...)` 存入 namespace
+2. **`parser.py` `reassign_positionals()`**: 新增后处理函数，在 `parse_args` 之后智能合并位置值与 flag 值：
+   - `--flag` 优先于位置值
+   - 被 flag "顶掉"的位置值向后重分配给其他未填参数
+   - 完成类型转换（位置参数以 str 接收，此处转为目标类型）
+   - 清理临时 `_nb_pos_X` 属性，报告缺失的必填参数
+3. **`cli_mode.py`**: 在 `parse_args` 后调用 `reassign_positionals(parsed)`
+4. **`base.py`**: `exec(self, cmd: str)` → `exec(self, cmd: Annotated[str, '要执行的系统命令', 'c'])`，加 `-c` 短别名
+
+**效果**: 对于 `def fa(x: int, name: str, y: int = 2)`，以下写法全部等价：
+```
+fa 5 hello                    # 全位置
+fa --x 5 --name hello         # 全 flag
+fa --x 5 hello                # flag + 位置（hello 自动重分配给 name）
+fa 5 --name hello             # 位置 + flag
+fa --name hello 5             # flag 在前，位置在后
+fa 5 hello --y 3              # 混合 + 可选参数
+```
+
+**exec 三种写法**:
+```
+exec "echo hello"             # 位置传参
+exec --cmd "echo hello"       # 长 flag
+exec -c "echo hello"          # 短 flag
+```
+
+**技术要点**:
+- 位置参数统一 `type=str`，避免 argparse 在分配阶段做类型转换导致跨类型报错
+- `_safe_convert()` 在后处理阶段做安全的类型转换
+- `from __future__ import annotations` 用于 base.py，使 Annotated 注解在 Python 3.7+ 兼容
+- Web/API/TUI 模式不受影响（不走 argparse 路径）
+
+**影响文件**: `nb_cmd/core/parser.py`, `nb_cmd/modes/cli_mode.py`, `nb_cmd/core/base.py`
+**测试**: `tests/ai_codes/regression_testing/test_dual_mode_args.py`（19 个测试用例）
+
+---
+
 ## 2026-05-16: nbcmd 个人命令中心（零代码命令管理器）
 
 **需求**: 用户不需要写任何 Python 代码，直接在终端输入 `nbcmd --tui` 或 `nbcmd --web`，就能启动一个"个人命令中心"——通过 exec 收藏和管理所有常用系统命令。

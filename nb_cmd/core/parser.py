@@ -398,13 +398,20 @@ def _add_init_global_options(parser, instance):
 
 
 def _add_method_arguments(sub_parser, cmd_info, meta):
-    """根据方法签名向 subparser 添加参数"""
+    """根据方法签名向 subparser 添加参数。
+
+    必填参数采用"双模式"：同时注册位置参数（nargs='?'）和 --flag，
+    用户可以 ``fa 5`` 也可以 ``fa --x 5``，两种写法等价。
+    """
     sig = cmd_info['signature']
     hints = cmd_info.get('type_hints', {})
     arg_meta = cmd_info.get('arg_meta', {})
     method_name = cmd_info['method'].__name__
 
     aliases_map = getattr(meta, 'aliases', {})
+
+    pos_index = 0
+    positional_map = []
 
     for param_name, param in sig.parameters.items():
         if param_name == 'self':
@@ -461,30 +468,105 @@ def _add_method_arguments(sub_parser, cmd_info, meta):
         else:
             auto_help = '({}, 必填)'.format(type_name)
             help_text = '{} {}'.format(desc, auto_help) if desc else auto_help
-            if extra_flags:
+
+            use_dual = (nargs is None)
+
+            if use_dual:
+                pos_dest = '_nb_pos_{}'.format(pos_index)
+                pos_index += 1
+                positional_map.append((pos_dest, param_name, ap_type))
+
+                sub_parser.add_argument(
+                    pos_dest, nargs='?', default=None, type=str,
+                    help=argparse.SUPPRESS,
+                )
+
                 flags = [cli_flag] + extra_flags
-                kwargs = dict(
+                flag_kwargs = dict(
                     type=ap_type,
-                    required=True,
+                    default=None,
                     dest=param_name,
                     help=help_text,
                 )
-                if nargs is not None:
-                    kwargs['nargs'] = nargs
                 if choices is not None:
-                    kwargs['choices'] = choices
-                sub_parser.add_argument(*flags, **kwargs)
+                    flag_kwargs['choices'] = choices
+                sub_parser.add_argument(*flags, **flag_kwargs)
             else:
-                kwargs = dict(
-                    type=ap_type,
-                    help=help_text,
-                    metavar=param_name.upper(),
-                )
-                if nargs is not None:
-                    kwargs['nargs'] = nargs
-                if choices is not None:
-                    kwargs['choices'] = choices
-                sub_parser.add_argument(param_name, **kwargs)
+                if extra_flags:
+                    flags = [cli_flag] + extra_flags
+                    kwargs = dict(
+                        type=ap_type,
+                        required=True,
+                        dest=param_name,
+                        help=help_text,
+                    )
+                    if nargs is not None:
+                        kwargs['nargs'] = nargs
+                    if choices is not None:
+                        kwargs['choices'] = choices
+                    sub_parser.add_argument(*flags, **kwargs)
+                else:
+                    kwargs = dict(
+                        type=ap_type,
+                        help=help_text,
+                        metavar=param_name.upper(),
+                    )
+                    if nargs is not None:
+                        kwargs['nargs'] = nargs
+                    if choices is not None:
+                        kwargs['choices'] = choices
+                    sub_parser.add_argument(param_name, **kwargs)
+
+    if positional_map:
+        sub_parser.set_defaults(_nb_pos_map=positional_map)
+
+
+def reassign_positionals(parsed):
+    """后处理：将位置参数值与 --flag 值智能合并。
+
+    规则：--flag 优先；被 flag "顶掉" 的位置值向后挪给其他未填参数。
+    位置参数统一以 str 类型接收，此处完成目标类型的转换。
+    """
+    pos_map = getattr(parsed, '_nb_pos_map', None)
+    if not pos_map:
+        return
+
+    free_values = []
+    for pos_dest, param_name, ap_type in pos_map:
+        flag_val = getattr(parsed, param_name, None)
+        pos_val = getattr(parsed, pos_dest, None)
+        if flag_val is not None and pos_val is not None:
+            free_values.append((pos_val, ap_type))
+        elif flag_val is None and pos_val is not None:
+            setattr(parsed, param_name, _safe_convert(pos_val, ap_type))
+
+    for _, param_name, ap_type in pos_map:
+        if getattr(parsed, param_name, None) is None and free_values:
+            val, orig_type = free_values.pop(0)
+            setattr(parsed, param_name, _safe_convert(val, ap_type))
+
+    for pos_dest, _, _ in pos_map:
+        try:
+            delattr(parsed, pos_dest)
+        except AttributeError:
+            pass
+
+    missing = [pn for _, pn, _ in pos_map if getattr(parsed, pn, None) is None]
+    if missing:
+        import sys
+        flags = ', '.join('--' + m.replace('_', '-') for m in missing)
+        sys.stderr.write('error: 缺少必填参数: {}\n'.format(flags))
+        raise SystemExit(2)
+
+
+def _safe_convert(value, ap_type):
+    """将字符串值转换为目标类型，转换失败时原样返回"""
+    if ap_type is None or ap_type is str:
+        return value
+    try:
+        return ap_type(value)
+    except (ValueError, TypeError):
+        return value
 
 
 def _build_group_subparser(parent_parser, group_cls, base_cls, init_kwargs=None, depth=1,

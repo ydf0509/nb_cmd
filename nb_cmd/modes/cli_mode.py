@@ -6,7 +6,7 @@ import asyncio
 import inspect
 
 from ..core.discovery import discover_commands
-from ..core.parser import build_parser
+from ..core.parser import build_parser, reassign_positionals
 from ..core.type_utils import convert_value
 from ..core.result_handler import handle_cli_result
 
@@ -58,6 +58,7 @@ def run_cli(instance, base_cls, args=None):
                           hide_method_list=_hide_methods)
 
     parsed = parser.parse_args(args)
+    reassign_positionals(parsed)
 
     _apply_init_args(instance, parsed)
     _ensure_nbctx(instance)

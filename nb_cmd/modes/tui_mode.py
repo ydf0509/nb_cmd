@@ -782,27 +782,29 @@ def start_tui(instance, base_cls):
                 path = self._current_path or ''
             if kwargs is None:
                 kwargs = self._collect_params()
-            is_exec = (path == 'exec')
             cmd = path.replace('/', ' ').replace('_', '-')
-            if is_exec:
-                raw_cmd = kwargs.get('cmd', '')
-                if raw_cmd:
-                    cmd += ' {}'.format(raw_cmd)
-                return cmd
             for k, v in kwargs.items():
                 if isinstance(v, bool):
                     if v:
                         cmd += ' --{}'.format(k.replace('_', '-'))
                 else:
-                    cmd += ' --{} {}'.format(k.replace('_', '-'), v)
-            init_kw = self._collect_init_params()
-            if init_kw:
-                for k, v in init_kw.items():
-                    if isinstance(v, bool):
-                        if v:
-                            cmd += ' --{}'.format(k.replace('_', '-'))
-                    else:
-                        cmd += ' --{} {}'.format(k.replace('_', '-'), v)
+                    sv = str(v)
+                    if ' ' in sv or '\n' in sv or '"' in sv:
+                        sv = '"{}"'.format(sv.replace('"', '\\"'))
+                    cmd += ' --{} {}'.format(k.replace('_', '-'), sv)
+            is_builtin = path in ('exec', 'shell')
+            if not is_builtin:
+                init_kw = self._collect_init_params()
+                if init_kw:
+                    for k, v in init_kw.items():
+                        if isinstance(v, bool):
+                            if v:
+                                cmd += ' --{}'.format(k.replace('_', '-'))
+                        else:
+                            sv = str(v)
+                            if ' ' in sv or '\n' in sv or '"' in sv:
+                                sv = '"{}"'.format(sv.replace('"', '\\"'))
+                            cmd += ' --{} {}'.format(k.replace('_', '-'), sv)
             return cmd
 
         def _update_cmd_gen(self):
@@ -861,18 +863,9 @@ def start_tui(instance, base_cls):
                 return None
             cmd_path = '/'.join(path_parts)
 
-            if cmd_path == 'exec':
-                rest = self.query_one("#cmd-gen", TextArea).text.strip()
-                prefix = 'exec'
-                if rest.startswith(prefix):
-                    rest = rest[len(prefix):].strip()
-                sig = cmd_info.get('signature')
-                hints = cmd_info.get('type_hints', {})
-                kwargs = {'cmd': rest} if rest else {}
-                return cmd_path, kwargs, cmd_info
-
             arg_tokens = tokens[i:]
             raw_kwargs = {}
+            positional_tokens = []
             j = 0
             while j < len(arg_tokens):
                 tok = arg_tokens[j]
@@ -900,10 +893,33 @@ def start_tui(instance, base_cls):
                         raw_kwargs[key] = True
                         j += 1
                 else:
+                    positional_tokens.append(tok)
                     j += 1
 
             sig = cmd_info.get('signature')
             hints = cmd_info.get('type_hints', {})
+
+            if sig and positional_tokens:
+                pos_idx = 0
+                for pname, param in sig.parameters.items():
+                    if pname == 'self' or pname in raw_kwargs:
+                        continue
+                    if param.default is not inspect.Parameter.empty:
+                        continue
+                    if pos_idx < len(positional_tokens):
+                        raw_kwargs[pname] = positional_tokens[pos_idx]
+                        pos_idx += 1
+                if pos_idx < len(positional_tokens):
+                    last_required = None
+                    for pname, param in sig.parameters.items():
+                        if pname == 'self':
+                            continue
+                        if param.default is inspect.Parameter.empty:
+                            last_required = pname
+                    if last_required and last_required in raw_kwargs:
+                        remaining = positional_tokens[pos_idx:]
+                        raw_kwargs[last_required] = raw_kwargs[last_required] + ' ' + ' '.join(remaining)
+
             kwargs = {}
             if sig:
                 for k, v in raw_kwargs.items():

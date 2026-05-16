@@ -2,10 +2,20 @@
 """
 NbCmd 基类 —— 所有命令行工具的父类。
 """
+from __future__ import annotations
+
 import logging
 import sys
 
 from .meta import NbCmdMeta
+
+try:
+    from typing import Annotated
+except ImportError:
+    try:
+        from typing_extensions import Annotated
+    except ImportError:
+        pass
 
 
 class NbCmd(object):
@@ -167,7 +177,7 @@ class NbCmd(object):
                 '命令执行失败 (exit {}): {}'.format(proc.returncode, cmd)
             )
 
-    def exec(self, cmd: str):
+    def exec(self, cmd: Annotated[str, '要执行的系统命令', 'c']):
         """执行任意系统命令"""
         self.shell(cmd)
 

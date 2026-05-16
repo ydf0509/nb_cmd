@@ -1042,16 +1042,19 @@ function generateCmd(formId) {
       }
     });
   }
-  var initP = getInitParams();
-  if (initP) {
-    Object.entries(initP).forEach(function(e) {
-      if (typeof e[1] === 'boolean') {
-        if (e[1]) parts.push('--' + e[0].replace(/_/g, '-'));
-      } else {
-        parts.push('--' + e[0].replace(/_/g, '-'));
-        parts.push(String(e[1]));
-      }
-    });
+  var isBuiltin = (formId === 'exec' || formId === 'shell');
+  if (!isBuiltin) {
+    var initP = getInitParams();
+    if (initP) {
+      Object.entries(initP).forEach(function(e) {
+        if (typeof e[1] === 'boolean') {
+          if (e[1]) parts.push('--' + e[0].replace(/_/g, '-'));
+        } else {
+          parts.push('--' + e[0].replace(/_/g, '-'));
+          parts.push(String(e[1]));
+        }
+      });
+    }
   }
   document.getElementById('cmdInput').value = parts.join(' ');
   document.getElementById('cmdInput').focus();
