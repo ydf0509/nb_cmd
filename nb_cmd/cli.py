@@ -12,8 +12,8 @@ nbcmd —— 个人命令中心。
 """
 import os
 
-from .core.base import NbCmd
-from .core.meta import NbCmdMeta
+from nb_cmd.core.base import NbCmd
+from nb_cmd.core.meta import NbCmdMeta
 
 
 class _NbCmdApp(NbCmd):
