@@ -1,16 +1,17 @@
 # nb_cmd
 
-**Python 码农的低代码平台** —— 写一个 class，自动获得六种能力：Python 直接调用 + CLI + REST API + Web UI + TUI 终端交互 + Markdown 文档。不写路由、不写前端、不写 UI 代码、不写文档，全自动。
+**Python 码农的低代码平台** —— 写一个 class，自动获得七种能力：Python 直接调用 + CLI + REST API + Web UI + TUI 终端交互 + Markdown 文档 + skills 七种操作方式。不写路由、不写前端、不写 UI 代码、不写文档，全自动。
 
 **nb-cmd: 不是"更好的 CLI 框架"，而是"低代码平台"**
 
-用户只需要写一个 class，nb_cmd 自动生成 `python类自身正常直接调用` + `CLI` + `REST API` + `Web UI(含 WebSocket 实时控制台)` + `TUI 终端交互界面` + `自动生成Markdown使用文档` 六种能力。
+用户只需要写一个 class，nb_cmd 自动生成 `python类自身正常直接调用` + `CLI` + `REST API` + `Web UI(含 WebSocket 实时控制台)` + `TUI 终端交互界面` + `自动生成Markdown使用文档` + `为ai生成agentskills.io规范的skills` 七种能力。
 - 类自身完全照常使用（Python 直接调用）
 - 自动生成 CLI 命令行
 - 自动生成 REST API（含 Swagger 文档）
 - 自动生成 Markdown 使用文档（CmdGen）
 - 自动生成前端 Web UI（含 WebSocket 实时控制台）
 - 自动生成 TUI 终端交互界面（基于 Textual，命令树 + 参数表单 + 实时控制台）
+- 自动生成 为ai生成agentskills.io规范）规范的skills
 
 [![Python](https://img.shields.io/badge/python-3.7%2B-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
@@ -63,7 +64,7 @@ nb_cmd 换了一种思路：**Class 是中心，能力是投影。**
              └── Markdown 使用文档（CmdGen 自动生成）
 ```
 
-一次编写，六种能力全自动，不改一行代码。
+一次编写，七种能力全自动，不改一行代码。
 
 **你写什么 → 你得到什么：**
 
@@ -249,9 +250,9 @@ nbcmd --web
 
 > **团队共享**：把常用命令收藏好，新人入职打开 `nbcmd --tui`，一眼看到所有常用操作，比任何 Wiki 文档都直观。
 
-### 方式二：继承 `NbCmd` 类 —— 写一个 class 获得六种能力
+### 方式二：继承 `NbCmd` 类 —— 写一个 class 获得七种能力
 
-**适合开发者**：继承 `NbCmd` 基类，定义业务方法，自动获得 Python 直接调用 + CLI + REST API + Web UI + TUI + Markdown 文档 六种能力。这是 nb_cmd 的核心价值，详见下文"5 分钟快速上手"。
+**适合开发者**：继承 `NbCmd` 基类，定义业务方法，自动获得 Python 直接调用 + CLI + REST API + Web UI + TUI + Markdown 文档 + skills 七种能力。这是 nb_cmd 的核心价值，详见下文"5 分钟快速上手"。
 
 ```python
 from nb_cmd import NbCmd
@@ -1345,7 +1346,7 @@ def status():
 # 想加 API？对不起，请重写一遍...
 ```
 
-**nb_cmd（一次编写，六种能力）：**
+**nb_cmd（一次编写，七种能力）：**
 
 ```python
 from nb_cmd import NbCmd
@@ -1370,7 +1371,7 @@ python deploy.py deploy web-01            # CLI
 python deploy.py --web --web-port 8080     # Web UI + REST API
 ```
 
-**核心差异：** argparse / click / typer 的世界观是"CLI 是终点"。nb_cmd 的世界观是"Class 是中心，能力是投影"——Python 直接调用、CLI、API、Web UI、TUI、Markdown 文档 只是同一份业务逻辑的六种不同表现形式。
+**核心差异：** argparse / click / typer 的世界观是"CLI 是终点"。nb_cmd 的世界观是"Class 是中心，能力是投影"——Python 直接调用、CLI、API、Web UI、TUI、Markdown 文档 、为ai生成agentskills.io规范的skills， 只是同一份业务逻辑的七种不同表现形式。
 
 ### vs 传统前后端开发
 

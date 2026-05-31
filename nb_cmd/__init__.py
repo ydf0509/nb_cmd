@@ -24,3 +24,4 @@ from .core.arg import Annotated, Param  # noqa: F401
 from .ui.helper import UIHelper, cmdui  # noqa: F401
 from .utils.validators import validate  # noqa: F401
 from .core.gen_cmd import CmdGen  # noqa: F401
+from .core.gen_skill import SkillGen  # noqa: F401
