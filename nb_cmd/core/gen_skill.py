@@ -496,18 +496,18 @@ class SkillGen(object):
                     default_str = '`{}`'.format(param.default) if has_default else '*(required)*'
                     param_rows.append((flag, tname, default_str, desc))
 
+                lines.append('| Param | Type | Default | Description |')
+                lines.append('|-------|------|---------|-------------|')
                 if param_rows:
-                    lines.append('| Param | Type | Default | Description |')
-                    lines.append('|-------|------|---------|-------------|')
                     for flag, tname, default_str, desc in param_rows:
                         lines.append('| `{}` | `{}` | {} | {} |'.format(
                             flag, tname, default_str, desc))
-                    lines.append('')
+                else:
+                    lines.append('| *(none)* | — | — | This command takes no parameters. |')
+                lines.append('')
 
                 # 示例
                 method_args = _format_method_args(method)
-                # 清理 CLI 示例：去掉 ${None} 这种无意义的默认值展示
-                method_args = self._clean_cli_args(method_args)
                 display_name = cmd_name.replace('_', '-')
 
                 if self._include_cli:
@@ -566,19 +566,10 @@ class SkillGen(object):
                     parts.append('{}={}'.format(pname, default))
         return ', '.join(parts)
 
-    def _clean_cli_args(self, method_args):
-        """清理 CLI 示例参数，去掉 ${None} 等无意义的默认值展示"""
-        if not method_args:
-            return method_args
-        # 移除 --flag ${None} 形式的参数（None 默认值在 CLI 中不需要展示）
-        cleaned = re.sub(r'--[\w-]+\s+\$\{None\}(\s+|$)', ' ', method_args)
-        cleaned = re.sub(r'\s+', ' ', cleaned).strip()
-        return cleaned
-
     def _gen_guidelines(self, init_params):
         """生成使用指南"""
         lines = []
-        lines.append('- This tool is implemented using the `nb_cmd` framework. Each public instance method of the `NbCmd` subclass becomes a subcommand.\n you can read the Implementation Note to learn more details.')
+        lines.append('- This tool is implemented using the `nb_cmd` framework. Each public instance method of the `NbCmd` subclass becomes a subcommand. You can read the `Implementation Note` to learn more details.')
         lines.append('- If you are unsure about the specific logic of a command, inspect the source code of the corresponding method in the implementation.')
         if init_params:
             lines.append('- Global parameters defined in `__init__` are automatically passed to all subcommands.')
@@ -587,7 +578,7 @@ class SkillGen(object):
         lines.append('- Use `--help` or `-h` to see available commands and options.')
         lines.append('- Use `--full-help` or `-fh` to see detailed parameter descriptions.')
         return '\n'.join(lines)
-
+    
     def _gen_impl_note(self):
         """生成实现原理说明，帮助 AI 理解源码与命令行的对应关系"""
         lines = []
@@ -602,18 +593,39 @@ class SkillGen(object):
         lines.append('   ```')
         lines.append('   the keys become the command path segments, and the values are other `NbCmd` subclasses.')
         lines.append('   So `DbCmd.backup(...)` in Python maps to `db backup` on the CLI.')
+        lines.append('   Deeper nesting works the same way: if `DbCmd` itself has `sub_commands = {"ops": OpsCmd}`,')
+        lines.append('   then `OpsCmd.deploy(...)` maps to `db ops deploy` on the CLI.')
         lines.append('')
         lines.append('3. **`__init__` params = Global CLI options**. Parameters of `__init__(self, ...)` become global options:')
         lines.append('   - `str` / `int` / `float` params → `--name value` (e.g., `--env prod`, `--port 8080`)')
-        lines.append('   - `bool` params (default `False`) → `--name` (no value, presence means `True`)')
+        lines.append('   - `bool` params with default `False` → `--name` (no value, presence means `True`)')
+        lines.append('   - `bool` params with default `True` → `--no-name` (no value, presence means `False`)')
         lines.append('   These options are automatically passed to all subcommands and subcommand groups.')
+        lines.append('   Inside subcommands, global parameters are accessed via instance attributes or `self.nbctx`.')
         lines.append('')
-        lines.append('4. **Method params = Command-level options**. Same rules as above:')
+        lines.append('4. **Method params = Command-level options**. Same parameter-to-flag rules as above:')
         lines.append('   - `str` / `int` / `float` → `--name value`')
-        lines.append('   - `bool` (default `False`) → `--name`')
-        lines.append('   For example, `def backup(self, compress: bool = True)` produces `--compress` for the `backup` command.')
+        lines.append('   - `bool` default `False` → `--name`')
+        lines.append('   - `bool` default `True` → `--no-name`')
+        lines.append('   - **No default value** → required parameter (marked as `*(required)*` in the parameter table)')
+        lines.append('   For example:')
+        lines.append('   - `def backup(self, compress: bool = True)` produces `--compress` (default True, so `--no-compress` to disable)')
+        lines.append('   - `def restore(self, file: str)` produces `--file` (required, no default)')
+        lines.append('   - Parameter descriptions and short aliases (e.g., `--version, -v`) come from `Annotated[type, "description", "-v"]`.')
         lines.append('')
         lines.append('5. **Method docstring = Command description**. The first line of a method\'s docstring becomes the help text for that command.')
+        lines.append('')
+        lines.append('6. **Return values**. If a method returns a value, `nb_cmd` automatically prints it in CLI mode.')
+        lines.append('')
+        lines.append('7. **Python direct call vs CLI**. In Python you instantiate the class with global params:')
+        lines.append('   ```python')
+        lines.append('   app = {}(env="staging", region="us-west")'.format(self.entry_cls.__name__))
+        lines.append('   app.db.backup(compress=False)')
+        lines.append('   ```')
+        lines.append('   The equivalent CLI is:')
+        lines.append('   ```bash')
+        lines.append('   python {} --env staging --region us-west db backup --no-compress'.format(self.script))
+        lines.append('   ```')
         lines.append('')
         lines.append('If a command\'s behavior is unclear, locate the corresponding method in the source code of `{}` (or its nested `NbCmd` subclasses) and read the implementation directly.'.format(self.entry_cls.__name__))
         return '\n'.join(lines)

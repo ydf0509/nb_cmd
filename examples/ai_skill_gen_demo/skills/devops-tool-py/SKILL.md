@@ -14,7 +14,7 @@ DevOps 运维工具 —— AI Skill 自动生成演示。
 
 ## Guidelines
 
-- This tool is implemented using the `nb_cmd` framework. Each public instance method of the `NbCmd` subclass becomes a subcommand.
+- This tool is implemented using the `nb_cmd` framework. Each public instance method of the `NbCmd` subclass becomes a subcommand. You can read the `Implementation Note` to learn more details.
 - If you are unsure about the specific logic of a command, inspect the source code of the corresponding method in the implementation.
 - Global parameters defined in `__init__` are automatically passed to all subcommands.
 - Boolean flags default to `False`; add the flag to set it to `True`.
@@ -71,6 +71,10 @@ These parameters are defined in `__init__` and passed to all subcommands automat
 
 查看全局健康状态
 
+| Param | Type | Default | Description |
+|-------|------|---------|-------------|
+| *(none)* | — | — | This command takes no parameters. |
+
 **CLI:**
 ```bash
 D:\ProgramData\Miniconda3\envs\py39b\python.exe ai_skill_gen_demo.py --env ${prod} --region ${us-east} --verbose health
@@ -84,6 +88,10 @@ app.health()
 ### `version`
 
 查看工具版本
+
+| Param | Type | Default | Description |
+|-------|------|---------|-------------|
+| *(none)* | — | — | This command takes no parameters. |
 
 **CLI:**
 ```bash
@@ -248,7 +256,7 @@ app.monitor.alert(rule=<rule>, threshold=<threshold>)
 
 **CLI:**
 ```bash
-D:\ProgramData\Miniconda3\envs\py39b\python.exe ai_skill_gen_demo.py --env ${prod} --region ${us-east} --verbose monitor status
+D:\ProgramData\Miniconda3\envs\py39b\python.exe ai_skill_gen_demo.py --env ${prod} --region ${us-east} --verbose monitor status --service ${None}
 ```
 
 **Python:**
@@ -270,13 +278,38 @@ This tool is built on the `nb_cmd` framework. Here is how the Python source code
    ```
    the keys become the command path segments, and the values are other `NbCmd` subclasses.
    So `DbCmd.backup(...)` in Python maps to `db backup` on the CLI.
+   Deeper nesting works the same way: if `DbCmd` itself has `sub_commands = {"ops": OpsCmd}`,
+   then `OpsCmd.deploy(...)` maps to `db ops deploy` on the CLI.
 
-3. **`__init__` params = Global CLI flags**. Parameters of `__init__(self, ...)` become `--flag` options
-   that are automatically passed to all subcommands and subcommand groups.
+3. **`__init__` params = Global CLI options**. Parameters of `__init__(self, ...)` become global options:
+   - `str` / `int` / `float` params → `--name value` (e.g., `--env prod`, `--port 8080`)
+   - `bool` params with default `False` → `--name` (no value, presence means `True`)
+   - `bool` params with default `True` → `--no-name` (no value, presence means `False`)
+   These options are automatically passed to all subcommands and subcommand groups.
+   Inside subcommands, global parameters are accessed via instance attributes or `self.nbctx`.
 
-4. **Method params = Command params**. Parameters of each public method become the command-specific flags.
-   For example, `def backup(self, compress: bool = True)` produces the `--compress` flag for the `backup` command.
+4. **Method params = Command-level options**. Same parameter-to-flag rules as above:
+   - `str` / `int` / `float` → `--name value`
+   - `bool` default `False` → `--name`
+   - `bool` default `True` → `--no-name`
+   - **No default value** → required parameter (marked as `*(required)*` in the parameter table)
+   For example:
+   - `def backup(self, compress: bool = True)` produces `--compress` (default True, so `--no-compress` to disable)
+   - `def restore(self, file: str)` produces `--file` (required, no default)
+   - Parameter descriptions and short aliases (e.g., `--version, -v`) come from `Annotated[type, "description", "-v"]`.
 
 5. **Method docstring = Command description**. The first line of a method's docstring becomes the help text for that command.
+
+6. **Return values**. If a method returns a value, `nb_cmd` automatically prints it in CLI mode.
+
+7. **Python direct call vs CLI**. In Python you instantiate the class with global params:
+   ```python
+   app = DevOpsTool(env="staging", region="us-west")
+   app.db.backup(compress=False)
+   ```
+   The equivalent CLI is:
+   ```bash
+   python ai_skill_gen_demo.py --env staging --region us-west db backup --no-compress
+   ```
 
 If a command's behavior is unclear, locate the corresponding method in the source code of `DevOpsTool` (or its nested `NbCmd` subclasses) and read the implementation directly.
