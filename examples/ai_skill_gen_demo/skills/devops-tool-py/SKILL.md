@@ -37,7 +37,7 @@ python ai_skill_gen_demo.py [global_params] <command_path> [command_params]
 ```python
 from ai_skill_gen_demo import DevOpsTool
 app = DevOpsTool()  # pass global params if needed
-# app.group.method(param=value)
+# app.subcommand.method(param=value)
 ```
 
 **Parameter conventions:**
@@ -63,7 +63,7 @@ These parameters are defined in `__init__` and passed to all subcommands automat
 
 **CLI:**
 ```bash
-D:\ProgramData\Miniconda3\envs\py39b\python.exe ai_skill_gen_demo.py --env ${prod} --region ${us-east} --verbose health
+python ai_skill_gen_demo.py --env ${prod} --region ${us-east} --verbose health
 ```
 
 **Python:**
@@ -77,7 +77,7 @@ app.health()
 
 **CLI:**
 ```bash
-D:\ProgramData\Miniconda3\envs\py39b\python.exe ai_skill_gen_demo.py --env ${prod} --region ${us-east} --verbose version
+python ai_skill_gen_demo.py --env ${prod} --region ${us-east} --verbose version
 ```
 
 **Python:**
@@ -99,7 +99,7 @@ app.version()
 
 **CLI:**
 ```bash
-D:\ProgramData\Miniconda3\envs\py39b\python.exe ai_skill_gen_demo.py --env ${prod} --region ${us-east} --verbose db backup
+python ai_skill_gen_demo.py --env ${prod} --region ${us-east} --verbose db backup
 ```
 
 **Python:**
@@ -118,7 +118,7 @@ app.db.backup(compress=True)
 
 **CLI:**
 ```bash
-D:\ProgramData\Miniconda3\envs\py39b\python.exe ai_skill_gen_demo.py --env ${prod} --region ${us-east} --verbose db migrate --dry-run --target ${latest}
+python ai_skill_gen_demo.py --env ${prod} --region ${us-east} --verbose db migrate --dry-run --target ${latest}
 ```
 
 **Python:**
@@ -136,7 +136,7 @@ app.db.migrate(dry_run=False, target="latest")
 
 **CLI:**
 ```bash
-D:\ProgramData\Miniconda3\envs\py39b\python.exe ai_skill_gen_demo.py --env ${prod} --region ${us-east} --verbose db restore --file $<file>
+python ai_skill_gen_demo.py --env ${prod} --region ${us-east} --verbose db restore --file $<file>
 ```
 
 **Python:**
@@ -159,7 +159,7 @@ app.db.restore(file=<file>)
 
 **CLI:**
 ```bash
-D:\ProgramData\Miniconda3\envs\py39b\python.exe ai_skill_gen_demo.py --env ${prod} --region ${us-east} --verbose deploy canary --version $<version> --traffic ${0.1}
+python ai_skill_gen_demo.py --env ${prod} --region ${us-east} --verbose deploy canary --version $<version> --traffic ${0.1}
 ```
 
 **Python:**
@@ -177,7 +177,7 @@ app.deploy.canary(version=<version>, traffic=0.1)
 
 **CLI:**
 ```bash
-D:\ProgramData\Miniconda3\envs\py39b\python.exe ai_skill_gen_demo.py --env ${prod} --region ${us-east} --verbose deploy rollback --steps ${1}
+python ai_skill_gen_demo.py --env ${prod} --region ${us-east} --verbose deploy rollback --steps ${1}
 ```
 
 **Python:**
@@ -197,7 +197,7 @@ app.deploy.rollback(steps=1)
 
 **CLI:**
 ```bash
-D:\ProgramData\Miniconda3\envs\py39b\python.exe ai_skill_gen_demo.py --env ${prod} --region ${us-east} --verbose deploy rolling --version $<version> --batch-size ${3} --wait ${30}
+python ai_skill_gen_demo.py --env ${prod} --region ${us-east} --verbose deploy rolling --version $<version> --batch-size ${3} --wait ${30}
 ```
 
 **Python:**
@@ -220,7 +220,7 @@ app.deploy.rolling(version=<version>, batch_size=3, wait=30)
 
 **CLI:**
 ```bash
-D:\ProgramData\Miniconda3\envs\py39b\python.exe ai_skill_gen_demo.py --env ${prod} --region ${us-east} --verbose monitor alert --rule $<rule> --threshold $<threshold>
+python ai_skill_gen_demo.py --env ${prod} --region ${us-east} --verbose monitor alert --rule $<rule> --threshold $<threshold>
 ```
 
 **Python:**
@@ -238,7 +238,7 @@ app.monitor.alert(rule=<rule>, threshold=<threshold>)
 
 **CLI:**
 ```bash
-D:\ProgramData\Miniconda3\envs\py39b\python.exe ai_skill_gen_demo.py --env ${prod} --region ${us-east} --verbose monitor status
+python ai_skill_gen_demo.py --env ${prod} --region ${us-east} --verbose monitor status
 ```
 
 **Python:**
@@ -251,6 +251,6 @@ app.monitor.status(service=None)
 
 - Global parameters defined in `__init__` are automatically passed to all subcommands.
 - Boolean flags default to `False`; add the flag to set it to `True`.
-- Subcommand groups are accessed via space or dot, e.g., `db migrate` or `db.migrate`.
+- Subcommand groups are accessed via space or dot, e.g., `<group> <command>` or `<group>.<command>`.
 - Use `--help` or `-h` to see available commands and options.
 - Use `--full-help` or `-fh` to see detailed parameter descriptions.

@@ -1,4 +1,4 @@
-﻿﻿
+﻿
 # 🤖 AI 上下文阅读协议 (由 nb_ai_context 生成)
 
 > **系统指令**：你正在解析一份由工具 **`nb_ai_context`** 自动生成的**结构化项目快照**。
@@ -54,8 +54,8 @@
 #### 📝 Module Docstring
 
 `````
-nb_cmd — 万能接口生成器
-你写一个 Python class，自动获得 CLI + REST API + Web UI + Python 直接调用 四种接口。
+nb_cmd — Python 码农的低代码平台
+写一个 class，自动获得六种能力：Python 直接调用 + CLI + REST API + Web UI + TUI 终端交互 + Markdown 文档。
 
 用法::
 
@@ -80,6 +80,7 @@ nb_cmd — 万能接口生成器
 - `from ui.helper import cmdui`
 - `from utils.validators import validate`
 - `from core.gen_cmd import CmdGen`
+- `from core.gen_skill import SkillGen`
 
 
 ---
@@ -97,12 +98,16 @@ NbCmd 基类 —— 所有命令行工具的父类。
 
 #### 📦 Imports
 
+- `from __future__ import annotations`
 - `import logging`
 - `import sys`
 - `from meta import NbCmdMeta`
+- `from typing import Annotated`
 - `import subprocess`
 - `from modes.cli_mode import run_cli`
 - `from modes.web_mode import start_web_server`
+- `from modes.tui_mode import start_tui`
+- `from typing_extensions import Annotated`
 - `from parser import print_full_help`
 - `from parser import print_easy_help`
 - `from parser import print_full_help`
@@ -111,7 +116,7 @@ NbCmd 基类 —— 所有命令行工具的父类。
 #### 🏛️ Classes (1)
 
 ##### 📌 `class NbCmd(object)`
-*Line: 11*
+*Line: 21*
 
 **Docstring:**
 `````
@@ -125,7 +130,7 @@ NbCmd 基类 —— 所有命令行工具的父类。
 功能:
     - 公有方法 → 子命令
     - 方法签名 → 参数自动推导
-    - 支持 CLI / REST API / Web UI / Python 直接调用 四种模式
+    - 六种能力：Python 直接调用 / CLI / REST API / Web UI / TUI 终端交互 / Markdown 文档
     - 支持 OOP 继承覆写
     - 支持多层级子命令（sub_commands）
     - 支持 nbctx 跨层级上下文传递
@@ -135,11 +140,6 @@ NbCmd 基类 —— 所有命令行工具的父类。
     cmdui.success() cmdui.warning() cmdui.error() cmdui.info()
     cmdui.progress() cmdui.confirm() cmdui.prompt() cmdui.select()
 `````
-
-**🔧 Constructor (`__init__`):**
-- `def __init__(self)`
-  - **Parameters:**
-    - `self`
 
 **Public Methods (7):**
 - `def make_nbctx(self)`
@@ -191,7 +191,7 @@ NbCmd 基类 —— 所有命令行工具的父类。
   -------
   str (capture=True 时返回 stdout) 或 None
   `````
-- `def exec(self, cmd: str)`
+- `def exec(self, cmd: Annotated[str, '要执行的系统命令', 'c'])`
   - *执行任意系统命令*
 - `def run(self, args = None)`
   - **Docstring:**
@@ -205,7 +205,7 @@ NbCmd 基类 —— 所有命令行工具的父类。
   `````
 
 **Properties (1):**
-- `@property logger`
+- `@property logger -> logging.Logger`
 
 **Class Variables (4):**
 - `sub_commands = {}`
@@ -237,10 +237,16 @@ NbCmd Meta 配置基类。
             use_nb_log = True
 `````
 
+#### 📦 Imports
+
+- `from typing import Dict`
+- `from typing import List`
+- `from typing import Optional`
+
 #### 🏛️ Classes (1)
 
 ##### 📌 `class NbCmdMeta(object)`
-*Line: 17*
+*Line: 19*
 
 **Docstring:**
 `````
@@ -249,23 +255,28 @@ NbCmd 的 Meta 配置基类。
 子类继承后可覆盖任意字段，IDE 可自动补全所有可用选项。
 `````
 
-**Class Variables (16):**
-- `name = None`
-- `version = '0.0.1'`
-- `description = None`
-- `use_nb_log = False`
-- `log_level = 'INFO'`
-- `log_file = None`
-- `auto_save_last_args = False`
-- `config_file = None`
-- `serve_host = '0.0.0.0'`
-- `serve_port = 8080`
-- `serve_workers = 1`
-- `web_title = None`
-- `web_theme = 'light'`
-- `enable_exec = True`
-- `help_mode = 'full'`
-- `aliases = {}`
+**Class Variables (21):**
+- `name: Optional[str] = None`
+- `version: str = '0.0.1'`
+- `description: Optional[str] = None`
+- `use_nb_log: bool = False`
+- `log_level: str = 'INFO'`
+- `log_file: Optional[str] = None`
+- `auto_save_last_args: bool = False`
+- `config_file: Optional[str] = None`
+- `serve_host: str = '0.0.0.0'`
+- `serve_port: int = 8080`
+- `serve_workers: int = 1`
+- `web_title: Optional[str] = None`
+- `web_theme: str = 'light'`
+- `enable_exec: bool = True`
+- `help_mode: str = 'full'`
+- `aliases: Dict[str, List[str]] = {}`
+- `allow_method_list: Optional[List[str]] = None`
+- `hide_method_list: Optional[List[str]] = None`
+- `auth_token: Optional[str] = None`
+- `timeout: int = 0`
+- `db_dir: Optional[str] = None`
 
 
 ---
@@ -432,7 +443,18 @@ Core Files (imported by other files, sorted by import count):
 `````markdown
 # nb_cmd
 
-**Python 码农的低代码平台** —— 写一个 class，自动获得 CLI + REST API + Web UI + Python 直接调用 四种接口。不写路由、不写前端、不写文档，全自动。
+**Python 码农的低代码平台** —— 写一个 class，自动获得七种能力：Python 直接调用 + CLI + REST API + Web UI + TUI 终端交互 + Markdown 文档 + skills 七种操作方式。不写路由、不写前端、不写 UI 代码、不写文档，全自动。
+
+**nb-cmd: 不是"更好的 CLI 框架"，而是"低代码平台"**
+
+用户只需要写一个 class，nb_cmd 自动生成 `python类自身正常直接调用` + `CLI` + `REST API` + `Web UI(含 WebSocket 实时控制台)` + `TUI 终端交互界面` + `自动生成Markdown使用文档` + `为ai生成agentskills.io规范的skills` 七种能力。
+- 类自身完全照常使用（Python 直接调用）
+- 自动生成 CLI 命令行
+- 自动生成 REST API（含 Swagger 文档）
+- 自动生成 Markdown 使用文档（CmdGen）
+- 自动生成前端 Web UI（含 WebSocket 实时控制台）
+- 自动生成 TUI 终端交互界面（基于 Textual，命令树 + 参数表单 + 实时控制台）
+- 自动生成 为ai生成agentskills.io规范）规范的skills
 
 [![Python](https://img.shields.io/badge/python-3.7%2B-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
@@ -443,11 +465,14 @@ Core Files (imported by other files, sorted by import count):
 
 > 详细的多维度对比（含多层级子命令 + 全局参数的完整代码对比）请看：[nb_cmd vs click vs typer vs fire](https://github.com/ydf0509/nb_cmd/blob/main/nb_cmd_vs_click_vs_typer.md)
 
+> **GitHub CLI 实战对比：** 以真实 `gh` CLI 语义为基准（5 全局参数 + 3 子命令组 + 9 子命令），三框架完整实现对比。Click 需 49 个装饰器，Typer 需模块全局变量，nb_cmd 零装饰器 + 强类型上下文 + CmdGen 一行生成 Markdown 文档。[查看对比](examples/github_cli_demos/gh_comparison.md) | [nb_cmd 实现](examples/github_cli_demos/gh_nb_cmd.py) | [自动生成文档](examples/github_cli_demos/gh_nb_cmd_gen_doc.md)
+
 ## 目录
 
 - [为什么用 nb_cmd？](#为什么用-nb_cmd)
 - [核心价值与典型场景](#核心价值与典型场景)
 - [安装](#安装)
+- [nbcmd —— 零代码个人命令中心](#nbcmd--零代码个人命令中心)
 - [5 分钟快速上手](#5-分钟快速上手)
 - [核心特性](#核心特性)
 - [完整 API 速查](#完整-api-速查)
@@ -468,28 +493,33 @@ Core Files (imported by other files, sorted by import count):
 
 **每次都是重写。**
 
-nb_cmd 换了一种思路：**Class 是中心，接口是投影。**
+nb_cmd 换了一种思路：**Class 是中心，能力是投影。**
 
 ```
-             ┌── CLI 模式（默认）
+             ┌── Python 直接调用（类自身完全照常使用）
              │
-业务逻辑(class) ─┼── REST API 模式（自动 Swagger）
+             ├── CLI 命令行（自动生成）
              │
-             └── Web UI 模式（自动生成页面）
+业务逻辑(class) ─┼── REST API（自动 Swagger 文档）
+             │
+             ├── Web UI（自动生成页面 + WebSocket 实时控制台）
+             │
+             └── Markdown 使用文档（CmdGen 自动生成）
 ```
 
-写一次业务逻辑，四种接口自动生成，不改一行代码。
+一次编写，七种能力全自动，不改一行代码。
 
 **你写什么 → 你得到什么：**
 
 | 你写的 | 自动获得 |
 |--------|----------|
-| 方法签名 `def deploy(self, host: str, port: int = 22)` | CLI 参数 + API 端点 + Web 表单（输入框/数字框/复选框） |
-| 方法的 docstring `"""部署到远程服务器"""` | CLI --help + Swagger 文档 + Web UI 描述 |
-| 类型注解 `env: Environment`（Enum） | CLI choices + API 校验 + Web 下拉选择 |
-| `print()` / `cmdui.table()` | CLI 终端输出 + Web 实时流式推送（WebSocket + ANSI 彩色渲染） |
-| `sub_commands = {'git': GitTool}` | CLI 多级子命令 + API 嵌套路由 + Web UI 折叠分组 |
+| 方法签名 `def deploy(self, host: str, port: int = 22)` | CLI 参数 + API 端点 + Web 表单 + TUI 参数表单 |
+| 方法的 docstring `"""部署到远程服务器"""` | CLI --help + Swagger 文档 + Web/TUI UI 描述 |
+| 类型注解 `env: Environment`（Enum） | CLI choices + API 校验 + Web/TUI 下拉选择 |
+| `print()` / `cmdui.table()` | CLI 终端输出 + Web 实时流式推送 + TUI 实时控制台 |
+| `sub_commands = {'git': GitTool}` | CLI 多级子命令 + API 嵌套路由 + Web/TUI 折叠分组 |
 | `CmdGen(MyApp).doc(file='cli.md')` | **自动生成带 TOC + 参数表格 + 可复制命令行的 Markdown 文档** |
+| `self.nbctx = AppCtx(region=self.region)` | **跨层级强类型上下文，自动穿透到所有子命令组，IDE 补全 + 零手动传递** |
 | `MyTool().greet('张三', 3)` | **方法就是普通 Python 方法，随时直接调用、单元测试、import 复用** |
 
 **不需要写的：** 路由定义、Pydantic 模型、HTML 表单、CSS 样式、JavaScript 交互、WebSocket 端点、Swagger 注解、前后端联调、**CLI 使用文档**。
@@ -498,18 +528,23 @@ nb_cmd 换了一种思路：**Class 是中心，接口是投影。**
 
 > **文档生成吊打 `--help`：** 传统框架的文档止步于 `--help` 纯文本，click 需要第三方 `sphinx-click`，typer 只是搬运 `--help` 输出。nb_cmd 的 `CmdGen` 一行代码生成完整的 Markdown 文档——自动目录、参数表格、默认值/必填标注、可复制的 bash 命令行模板，测试人员拿到直接能用。[查看示例](https://github.com/ydf0509/nb_cmd/blob/main/examples/nbctx_demo/nbctx_demo_gen_doc.md)
 
+> **nbctx 跨层级上下文：** click 用 `ctx.obj` 字典（无类型、需手动 `@pass_context`），typer 用模块全局变量（无封装），nb_cmd 用 `self.nbctx`（强类型 dataclass + IDE 补全 + 框架自动注入到任意深度子命令组）。[nbctx 完整示例，实现github cli](examples/nbctx_demo/nbctx_demo.py)
+
 | 功能 | argparse | click | typer | fire | **nb_cmd** |
 |------|:--------:|:-----:|:-----:|:----:|:----------:|
 | 零配置 | ✗ | ✗ | 部分 | ✓ | **✓** |
 | 类型驱动 | 手动 | 手动 | ✓ | ✗ | **✓** |
 | OOP 继承/覆写 | ✗ | ✗ | ✗ | 有限 | **✓** |
 | 自动生成 REST API | ✗ | ✗ | ✗ | ✗ | **✓** |
-| 自动生成 Web UI | ✗ | ✗ | ✗ | ✗ | **✓** |
+| 自动生成 Web UI | ✗ | ✗ | ✗ |  | **✓** |
+| 自动生成 TUI | ✗ | ✗ | ✗ | ✗ | **✓（Textual 终端图形界面）** |
 | 多层级子命令 | 手动 | ✓ | ✓ | 有限 | **✓** |
 | Swagger 文档 | ✗ | ✗ | ✗ | ✗ | **✓** |
 | 进度条/表格/彩色 | ✗ | ✓ | ✓(rich) | ✗ | **✓** |
 | 自动生成 CLI 文档 | ✗ | 第三方 | 基础 | ✗ | **✓（Markdown+表格+TOC+可复制命令行）** |
 | 方法可直接调用 | ✓ | ✗ | ✗ | ✓ | **✓（零装饰器，普通类方法）** |
+| 跨层级强类型上下文 | ✗ | ctx.obj(字典) | 全局变量 | ✗ | **✓（dataclass + IDE 补全 + 自动注入）** |
+| async 方法支持 | ✗ | ✗ | ✓ | ✗ | **✓（自动检测，透明执行）** |
 
 ---
 
@@ -612,11 +647,90 @@ pip install nb-cmd[all]
 
 ---
 
+## nb_cmd 的两种使用方式
+
+nb_cmd 提供两种使用方式，满足不同场景：
+
+### 方式一：`nbcmd` 内置命令 —— 零代码个人命令中心
+
+**不需要创建项目，不需要写任何一行 Python 代码。**
+
+`nbcmd` 是 nb_cmd 自带的一个开箱即用的命令行工具。安装后，在任何终端直接输入 `nbcmd --tui`，即可启动一个个人命令管理器——通过内置的 `exec` 执行任意系统命令，收藏常用命令并设置短别名，以后再也不用记复杂的命令行。
+
+你可以把 nbcmd --tui 当做linux服务器的的万能首屏，太香了，因为你可以把任何常用命令和其他click命令都收藏起来，一键点击运行。
+xshell 和 finalshell的命令收藏，只有你一个人看得到，换个软件和电脑就看不到了，别人也看不到，nbcmd 的命令收藏是保存到sqlite持久化，所有人无论用xshell还是finalshell还是网页堡垒机，永远都可以看到。
+
+```bash
+# 一次安装
+pip install nb-cmd[tui]
+
+# 随时随地，在任何终端直接启动（无需进入任何项目目录）
+nbcmd --tui
+
+# 或者用浏览器模式
+nbcmd --web
+```
+
+**工作流：**
+
+```
+1. 在任何终端输入 nbcmd --tui，打开命令中心
+2. 选择 exec → 输入命令（如 docker-compose -f /opt/project/docker-compose.yml up -d）
+3. 点击收藏 ★ → 输入别名（如"启动生产环境"）
+4. 以后直接在收藏夹里找到并一键运行，永远不用再记命令
+```
+
+**典型场景**：一台 Linux 服务器上跑着 5 个项目，每个项目有不同的启动、部署、日志查看命令。以前要记 20 多条命令，现在全部收藏到 `nbcmd`，加上别名，一目了然。
+
+| 功能 | 说明 |
+|------|------|
+| **exec 执行** | 通过内置 `exec` 命令执行任意系统命令 |
+| **收藏 + 别名** | 给常用命令加短别名（如 `[启动前端]`、`[部署生产]`、`[查看日志]`） |
+| **收藏夹运行** | 点击收藏命令直接运行，或填充到输入框修改参数后执行 |
+| **历史记录** | 自动记录最近 1000 条执行历史，可搜索、可回填 |
+| **TUI / Web 双模式** | 终端交互界面 + 浏览器界面，收藏数据自动同步 |
+| **全局数据** | 收藏和历史保存在 `~/.nb_cmd/nb_cmd_web.db`，任何目录下启动都能访问 |
+
+> **团队共享**：把常用命令收藏好，新人入职打开 `nbcmd --tui`，一眼看到所有常用操作，比任何 Wiki 文档都直观。
+
+### 方式二：继承 `NbCmd` 类 —— 写一个 class 获得七种能力
+
+**适合开发者**：继承 `NbCmd` 基类，定义业务方法，自动获得 Python 直接调用 + CLI + REST API + Web UI + TUI + Markdown 文档 + skills 七种能力。这是 nb_cmd 的核心价值，详见下文"5 分钟快速上手"。
+
+```python
+from nb_cmd import NbCmd
+
+class MyTool(NbCmd):
+    """我的运维工具"""
+    def deploy(self, host: str, port: int = 22):
+        """部署到远程服务器"""
+        print('部署到 {}:{}'.format(host, port))
+
+if __name__ == '__main__':
+    MyTool().run()
+```
+
+```bash
+python my_tool.py deploy web-01           # CLI 模式
+python my_tool.py --web                   # Web UI + REST API 模式
+python my_tool.py --tui                   # TUI 终端交互模式
+```
+
+> **两种方式的区别**：`nbcmd` 是内置的零配置工具，只有 `exec` 命令，适合"不想写代码，只想管理命令"的场景；继承 `NbCmd` 是开发者模式，适合"把业务逻辑封装成专业工具"的场景。
+
+---
+
 ## nb_cmd 网页截图
 
 > `nb_cmd` 只要你写了一个继承 `NbCmd` 的类，就自动生成 FastAPI 接口和接口文档，自动生成前端输入框和按钮。让你只写普通的类，无需接触 Web 后端接口开发，更无需接触前端界面开发，更无需接触 WebSocket 实时输出——你的方法中的任何普通的日志和 `print` 都会自动实时推送到 Web 前端页面上。
 
 ![nb_cmd 网页截图](https://github.com/ydf0509/nb_cmd/blob/main/docs/images/nb_cmd_web.png)
+
+## nb_cmd TUI 截图
+
+> `nb_cmd` 只要你写了一个继承 `NbCmd` 的类，就自动生成 Textual 终端图形界面，支持命令树、参数表单、实时控制台输出、命令历史、收藏等功能。
+
+![nb_cmd TUI 截图](https://github.com/ydf0509/nb_cmd/blob/main/pictures/tui1.png)
 
 ## 5 分钟快速上手
 
@@ -1234,7 +1348,71 @@ $ curl -X POST http://localhost:8080/stats \
 
 > **多用户隔离：** Web 模式下，每次命令执行都会创建一个新的 `ServerTool` 实例，不同用户/请求之间互不影响。Web UI / curl 中传入的全局参数只影响当前这次执行。
 
-### 7. 参数校验
+### 7. nbctx 跨层级上下文传递
+
+多层级子命令的核心难题：**子命令组怎么拿到顶层的全局参数？**
+
+- **click** 用 `ctx.obj`（无类型字典），需要每层 `@click.pass_context` 手动传递
+- **typer** 用模块级全局变量（无封装、无类型安全）
+- **nb_cmd** 用 `self.nbctx`（强类型 dataclass），框架自动递归注入到任意深度
+
+```python
+from dataclasses import dataclass
+from typing import Annotated
+from nb_cmd import NbCmd
+
+@dataclass
+class AppCtx:
+    region: str = 'beijing'
+    env: str = 'prod'
+    debug: bool = False
+
+class DbTool(NbCmd):
+    """数据库工具"""
+    nbctx: AppCtx  # 类型注解 → IDE 补全 self.nbctx.region
+
+    def migrate(self, dry_run: Annotated[bool, '仅模拟'] = False):
+        """执行迁移"""
+        print(f'[{self.nbctx.region}/{self.nbctx.env}] 迁移 (dry_run={dry_run})')
+
+class MyApp(NbCmd):
+    """云平台管理"""
+    nbctx: AppCtx
+
+    def __init__(self,
+                 region: Annotated[str, '部署区域'] = 'beijing',
+                 env: Annotated[str, '运行环境'] = 'prod',
+                 debug: Annotated[bool, '调试模式'] = False):
+        self.region = region
+        self.env = env
+        self.debug = debug
+        # 直接赋值 nbctx，CLI/Web/API 所有模式自动拿到正确值
+        self.nbctx = AppCtx(region=self.region, env=self.env, debug=self.debug)
+
+    sub_commands = {'db': DbTool}
+```
+
+```bash
+# CLI: 全局参数自动穿透到子命令组
+$ python app.py --region tokyo db migrate --dry-run
+[tokyo/prod] 迁移 (dry_run=True)
+
+# curl: 通过 init_params 传递全局参数
+$ curl -X POST http://localhost:8080/db/migrate \
+    -d '{"dry_run": true, "init_params": {"region": "tokyo"}}'
+```
+
+**核心设计：**
+
+- 在 `__init__` 中直接 `self.nbctx = AppCtx(...)` 赋值，所有模式（CLI / Web / API / Python 直接调用）均能拿到正确的参数值
+- 也可以用 `make_nbctx()` 模板方法替代直接赋值（两种方式等价）
+- 子命令组只需写 `nbctx: AppCtx` 类型注解，IDE 自动补全 `self.nbctx.region` 等字段
+- 框架自动 `child.nbctx = parent.nbctx` 递归传递，支持任意嵌套深度
+- 不同用户/请求之间完全隔离（Web 模式下每次请求新建实例）
+
+> 完整三层嵌套示例见 [examples/nbctx_demo/](examples/nbctx_demo/nbctx_demo.py)
+
+### 8. 参数校验
 
 ```python
 from nb_cmd import NbCmd, validate
@@ -1315,7 +1493,13 @@ class MyTool(NbCmd):
 | `web_title` | str | `None` | Web UI 页面标题 |
 | `web_theme` | str | `'light'` | Web UI 主题（`'light'` / `'dark'`） |
 | `enable_exec` | bool | `True` | 是否暴露内置 `exec` 命令（设为 `False` 可防止恶意执行系统命令） |
+| `help_mode` | str | `'full'` | `-h` 的默认行为：`'full'` 显示完整帮助，`'easy'` 显示 argparse 原生格式 |
 | `aliases` | dict | `{}` | 参数别名（推荐用 `Annotated[..., 'desc', 'a']` 指定短别名替代） |
+| `allow_method_list` | list | `None` | 命令白名单（仅限制 CLI/API/Web/TUI 暴露；`None` 暴露全部；Python 直接调用不受影响） |
+| `hide_method_list` | list | `None` | 命令黑名单（与白名单互斥，白名单优先；仅限制 CLI/API/Web/TUI） |
+| `auth_token` | str | `None` | 简易 Bearer token 鉴权（配置后 API/Web 请求须带 `Authorization: Bearer <token>`） |
+| `timeout` | int | `0` | 命令执行超时秒数（0=不限；作用于 CLI/API/Web/TUI 模式） |
+| `db_dir` | str | `None` | SQLite 数据库目录（默认当前工作目录；设为 `~/.nb_cmd` 可全局共享收藏和历史） |
 
 ### 10. 生命周期钩子
 
@@ -1380,6 +1564,17 @@ deploy — 部署服务到目标主机
 stats — 查看系统状态
 ```
 
+通过 `Meta.help_mode` 可以控制 `-h` 的默认行为：
+
+```python
+class MyTool(NbCmd):
+    class Meta:
+        help_mode = 'full'   # -h 显示完整帮助（默认）
+        # help_mode = 'easy' # -h 显示 argparse 原生格式
+```
+
+> 无论 `help_mode` 设置如何，`-fh` 始终显示完整帮助，`-eh` 始终显示简易帮助。
+
 ### 12. 自动文档生成（CmdGen）—— 吊打 `--help`
 
 传统 CLI 框架的文档能力止步于 `--help`：一段纯文本，不能复制、不能跳转、不能分享。即使 typer 有 `typer utils docs`，也只是把 `--help` 搬到 Markdown 里而已。
@@ -1439,6 +1634,31 @@ g.doc(file='docs/cli_reference.md')
 | 智能路由 | 命令行输入非 NbCmd 命令时自动通过 exec 执行，可直接输入 `python xxx.py`、`docker ps` 等 |
 | 参数表单 | 根据方法签名自动推导控件（文本框、数字框、复选框、下拉选择等） |
 | 可拖拽布局 | 左右面板中间的分割条可自由拖动调整比例 |
+| 并发安全 | 每次请求新建实例，stdout/stderr 通过 `threading.local()` 隔离，多用户同时操作互不影响 |
+
+### 14. async 方法支持
+
+nb_cmd 自动检测 `async def` 方法，透明地用 `asyncio.run()` 执行，无需额外配置：
+
+```python
+import asyncio
+from nb_cmd import NbCmd
+
+class MyTool(NbCmd):
+    async def fetch(self, url: str):
+        """异步请求"""
+        import aiohttp
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url) as resp:
+                print(f'Status: {resp.status}')
+                return await resp.text()
+```
+
+```bash
+$ python my_tool.py fetch https://httpbin.org/get
+```
+
+同步和异步方法可以在同一个类中自由混用，CLI / Web / API 三种模式均自动处理。
 
 ---
 
@@ -1517,6 +1737,8 @@ g = CmdGen(entry_cls, script='app.py', python='python', fmt='text')
 
 > 详细的多维度对比（含多层级子命令 + 全局参数的完整代码对比）请看：[nb_cmd vs click vs typer vs fire](https://github.com/ydf0509/nb_cmd/blob/main/nb_cmd_vs_click_vs_typer.md)
 
+> **GitHub CLI 三框架实战对比**：以真实 `gh` CLI 为基准（5 全局参数 + 3 子命令组 + 9 子命令），三框架完整可运行代码对比。[查看完整对比文档](examples/github_cli_demos/gh_comparison.md) | [Click 实现](examples/github_cli_demos/gh_click.py) | [Typer 实现](examples/github_cli_demos/gh_typer.py) | [nb_cmd 实现](examples/github_cli_demos/gh_nb_cmd.py) | [CmdGen 自动生成文档](examples/github_cli_demos/gh_nb_cmd_gen_doc.md)
+
 ### 代码对比：实现同一个工具
 
 **argparse（30+ 行样板代码）：**
@@ -1567,7 +1789,7 @@ def status():
 # 想加 API？对不起，请重写一遍...
 ```
 
-**nb_cmd（写一次，四种接口）：**
+**nb_cmd（一次编写，七种能力）：**
 
 ```python
 from nb_cmd import NbCmd
@@ -1592,7 +1814,7 @@ python deploy.py deploy web-01            # CLI
 python deploy.py --web --web-port 8080     # Web UI + REST API
 ```
 
-**核心差异：** argparse / click / typer 的世界观是"CLI 是终点"。nb_cmd 的世界观是"Class 是中心，接口是投影"——CLI、API、Web UI 只是同一份业务逻辑的不同表现形式。
+**核心差异：** argparse / click / typer 的世界观是"CLI 是终点"。nb_cmd 的世界观是"Class 是中心，能力是投影"——Python 直接调用、CLI、API、Web UI、TUI、Markdown 文档 、为ai生成agentskills.io规范的skills， 只是同一份业务逻辑的七种不同表现形式。
 
 ### vs 传统前后端开发
 
@@ -1608,7 +1830,7 @@ python deploy.py --web --web-port 8080     # Web UI + REST API
 | 新增 1 个参数 | 改 3 处（后端/前端/文档） | **改 1 处（方法签名）** |
 | 前端开发者 | 需要 | **不需要** |
 
-> **本质区别：** 传统开发是"手动映射"——后端定义接口，前端照着文档手写表单；nb_cmd 是"自动投影"——Python 类是唯一真相源，CLI/API/Web UI/Python 直接调用 是它的四个不同维度的影子。改真相源，影子自动跟着变。
+> **本质区别：** 传统开发是"手动映射"——后端定义接口，前端照着文档手写表单；nb_cmd 是"自动投影"——Python 类是唯一真相源，Python 直接调用 / CLI / REST API / Web UI / TUI / Markdown 文档 是它的六个不同维度的投影。改真相源，投影自动跟着变。
 
 ---
 
@@ -1630,7 +1852,8 @@ nb_cmd/
 ├── modes/
 │   ├── cli_mode.py        # CLI 执行引擎
 │   ├── api_mode.py        # REST API 路由生成（FastAPI）
-│   └── web_mode.py        # Web UI 页面生成 + WebSocket 实时输出
+│   ├── web_mode.py        # Web UI 页面生成 + WebSocket 实时输出
+│   └── tui_mode.py        # TUI 终端交互界面（基于 Textual）
 ├── ui/
 │   ├── helper.py          # UIHelper（cmdui 单例）
 │   ├── colors.py          # ANSI 彩色输出
@@ -1649,6 +1872,7 @@ nb_cmd/
 |------|----------|------|
 | CLI 模式 | **无** | 纯标准库，开箱即用 |
 | Web UI + REST API | fastapi + uvicorn | `pip install nb-cmd[web]` |
+| TUI 终端交互 | textual | `pip install nb-cmd[tui]` |
 | nb_log 增强日志 | nb_log | 可选，`pip install nb_log` |
 
 ---
@@ -1673,17 +1897,17 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "nb-cmd"
-version = "0.2.0"
-description = "万能接口生成器——你写一个 Python class，自动获得 CLI + REST API + Web UI 三种操作方式，堪称python界低代码平台"
+version = "0.2.2"
+description = "万能接口生成器——你写一个 Python class，自动获得 CLI + REST API + Web UI + TUI 终端交互 + Python 直接调用 + markdown说明文档 + 为ai生成agentskills.io规范的skills 7种操作方式，堪称python界低代码平台"
 readme = "README.md"
 license = {text = "MIT"}
 requires-python = ">=3.7"
 authors = [
     {name = "ydf", email = "ydf0509@sohu.com"},
 ]
-keywords = ["cli", "api", "webui", "command", "argparse", "fastapi"]
+keywords = ["cli", "api", "webui", "tui", "command", "argparse", "fastapi", "textual"]
 classifiers = [
-    "Development Status :: 3 - Alpha",
+    "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Developers",
     "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
@@ -1703,8 +1927,12 @@ classifiers = [
 [project.optional-dependencies]
 api = ["fastapi>=0.68.0", "uvicorn>=0.15.0", "pydantic>=1.8.0"]
 web = ["fastapi>=0.68.0", "uvicorn>=0.15.0", "websockets>=10.0"]
-all = ["fastapi>=0.68.0", "uvicorn>=0.15.0", "pydantic>=1.8.0", "websockets>=10.0"]
+tui = ["textual>=1.0.0"]
+all = ["fastapi>=0.68.0", "uvicorn>=0.15.0", "pydantic>=1.8.0", "websockets>=10.0", "textual>=1.0.0"]
 nb = ["nb_log"]
+
+[project.scripts]
+nbcmd = "nb_cmd.cli:main"
 
 [project.urls]
 Homepage = "https://github.com/ydf0509/nb_cmd"
@@ -1754,7 +1982,7 @@ nb_cmd = ["ui/static/**/*"]
 
 ---
 
-## 一、同一个需求，四种写法
+## 一、同一个需求，五种写法
 
 ### 需求：部署工具
 
@@ -1877,7 +2105,7 @@ if __name__ == '__main__':
 
 ---
 
-### 5. nb_cmd（写一次，三种接口）
+### 5. nb_cmd（一次编写，五种能力）
 
 ```python
 from nb_cmd import NbCmd
@@ -1904,7 +2132,7 @@ python deploy.py deploy web-01 --port 2222 --verbose   # CLI
 python deploy.py --web                                   # Web UI + REST API
 ```
 
-**优点：** 代码量和 fire 接近，但强制类型注解、自动类型校验、支持三种接口模式。
+**优点：** 代码量和 fire 接近，但强制类型注解、自动类型校验、支持五种能力（Python 直接调用 + CLI + REST API + Web UI + Markdown 文档）。
 
 ---
 
@@ -2121,6 +2349,8 @@ python tool.py --region beijing status
 ### click 实现（约 60 行）
 
 光看这一坨装饰器就头皮发麻——`@click.group()` 套 `@click.pass_context` 套 `@click.option()` 套 `@click.argument()`，一个子命令 4 层装饰器起步。你写的不是业务逻辑，你写的是装饰器俄罗斯套娃。半年后回来看自己的代码，第一反应是"这谁写的"。很多 Python 码农看到 click 的写法，转头就回去抱 argparse 了——至少 argparse 虽然笨，但看得懂。
+
+这样写命令行，作者和读者都真的很想撞墙啊。
 
 ```python
 import click
@@ -2440,13 +2670,35 @@ class GitRemote(NbCmd):
 `````
 
 └── examples
+    ├── ai_skill_gen_demo
+    │   ├── ai_skill_gen_demo.py
+    │   └── skills
+    │       ├── devops-tool
+    │       │   └── SKILL.md
+    │       ├── devops-tool-full
+    │       │   └── SKILL.md
+    │       └── devops-tool-py
+    │           └── SKILL.md
     ├── bigone_cmd.py
     ├── demo_advanced.py
     ├── demo_basic.py
     ├── demo_full.py
     ├── demo_inherit.py
+    ├── demo_most_easy.py
     ├── demo_nb_log.py
     ├── demo_subcommands.py
+    ├── five_in_one_demo.py
+    ├── five_in_one_demo_doc.md
+    ├── git_demos
+    │   ├── README.md
+    │   ├── git_click.py
+    │   └── git_nb_cmd.py
+    ├── github_cli_demos
+    │   ├── gh_click.py
+    │   ├── gh_comparison.md
+    │   ├── gh_nb_cmd.py
+    │   ├── gh_nb_cmd_gen_doc.md
+    │   └── gh_typer.py
     └── nbctx_demo
         ├── nbctx_demo.py
         └── nbctx_demo_gen_doc.md
@@ -2456,7 +2708,7 @@ class GitRemote(NbCmd):
 ---
 
 
-## nb_cmd (relative dir: `examples`)  Included Files (total: 9 files)
+## nb_cmd (relative dir: `examples`)  Included Files (total: 24 files)
 
 
 - `examples/bigone_cmd.py`
@@ -2469,9 +2721,39 @@ class GitRemote(NbCmd):
 
 - `examples/demo_inherit.py`
 
+- `examples/demo_most_easy.py`
+
 - `examples/demo_nb_log.py`
 
 - `examples/demo_subcommands.py`
+
+- `examples/five_in_one_demo.py`
+
+- `examples/five_in_one_demo_doc.md`
+
+- `examples/ai_skill_gen_demo/ai_skill_gen_demo.py`
+
+- `examples/ai_skill_gen_demo/skills/devops-tool/SKILL.md`
+
+- `examples/ai_skill_gen_demo/skills/devops-tool-full/SKILL.md`
+
+- `examples/ai_skill_gen_demo/skills/devops-tool-py/SKILL.md`
+
+- `examples/github_cli_demos/gh_click.py`
+
+- `examples/github_cli_demos/gh_comparison.md`
+
+- `examples/github_cli_demos/gh_nb_cmd.py`
+
+- `examples/github_cli_demos/gh_nb_cmd_gen_doc.md`
+
+- `examples/github_cli_demos/gh_typer.py`
+
+- `examples/git_demos/git_click.py`
+
+- `examples/git_demos/git_nb_cmd.py`
+
+- `examples/git_demos/README.md`
 
 - `examples/nbctx_demo/nbctx_demo.py`
 
@@ -2486,7 +2768,7 @@ class GitRemote(NbCmd):
 `````python
 # -*- coding: utf-8 -*-
 """
-nb_cmd 综合入口 demo —— 把多个 NbCmd 类组合到一个统一的 CLI / Web UI / REST API
+nb_cmd 综合入口 demo —— 把多个 NbCmd 类组合到一个统一的 CLI / Web UI / TUI / REST API
 
 用法:
     python bigone_cmd.py --help
@@ -2945,6 +3227,59 @@ if __name__ == '__main__':
 ---
 
 
+--- **start of file: examples/demo_most_easy.py** (project: nb_cmd) --- 
+
+`````python
+# -*- coding: utf-8 -*-
+"""
+nb_cmd 最简 demo —— 不使用 Annotated，只用基本类型注解
+
+用法:
+    python demo_most_easy.py --help
+    python demo_most_easy.py hello 世界
+    python demo_most_easy.py add 3 5
+    python demo_most_easy.py greet 张三 --times 3
+    python demo_most_easy.py say-hi --loud
+"""
+import sys
+import os
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+
+from nb_cmd import NbCmd
+
+
+class Demo(NbCmd):
+    """最简示例 —— 连 Annotated 都不需要"""
+
+    def hello(self, name: str):
+        """向某人打招呼"""
+        print(f'你好, {name}!')
+
+    def add(self, a: int, b: int):
+        """两数相加"""
+        print(f'{a} + {b} = {a + b}')
+
+    def greet(self, name: str, times: int = 1):
+        """重复问候"""
+        for _ in range(times):
+            print(f'Hi, {name}!')
+
+    def say_hi(self, loud: bool = False):
+        """打个招呼"""
+        msg = 'HI!!!' if loud else 'hi~'
+        print(msg)
+
+
+if __name__ == '__main__':
+    Demo().run()
+
+`````
+
+--- **end of file: examples/demo_most_easy.py** (project: nb_cmd) --- 
+
+---
+
+
 --- **start of file: examples/demo_nb_log.py** (project: nb_cmd) --- 
 
 `````python
@@ -3152,6 +3487,3020 @@ if __name__ == '__main__':
 ---
 
 
+--- **start of file: examples/five_in_one_demo.py** (project: nb_cmd) --- 
+
+`````python
+# -*- coding: utf-8 -*-
+"""
+nb_cmd 六重能力演示 —— 一次编写，六处全自动
+
+    1. Python 直接调用（类自身完全照常使用）
+    2. 自动生成 CLI 命令行
+    3. 自动生成 REST API（含 Swagger 文档）
+    4. 自动生成 Markdown 使用文档
+    5. 自动生成 Web UI（含 WebSocket 实时控制台）
+    6. 自动生成 TUI 终端交互界面（基于 Textual）
+
+用法:
+    # --- 能力 2: CLI ---
+    python five_in_one_demo.py --help
+    python five_in_one_demo.py ping 8.8.8.8
+    python five_in_one_demo.py scan 192.168.1.0/24 --port 80 --verbose
+    python five_in_one_demo.py calc 100 200
+
+    # --- 能力 3+5: API + Web UI ---
+    python five_in_one_demo.py --web
+
+    # --- 能力 6: TUI ---
+    python five_in_one_demo.py --tui
+
+    # --- 能力 4: 自动生成 Markdown 文档 ---
+    python five_in_one_demo.py gen-doc
+"""
+import sys
+import os
+import time
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+
+from nb_cmd import NbCmd, CmdGen, NbCmdMeta
+
+
+class NetTool(NbCmd):
+    """网络小工具 —— 一次编写，五处全自动"""
+
+    class Meta(NbCmdMeta):
+        version = '1.0.0'
+
+    def ping(self, host: str, count: int = 4):
+        """Ping 指定主机"""
+        for i in range(1, count + 1):
+            time.sleep(0.3)
+            print(f'[{i}/{count}] PING {host} — 64 bytes, time={i * 12}ms')
+        print(f'\n--- {host} ping 统计 ---')
+        print(f'{count} 个包已发送, {count} 个包已接收, 0% 丢包')
+
+    def scan(self, target: str, port: int = 80, verbose: bool = False):
+        """扫描目标端口"""
+        if verbose:
+            print(f'[*] 正在扫描 {target}:{port} ...')
+        time.sleep(0.5)
+        print(f'[+] {target}:{port} — OPEN')
+        if verbose:
+            print(f'[*] 服务: HTTP')
+            print(f'[*] 扫描完成')
+
+    def calc(self, a: int, b: int):
+        """计算两数之和"""
+        result = a + b
+        print(f'{a} + {b} = {result}')
+        return result
+
+    def gen_doc(self):
+        """自动生成 Markdown 使用文档"""
+        g = CmdGen(NetTool, script='five_in_one_demo.py', fmt='markdown')
+        doc_path = os.path.join(os.path.dirname(__file__), 'five_in_one_demo_doc.md')
+        g.doc(file=doc_path)
+        print(f'文档已生成: {doc_path}')
+
+
+if __name__ == '__main__':
+    # --- 能力 1: Python 直接调用（类完全照常使用）---
+    # tool = NetTool()
+    # tool.ping('127.0.0.1', count=2)
+    # tool.calc(100, 200)
+
+    # --- 能力 2~6: CLI / API / Web / TUI / 文档 全自动 ---
+    NetTool().run()
+
+`````
+
+--- **end of file: examples/five_in_one_demo.py** (project: nb_cmd) --- 
+
+---
+
+
+--- **start of file: examples/five_in_one_demo_doc.md** (project: nb_cmd) --- 
+
+`````markdown
+> *Auto-generated by nb-cmd CmdGen*
+
+# None v1.0.0
+
+> 网络小工具 —— 一次编写，五处全自动
+
+## Table of Contents
+
+- [`calc`](#calc)
+- [`gen-doc`](#gen-doc)
+- [`ping`](#ping)
+- [`scan`](#scan)
+
+---
+
+## System Params
+
+| Flag | Description |
+|------|-------------|
+| `-h`, `--help` | 显示帮助信息 |
+| `-fh`, `--full-help` | 显示完整帮助（所有参数详情） |
+| `-eh`, `--easy-help` | 显示简易帮助（argparse 原生格式） |
+| `--cmd-version` | 显示版本号 |
+| `--web` | 以 Web UI + REST API 模式启动 |
+| `--web-port PORT` | Web UI 服务端口（用于 `--web`） |
+| `--tui` | 以 TUI 终端交互模式启动 |
+
+## Quick Start
+
+```bash
+# 查看完整帮助
+D:\ProgramData\miniconda3\python.exe five_in_one_demo.py -fh
+
+# 查看版本
+D:\ProgramData\miniconda3\python.exe five_in_one_demo.py --cmd-version
+
+# 启动 Web UI
+D:\ProgramData\miniconda3\python.exe five_in_one_demo.py --web
+
+# 启动 TUI 终端交互
+D:\ProgramData\miniconda3\python.exe five_in_one_demo.py --tui
+```
+
+## 命令行约定
+
+命令格式：`python script.py [全局参数] <子命令路径> [命令参数]`
+
+| 标记 | 含义 |
+|------|------|
+| `${value}` | 带默认值的参数 — 可按需替换 |
+| `$<name>` | **必填**参数 — 必须提供值 |
+| `--flag`（无值） | 布尔开关，添加即启用 |
+
+---
+
+## Commands
+
+### `calc`
+
+计算两数之和
+
+| Param | Type | Default | Description |
+|-------|------|---------|-------------|
+| `--a` | `int` | *(required)* | - |
+| `--b` | `int` | *(required)* | - |
+
+```bash
+D:\ProgramData\miniconda3\python.exe five_in_one_demo.py calc --a $<a> --b $<b>
+```
+
+### `gen-doc`
+
+自动生成 Markdown 使用文档
+
+```bash
+D:\ProgramData\miniconda3\python.exe five_in_one_demo.py gen-doc
+```
+
+### `ping`
+
+Ping 指定主机
+
+| Param | Type | Default | Description |
+|-------|------|---------|-------------|
+| `--host` | `str` | *(required)* | - |
+| `--count` | `int` | `4` | - |
+
+```bash
+D:\ProgramData\miniconda3\python.exe five_in_one_demo.py ping --host $<host> --count ${4}
+```
+
+### `scan`
+
+扫描目标端口
+
+| Param | Type | Default | Description |
+|-------|------|---------|-------------|
+| `--target` | `str` | *(required)* | - |
+| `--port` | `int` | `80` | - |
+| `--verbose` | `bool` | `False` | - |
+
+```bash
+D:\ProgramData\miniconda3\python.exe five_in_one_demo.py scan --target $<target> --port ${80} --verbose
+```
+
+`````
+
+--- **end of file: examples/five_in_one_demo_doc.md** (project: nb_cmd) --- 
+
+---
+
+
+--- **start of file: examples/ai_skill_gen_demo/ai_skill_gen_demo.py** (project: nb_cmd) --- 
+
+`````python
+# -*- coding: utf-8 -*-
+"""
+AI Skill 自动生成演示 —— nb_cmd 第七种能力。
+
+本示例演示如何将一个普通的 NbCmd 工具类，一键生成符合
+agentskills.io 国际开放标准的 AI Skill 文件夹，让 Cursor、
+Claude Code、Codex 等 AI Agent 能自动识别并正确使用你的工具。
+
+功能:
+    - 定义一个带全局参数 + 多级子命令组的 DevOps 工具
+    - 一键生成 AI Skill 文件夹（仅 SKILL.md）
+    - 演示 SkillGen 的各种配置选项
+
+用法:
+    # 1. 直接运行（Python 本地调用 + SkillGen 演示）
+    python ai_skill_gen_demo.py
+
+    # 2. CLI 模式
+    python ai_skill_gen_demo.py --env staging deploy --version 2.1.0
+
+    # 3. Web UI 模式
+    python ai_skill_gen_demo.py --web --web-port 8086
+
+    # 4. TUI 模式
+    python ai_skill_gen_demo.py --tui
+"""
+import sys
+import os
+
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
+
+from dataclasses import dataclass
+from typing import Annotated
+from nb_cmd import NbCmd, SkillGen
+
+
+# ==================== 1. 全局上下文 ====================
+
+@dataclass
+class DevCtx:
+    """DevOps 全局上下文"""
+    env: str = 'prod'
+    region: str = 'us-east'
+    verbose: bool = False
+
+
+# ==================== 2. 子命令组 ====================
+
+class DbCmd(NbCmd):
+    """数据库管理 (二级子命令组)"""
+    nbctx: DevCtx
+
+    def migrate(self,
+                dry_run: Annotated[bool, '仅预览，不执行'] = False,
+                target: Annotated[str, '目标迁移版本'] = 'latest'):
+        """执行数据库迁移"""
+        prefix = '[DRY-RUN]' if dry_run else '[EXEC]'
+        print(f'{prefix} [{self.nbctx.env}/{self.nbctx.region}] 迁移到 {target}')
+
+    def backup(self, compress: Annotated[bool, '启用压缩'] = True):
+        """备份数据库"""
+        fmt = 'tar.gz' if compress else 'sql'
+        print(f'[{self.nbctx.env}] 备份数据库 → backup.{fmt}')
+
+    def restore(self, file: Annotated[str, '备份文件路径']):
+        """从备份恢复数据库"""
+        print(f'[{self.nbctx.env}] 恢复数据库: {file}')
+
+
+class DeployCmd(NbCmd):
+    """部署管理 (二级子命令组)"""
+    nbctx: DevCtx
+
+    def rolling(self,
+                version: Annotated[str, '部署版本号', 'v'],
+                batch_size: Annotated[int, '每批实例数'] = 3,
+                wait: Annotated[int, '每批等待秒数'] = 30):
+        """滚动部署"""
+        print(f'[{self.nbctx.env}] 滚动部署 v{version} (每批 {batch_size} 台, 等待 {wait}s)')
+
+    def canary(self,
+               version: Annotated[str, '部署版本号', 'v'],
+               traffic: Annotated[float, '流量比例 0-1'] = 0.1):
+        """金丝雀部署"""
+        print(f'[{self.nbctx.env}] 金丝雀部署 v{version} (流量 {traffic*100:.0f}%)')
+
+    def rollback(self, steps: Annotated[int, '回退步数'] = 1):
+        """回滚到上一个版本"""
+        print(f'[{self.nbctx.env}] 回滚 {steps} 个版本')
+
+
+class MonitorCmd(NbCmd):
+    """监控告警 (二级子命令组)"""
+    nbctx: DevCtx
+
+    def status(self, service: Annotated[str, '服务名'] = None):
+        """查看服务状态"""
+        target = service or 'all'
+        print(f'[{self.nbctx.env}] 服务状态: {target}')
+
+    def alert(self, rule: Annotated[str, '告警规则名'], threshold: Annotated[float, '阈值']):
+        """配置告警规则"""
+        print(f'[{self.nbctx.env}] 告警规则: {rule} > {threshold}')
+
+
+# ==================== 3. 顶层工具类 ====================
+
+class DevOpsTool(NbCmd):
+    """
+    DevOps 运维工具 —— AI Skill 自动生成演示。
+
+    支持数据库管理、部署管理、监控告警三大模块。
+    全局参数 env/region/verbose 自动穿透到所有子命令组。
+    """
+    nbctx: DevCtx
+
+    class Meta:
+        name = 'devops-tool'
+        version = '1.0.0'
+        description = 'DevOps 运维工具，支持数据库管理、部署、监控等操作。'
+        enable_exec = False
+
+    def __init__(self,
+                 env: Annotated[str, '运行环境 prod/staging/dev'] = 'prod',
+                 region: Annotated[str, '部署区域'] = 'us-east',
+                 verbose: Annotated[bool, '输出详细信息'] = False):
+        self.env = env
+        self.region = region
+        self.verbose = verbose
+
+    def make_nbctx(self):
+        return DevCtx(env=self.env, region=self.region, verbose=self.verbose)
+
+    sub_commands = {
+        'db': DbCmd,
+        'deploy': DeployCmd,
+        'monitor': MonitorCmd,
+    }
+
+    def health(self):
+        """查看全局健康状态"""
+        print(f'=== 全局健康检查 [{self.nbctx.env}/{self.nbctx.region}] ===')
+        print('  Database: OK')
+        print('  API:      OK')
+        print('  Cache:    OK')
+
+    def version(self):
+        """查看工具版本"""
+        return {'tool': 'devops-tool', 'version': '1.0.0', 'env': self.nbctx.env}
+
+
+# ==================== 4. SkillGen 演示 ====================
+
+def demo_basic():
+    """演示 1: 最简用法 —— 一键生成 Skill"""
+    print('\n' + '='*60)
+    print('演示 1: SkillGen 最简用法')
+    print('='*60)
+
+    base_dir = os.path.join(os.path.dirname(__file__), 'skills')
+    g = SkillGen(DevOpsTool, base_dir=base_dir, script='ai_skill_gen_demo.py')
+    path = g.gen()
+    print(f'\nSkill 已生成到: {path}')
+    print(f'  SKILL.md -> {os.path.join(path, "SKILL.md")}')
+
+
+def demo_full():
+    """演示 2: 完整用法 —— 自定义元数据 + 环境提示"""
+    print('\n' + '='*60)
+    print('演示 2: SkillGen 完整用法（含环境提示 + 元数据）')
+    print('='*60)
+
+    base_dir = os.path.join(os.path.dirname(__file__), 'skills')
+    priority_prompt = (
+        '## 运行环境说明\n'
+        '- 线上服务器：使用 `/usr/bin/python3`，脚本位于 `/opt/devops/ai_skill_gen_demo.py`\n'
+        '- 本地开发：使用 `python`，脚本位于当前目录\n'
+        '- 运行前请确保设置 `PYTHONPATH=/opt/devops`（线上）或项目根目录（本地）'
+    )
+
+    g = SkillGen(
+        DevOpsTool,
+        base_dir=base_dir,
+        name='devops-tool-full',
+        script='ai_skill_gen_demo.py',
+        description='DevOps 运维工具 —— 数据库迁移/备份/恢复、滚动/金丝雀部署、服务监控。当需要执行运维操作时使用。',
+        license='MIT',
+        compatibility='Requires Python 3.8+ and nb_cmd >= 0.2.0',
+        metadata={'author': 'ops-team', 'version': '1.0', 'category': 'devops'},
+        user_highest_priority_skill_prompt=priority_prompt,
+        include_python_examples=True,
+    )
+    path = g.gen()
+    print(f'\nSkill 已生成到: {path}')
+    print(f'  SKILL.md -> OK')
+
+
+def demo_string_only():
+    """演示 3: 仅生成 SKILL.md 内容字符串（不写入文件）"""
+    print('\n' + '='*60)
+    print('演示 3: 仅生成 SKILL.md 字符串')
+    print('='*60)
+
+    g = SkillGen(DevOpsTool, base_dir='/tmp', script='ai_skill_gen_demo.py')
+    content = g.gen_skill_md()
+
+    print(f'\nSKILL.md 内容长度: {len(content)} 字符, {len(content.splitlines())} 行')
+    print('\n--- 前 20 行预览 ---')
+    for i, line in enumerate(content.splitlines()[:20], 1):
+        print(f'  {i:2}: {line}')
+    print('  ...')
+
+
+def demo_python_examples():
+    """演示 4: 开启 Python 调用示例"""
+    print('\n' + '='*60)
+    print('演示 4: 开启 Python 调用示例')
+    print('='*60)
+
+    base_dir = os.path.join(os.path.dirname(__file__), 'skills')
+    g = SkillGen(
+        DevOpsTool,
+        base_dir=base_dir,
+        name='devops-tool-py',
+        script='ai_skill_gen_demo.py',
+        include_python_examples=True,
+    )
+    path = g.gen()
+    print(f'\nSkill 已生成到: {path}')
+
+    skill_md = os.path.join(path, 'SKILL.md')
+    with open(skill_md, 'r', encoding='utf-8') as f:
+        content = f.read()
+    has_python = '```python' in content
+    has_cli = '```bash' in content
+    print(f'  包含 Python 示例: {has_python}')
+    print(f'  包含 CLI 示例: {has_cli}')
+
+
+def print_generated_skills():
+    """打印生成的 Skill 文件夹结构"""
+    print('\n' + '='*60)
+    print('生成的 Skill 目录结构')
+    print('='*60)
+
+    skills_dir = os.path.join(os.path.dirname(__file__), 'skills')
+    if not os.path.exists(skills_dir):
+        print('(无)')
+        return
+
+    for root, dirs, files in os.walk(skills_dir):
+        level = root.replace(skills_dir, '').count(os.sep)
+        indent = '  ' * level
+        print(f'{indent}{os.path.basename(root)}/')
+        subindent = '  ' * (level + 1)
+        for f in files:
+            print(f'{subindent}{f}')
+
+
+# ==================== 5. 入口 ====================
+
+if __name__ == '__main__':
+    import sys as _sys
+
+    if len(_sys.argv) > 1:
+        # CLI / Web / API / TUI 模式
+        DevOpsTool().run()
+    else:
+        # 本地直接调用演示
+        print('='*60)
+        print('AI Skill 自动生成演示')
+        print('='*60)
+
+        # 先清理旧的生成结果
+        skills_dir = os.path.join(os.path.dirname(__file__), 'skills')
+        if os.path.exists(skills_dir):
+            import shutil
+            shutil.rmtree(skills_dir)
+            print('\n已清理旧的 skills/ 目录')
+
+        # 运行各种演示
+        demo_basic()
+        demo_full()
+        demo_string_only()
+        demo_python_examples()
+        print_generated_skills()
+
+        print('\n' + '='*60)
+        print('所有演示完成！')
+        print('='*60)
+        print(f'\n查看生成的 Skill 文件:')
+        print(f'  {skills_dir}')
+        print('\n你也可以运行 CLI 模式测试:')
+        print(f'  python ai_skill_gen_demo.py --env staging db migrate --dry-run')
+
+`````
+
+--- **end of file: examples/ai_skill_gen_demo/ai_skill_gen_demo.py** (project: nb_cmd) --- 
+
+---
+
+
+--- **start of file: examples/ai_skill_gen_demo/skills/devops-tool/SKILL.md** (project: nb_cmd) --- 
+
+`````markdown
+---
+name: devops-tool
+description: >-
+  DevOps 运维工具，支持数据库管理、部署、监控等操作。
+---
+# devops-tool
+
+## Overview
+
+DevOps 运维工具 —— AI Skill 自动生成演示。
+
+支持数据库管理、部署管理、监控告警三大模块。
+全局参数 env/region/verbose 自动穿透到所有子命令组。
+
+## When to Use
+
+Activate this skill when you need to perform devops-tool-related operations, such as:
+- health
+- version
+- db backup
+- db migrate
+- db restore
+- deploy canary
+- deploy rollback
+- deploy rolling
+- monitor alert
+- monitor status
+
+## Command Structure
+
+### CLI
+```bash
+python ai_skill_gen_demo.py [global_params] <command_path> [command_params]
+```
+
+**Parameter conventions:**
+- `${value}` — parameter with default value (replace as needed)
+- `$<name>` — **required** parameter (must provide a value)
+- `--flag` (no value) — boolean switch (add to enable)
+
+## Global Parameters
+
+These parameters are defined in `__init__` and passed to all subcommands automatically.
+
+| Flag | Type | Default | Description |
+|------|------|---------|-------------|
+| `--env` | `str` | `prod` | 运行环境 prod/staging/dev |
+| `--region` | `str` | `us-east` | 部署区域 |
+| `--verbose` | `bool` | `False` | 输出详细信息 |
+
+## Commands
+
+### `health`
+
+查看全局健康状态
+
+**CLI:**
+```bash
+D:\ProgramData\Miniconda3\envs\py39b\python.exe ai_skill_gen_demo.py --env ${prod} --region ${us-east} --verbose health
+```
+
+### `version`
+
+查看工具版本
+
+**CLI:**
+```bash
+D:\ProgramData\Miniconda3\envs\py39b\python.exe ai_skill_gen_demo.py --env ${prod} --region ${us-east} --verbose version
+```
+
+### `db` *(subcommand group)*
+
+数据库管理 (二级子命令组)
+
+### `db backup`
+
+备份数据库
+
+| Param | Type | Default | Description |
+|-------|------|---------|-------------|
+| `--compress` | `bool` | `True` | 启用压缩 |
+
+**CLI:**
+```bash
+D:\ProgramData\Miniconda3\envs\py39b\python.exe ai_skill_gen_demo.py --env ${prod} --region ${us-east} --verbose db backup
+```
+
+### `db migrate`
+
+执行数据库迁移
+
+| Param | Type | Default | Description |
+|-------|------|---------|-------------|
+| `--dry-run` | `bool` | `False` | 仅预览，不执行 |
+| `--target` | `str` | `latest` | 目标迁移版本 |
+
+**CLI:**
+```bash
+D:\ProgramData\Miniconda3\envs\py39b\python.exe ai_skill_gen_demo.py --env ${prod} --region ${us-east} --verbose db migrate --dry-run --target ${latest}
+```
+
+### `db restore`
+
+从备份恢复数据库
+
+| Param | Type | Default | Description |
+|-------|------|---------|-------------|
+| `--file` | `str` | *(required)* | 备份文件路径 |
+
+**CLI:**
+```bash
+D:\ProgramData\Miniconda3\envs\py39b\python.exe ai_skill_gen_demo.py --env ${prod} --region ${us-east} --verbose db restore --file $<file>
+```
+
+### `deploy` *(subcommand group)*
+
+部署管理 (二级子命令组)
+
+### `deploy canary`
+
+金丝雀部署
+
+| Param | Type | Default | Description |
+|-------|------|---------|-------------|
+| `--version, -v` | `str` | *(required)* | 部署版本号 |
+| `--traffic` | `float` | `0.1` | 流量比例 0-1 |
+
+**CLI:**
+```bash
+D:\ProgramData\Miniconda3\envs\py39b\python.exe ai_skill_gen_demo.py --env ${prod} --region ${us-east} --verbose deploy canary --version $<version> --traffic ${0.1}
+```
+
+### `deploy rollback`
+
+回滚到上一个版本
+
+| Param | Type | Default | Description |
+|-------|------|---------|-------------|
+| `--steps` | `int` | `1` | 回退步数 |
+
+**CLI:**
+```bash
+D:\ProgramData\Miniconda3\envs\py39b\python.exe ai_skill_gen_demo.py --env ${prod} --region ${us-east} --verbose deploy rollback --steps ${1}
+```
+
+### `deploy rolling`
+
+滚动部署
+
+| Param | Type | Default | Description |
+|-------|------|---------|-------------|
+| `--version, -v` | `str` | *(required)* | 部署版本号 |
+| `--batch-size` | `int` | `3` | 每批实例数 |
+| `--wait` | `int` | `30` | 每批等待秒数 |
+
+**CLI:**
+```bash
+D:\ProgramData\Miniconda3\envs\py39b\python.exe ai_skill_gen_demo.py --env ${prod} --region ${us-east} --verbose deploy rolling --version $<version> --batch-size ${3} --wait ${30}
+```
+
+### `monitor` *(subcommand group)*
+
+监控告警 (二级子命令组)
+
+### `monitor alert`
+
+配置告警规则
+
+| Param | Type | Default | Description |
+|-------|------|---------|-------------|
+| `--rule` | `str` | *(required)* | 告警规则名 |
+| `--threshold` | `float` | *(required)* | 阈值 |
+
+**CLI:**
+```bash
+D:\ProgramData\Miniconda3\envs\py39b\python.exe ai_skill_gen_demo.py --env ${prod} --region ${us-east} --verbose monitor alert --rule $<rule> --threshold $<threshold>
+```
+
+### `monitor status`
+
+查看服务状态
+
+| Param | Type | Default | Description |
+|-------|------|---------|-------------|
+| `--service` | `str` | `None` | 服务名 |
+
+**CLI:**
+```bash
+D:\ProgramData\Miniconda3\envs\py39b\python.exe ai_skill_gen_demo.py --env ${prod} --region ${us-east} --verbose monitor status
+```
+
+
+## Guidelines
+
+- Global parameters defined in `__init__` are automatically passed to all subcommands.
+- Boolean flags default to `False`; add the flag to set it to `True`.
+- Subcommand groups are accessed via space or dot, e.g., `db migrate` or `db.migrate`.
+- Use `--help` or `-h` to see available commands and options.
+- Use `--full-help` or `-fh` to see detailed parameter descriptions.
+`````
+
+--- **end of file: examples/ai_skill_gen_demo/skills/devops-tool/SKILL.md** (project: nb_cmd) --- 
+
+---
+
+
+--- **start of file: examples/ai_skill_gen_demo/skills/devops-tool-full/SKILL.md** (project: nb_cmd) --- 
+
+`````markdown
+---
+name: devops-tool-full
+description: >-
+  DevOps 运维工具 —— 数据库迁移/备份/恢复、滚动/金丝雀部署、服务监控。当需要执行运维操作时使用。
+license: MIT
+compatibility: Requires Python 3.8+ and nb_cmd >= 0.2.0
+metadata:
+  author: "ops-team"
+  version: "1.0"
+  category: "devops"
+---
+# devops-tool
+
+## Overview
+
+DevOps 运维工具 —— AI Skill 自动生成演示。
+
+支持数据库管理、部署管理、监控告警三大模块。
+全局参数 env/region/verbose 自动穿透到所有子命令组。
+
+## Important
+
+## 运行环境说明
+- 线上服务器：使用 `/usr/bin/python3`，脚本位于 `/opt/devops/ai_skill_gen_demo.py`
+- 本地开发：使用 `python`，脚本位于当前目录
+- 运行前请确保设置 `PYTHONPATH=/opt/devops`（线上）或项目根目录（本地）
+
+## When to Use
+
+Activate this skill when you need to perform devops-tool-related operations, such as:
+- health
+- version
+- db backup
+- db migrate
+- db restore
+- deploy canary
+- deploy rollback
+- deploy rolling
+- monitor alert
+- monitor status
+
+## Command Structure
+
+### CLI
+```bash
+python ai_skill_gen_demo.py [global_params] <command_path> [command_params]
+```
+
+### Python
+```python
+from ai_skill_gen_demo import DevOpsTool
+app = DevOpsTool()  # pass global params if needed
+# app.group.method(param=value)
+```
+
+**Parameter conventions:**
+- `${value}` — parameter with default value (replace as needed)
+- `$<name>` — **required** parameter (must provide a value)
+- `--flag` (no value) — boolean switch (add to enable)
+
+## Global Parameters
+
+These parameters are defined in `__init__` and passed to all subcommands automatically.
+
+| Flag | Type | Default | Description |
+|------|------|---------|-------------|
+| `--env` | `str` | `prod` | 运行环境 prod/staging/dev |
+| `--region` | `str` | `us-east` | 部署区域 |
+| `--verbose` | `bool` | `False` | 输出详细信息 |
+
+## Commands
+
+### `health`
+
+查看全局健康状态
+
+**CLI:**
+```bash
+D:\ProgramData\Miniconda3\envs\py39b\python.exe ai_skill_gen_demo.py --env ${prod} --region ${us-east} --verbose health
+```
+
+**Python:**
+```python
+app.health()
+```
+
+### `version`
+
+查看工具版本
+
+**CLI:**
+```bash
+D:\ProgramData\Miniconda3\envs\py39b\python.exe ai_skill_gen_demo.py --env ${prod} --region ${us-east} --verbose version
+```
+
+**Python:**
+```python
+app.version()
+```
+
+### `db` *(subcommand group)*
+
+数据库管理 (二级子命令组)
+
+### `db backup`
+
+备份数据库
+
+| Param | Type | Default | Description |
+|-------|------|---------|-------------|
+| `--compress` | `bool` | `True` | 启用压缩 |
+
+**CLI:**
+```bash
+D:\ProgramData\Miniconda3\envs\py39b\python.exe ai_skill_gen_demo.py --env ${prod} --region ${us-east} --verbose db backup
+```
+
+**Python:**
+```python
+app.db.backup(compress=True)
+```
+
+### `db migrate`
+
+执行数据库迁移
+
+| Param | Type | Default | Description |
+|-------|------|---------|-------------|
+| `--dry-run` | `bool` | `False` | 仅预览，不执行 |
+| `--target` | `str` | `latest` | 目标迁移版本 |
+
+**CLI:**
+```bash
+D:\ProgramData\Miniconda3\envs\py39b\python.exe ai_skill_gen_demo.py --env ${prod} --region ${us-east} --verbose db migrate --dry-run --target ${latest}
+```
+
+**Python:**
+```python
+app.db.migrate(dry_run=False, target="latest")
+```
+
+### `db restore`
+
+从备份恢复数据库
+
+| Param | Type | Default | Description |
+|-------|------|---------|-------------|
+| `--file` | `str` | *(required)* | 备份文件路径 |
+
+**CLI:**
+```bash
+D:\ProgramData\Miniconda3\envs\py39b\python.exe ai_skill_gen_demo.py --env ${prod} --region ${us-east} --verbose db restore --file $<file>
+```
+
+**Python:**
+```python
+app.db.restore(file=<file>)
+```
+
+### `deploy` *(subcommand group)*
+
+部署管理 (二级子命令组)
+
+### `deploy canary`
+
+金丝雀部署
+
+| Param | Type | Default | Description |
+|-------|------|---------|-------------|
+| `--version, -v` | `str` | *(required)* | 部署版本号 |
+| `--traffic` | `float` | `0.1` | 流量比例 0-1 |
+
+**CLI:**
+```bash
+D:\ProgramData\Miniconda3\envs\py39b\python.exe ai_skill_gen_demo.py --env ${prod} --region ${us-east} --verbose deploy canary --version $<version> --traffic ${0.1}
+```
+
+**Python:**
+```python
+app.deploy.canary(version=<version>, traffic=0.1)
+```
+
+### `deploy rollback`
+
+回滚到上一个版本
+
+| Param | Type | Default | Description |
+|-------|------|---------|-------------|
+| `--steps` | `int` | `1` | 回退步数 |
+
+**CLI:**
+```bash
+D:\ProgramData\Miniconda3\envs\py39b\python.exe ai_skill_gen_demo.py --env ${prod} --region ${us-east} --verbose deploy rollback --steps ${1}
+```
+
+**Python:**
+```python
+app.deploy.rollback(steps=1)
+```
+
+### `deploy rolling`
+
+滚动部署
+
+| Param | Type | Default | Description |
+|-------|------|---------|-------------|
+| `--version, -v` | `str` | *(required)* | 部署版本号 |
+| `--batch-size` | `int` | `3` | 每批实例数 |
+| `--wait` | `int` | `30` | 每批等待秒数 |
+
+**CLI:**
+```bash
+D:\ProgramData\Miniconda3\envs\py39b\python.exe ai_skill_gen_demo.py --env ${prod} --region ${us-east} --verbose deploy rolling --version $<version> --batch-size ${3} --wait ${30}
+```
+
+**Python:**
+```python
+app.deploy.rolling(version=<version>, batch_size=3, wait=30)
+```
+
+### `monitor` *(subcommand group)*
+
+监控告警 (二级子命令组)
+
+### `monitor alert`
+
+配置告警规则
+
+| Param | Type | Default | Description |
+|-------|------|---------|-------------|
+| `--rule` | `str` | *(required)* | 告警规则名 |
+| `--threshold` | `float` | *(required)* | 阈值 |
+
+**CLI:**
+```bash
+D:\ProgramData\Miniconda3\envs\py39b\python.exe ai_skill_gen_demo.py --env ${prod} --region ${us-east} --verbose monitor alert --rule $<rule> --threshold $<threshold>
+```
+
+**Python:**
+```python
+app.monitor.alert(rule=<rule>, threshold=<threshold>)
+```
+
+### `monitor status`
+
+查看服务状态
+
+| Param | Type | Default | Description |
+|-------|------|---------|-------------|
+| `--service` | `str` | `None` | 服务名 |
+
+**CLI:**
+```bash
+D:\ProgramData\Miniconda3\envs\py39b\python.exe ai_skill_gen_demo.py --env ${prod} --region ${us-east} --verbose monitor status
+```
+
+**Python:**
+```python
+app.monitor.status(service=None)
+```
+
+
+## Guidelines
+
+- Global parameters defined in `__init__` are automatically passed to all subcommands.
+- Boolean flags default to `False`; add the flag to set it to `True`.
+- Subcommand groups are accessed via space or dot, e.g., `db migrate` or `db.migrate`.
+- Use `--help` or `-h` to see available commands and options.
+- Use `--full-help` or `-fh` to see detailed parameter descriptions.
+`````
+
+--- **end of file: examples/ai_skill_gen_demo/skills/devops-tool-full/SKILL.md** (project: nb_cmd) --- 
+
+---
+
+
+--- **start of file: examples/ai_skill_gen_demo/skills/devops-tool-py/SKILL.md** (project: nb_cmd) --- 
+
+`````markdown
+---
+name: devops-tool-py
+description: >-
+  DevOps 运维工具，支持数据库管理、部署、监控等操作。
+---
+# devops-tool
+
+## Overview
+
+DevOps 运维工具 —— AI Skill 自动生成演示。
+
+支持数据库管理、部署管理、监控告警三大模块。
+全局参数 env/region/verbose 自动穿透到所有子命令组。
+
+## When to Use
+
+Activate this skill when you need to perform devops-tool-related operations, such as:
+- health
+- version
+- db backup
+- db migrate
+- db restore
+- deploy canary
+- deploy rollback
+- deploy rolling
+- monitor alert
+- monitor status
+
+## Command Structure
+
+### CLI
+```bash
+python ai_skill_gen_demo.py [global_params] <command_path> [command_params]
+```
+
+### Python
+```python
+from ai_skill_gen_demo import DevOpsTool
+app = DevOpsTool()  # pass global params if needed
+# app.group.method(param=value)
+```
+
+**Parameter conventions:**
+- `${value}` — parameter with default value (replace as needed)
+- `$<name>` — **required** parameter (must provide a value)
+- `--flag` (no value) — boolean switch (add to enable)
+
+## Global Parameters
+
+These parameters are defined in `__init__` and passed to all subcommands automatically.
+
+| Flag | Type | Default | Description |
+|------|------|---------|-------------|
+| `--env` | `str` | `prod` | 运行环境 prod/staging/dev |
+| `--region` | `str` | `us-east` | 部署区域 |
+| `--verbose` | `bool` | `False` | 输出详细信息 |
+
+## Commands
+
+### `health`
+
+查看全局健康状态
+
+**CLI:**
+```bash
+D:\ProgramData\Miniconda3\envs\py39b\python.exe ai_skill_gen_demo.py --env ${prod} --region ${us-east} --verbose health
+```
+
+**Python:**
+```python
+app.health()
+```
+
+### `version`
+
+查看工具版本
+
+**CLI:**
+```bash
+D:\ProgramData\Miniconda3\envs\py39b\python.exe ai_skill_gen_demo.py --env ${prod} --region ${us-east} --verbose version
+```
+
+**Python:**
+```python
+app.version()
+```
+
+### `db` *(subcommand group)*
+
+数据库管理 (二级子命令组)
+
+### `db backup`
+
+备份数据库
+
+| Param | Type | Default | Description |
+|-------|------|---------|-------------|
+| `--compress` | `bool` | `True` | 启用压缩 |
+
+**CLI:**
+```bash
+D:\ProgramData\Miniconda3\envs\py39b\python.exe ai_skill_gen_demo.py --env ${prod} --region ${us-east} --verbose db backup
+```
+
+**Python:**
+```python
+app.db.backup(compress=True)
+```
+
+### `db migrate`
+
+执行数据库迁移
+
+| Param | Type | Default | Description |
+|-------|------|---------|-------------|
+| `--dry-run` | `bool` | `False` | 仅预览，不执行 |
+| `--target` | `str` | `latest` | 目标迁移版本 |
+
+**CLI:**
+```bash
+D:\ProgramData\Miniconda3\envs\py39b\python.exe ai_skill_gen_demo.py --env ${prod} --region ${us-east} --verbose db migrate --dry-run --target ${latest}
+```
+
+**Python:**
+```python
+app.db.migrate(dry_run=False, target="latest")
+```
+
+### `db restore`
+
+从备份恢复数据库
+
+| Param | Type | Default | Description |
+|-------|------|---------|-------------|
+| `--file` | `str` | *(required)* | 备份文件路径 |
+
+**CLI:**
+```bash
+D:\ProgramData\Miniconda3\envs\py39b\python.exe ai_skill_gen_demo.py --env ${prod} --region ${us-east} --verbose db restore --file $<file>
+```
+
+**Python:**
+```python
+app.db.restore(file=<file>)
+```
+
+### `deploy` *(subcommand group)*
+
+部署管理 (二级子命令组)
+
+### `deploy canary`
+
+金丝雀部署
+
+| Param | Type | Default | Description |
+|-------|------|---------|-------------|
+| `--version, -v` | `str` | *(required)* | 部署版本号 |
+| `--traffic` | `float` | `0.1` | 流量比例 0-1 |
+
+**CLI:**
+```bash
+D:\ProgramData\Miniconda3\envs\py39b\python.exe ai_skill_gen_demo.py --env ${prod} --region ${us-east} --verbose deploy canary --version $<version> --traffic ${0.1}
+```
+
+**Python:**
+```python
+app.deploy.canary(version=<version>, traffic=0.1)
+```
+
+### `deploy rollback`
+
+回滚到上一个版本
+
+| Param | Type | Default | Description |
+|-------|------|---------|-------------|
+| `--steps` | `int` | `1` | 回退步数 |
+
+**CLI:**
+```bash
+D:\ProgramData\Miniconda3\envs\py39b\python.exe ai_skill_gen_demo.py --env ${prod} --region ${us-east} --verbose deploy rollback --steps ${1}
+```
+
+**Python:**
+```python
+app.deploy.rollback(steps=1)
+```
+
+### `deploy rolling`
+
+滚动部署
+
+| Param | Type | Default | Description |
+|-------|------|---------|-------------|
+| `--version, -v` | `str` | *(required)* | 部署版本号 |
+| `--batch-size` | `int` | `3` | 每批实例数 |
+| `--wait` | `int` | `30` | 每批等待秒数 |
+
+**CLI:**
+```bash
+D:\ProgramData\Miniconda3\envs\py39b\python.exe ai_skill_gen_demo.py --env ${prod} --region ${us-east} --verbose deploy rolling --version $<version> --batch-size ${3} --wait ${30}
+```
+
+**Python:**
+```python
+app.deploy.rolling(version=<version>, batch_size=3, wait=30)
+```
+
+### `monitor` *(subcommand group)*
+
+监控告警 (二级子命令组)
+
+### `monitor alert`
+
+配置告警规则
+
+| Param | Type | Default | Description |
+|-------|------|---------|-------------|
+| `--rule` | `str` | *(required)* | 告警规则名 |
+| `--threshold` | `float` | *(required)* | 阈值 |
+
+**CLI:**
+```bash
+D:\ProgramData\Miniconda3\envs\py39b\python.exe ai_skill_gen_demo.py --env ${prod} --region ${us-east} --verbose monitor alert --rule $<rule> --threshold $<threshold>
+```
+
+**Python:**
+```python
+app.monitor.alert(rule=<rule>, threshold=<threshold>)
+```
+
+### `monitor status`
+
+查看服务状态
+
+| Param | Type | Default | Description |
+|-------|------|---------|-------------|
+| `--service` | `str` | `None` | 服务名 |
+
+**CLI:**
+```bash
+D:\ProgramData\Miniconda3\envs\py39b\python.exe ai_skill_gen_demo.py --env ${prod} --region ${us-east} --verbose monitor status
+```
+
+**Python:**
+```python
+app.monitor.status(service=None)
+```
+
+
+## Guidelines
+
+- Global parameters defined in `__init__` are automatically passed to all subcommands.
+- Boolean flags default to `False`; add the flag to set it to `True`.
+- Subcommand groups are accessed via space or dot, e.g., `db migrate` or `db.migrate`.
+- Use `--help` or `-h` to see available commands and options.
+- Use `--full-help` or `-fh` to see detailed parameter descriptions.
+`````
+
+--- **end of file: examples/ai_skill_gen_demo/skills/devops-tool-py/SKILL.md** (project: nb_cmd) --- 
+
+---
+
+
+--- **start of file: examples/github_cli_demos/gh_click.py** (project: nb_cmd) --- 
+
+`````python
+# -*- coding: utf-8 -*-
+"""
+GitHub CLI — Click 实现。
+
+演示 Click 在多层级子命令 + 全局参数场景下的典型写法：
+  - 每个子命令/组必须 @click.pass_context
+  - 取值靠 ctx.obj['key']（字符串键，无 IDE 补全）
+  - 装饰器随层级指数叠加
+
+用法:
+    python gh_click.py -R myorg/api issue list --state all
+    python gh_click.py --repo prod/web --debug pr merge --number 42 --squash
+    python gh_click.py -R team/cli --no-prompt --auth-token ghp_xxx issue create --title "Deploy failed"
+"""
+import click
+
+
+@click.group()
+@click.option('--repo', '-R', required=True, help='目标仓库 (owner/repo)')
+@click.option('--hostname', default=None, help='GitHub Enterprise 域名')
+@click.option('--auth-token', default=None, help='访问令牌 (覆盖配置)')
+@click.option('--debug', is_flag=True, help='开启调试模式')
+@click.option('--no-prompt', is_flag=True, help='禁用交互提示')
+@click.pass_context
+def cli(ctx, repo, hostname, auth_token, debug, no_prompt):
+    """gh-cli: GitHub 命令行工具 (Click 版)"""
+    ctx.ensure_object(dict)
+    ctx.obj.update(
+        repo=repo,
+        hostname=hostname,
+        auth_token=auth_token,
+        debug=debug,
+        no_prompt=no_prompt,
+    )
+
+
+# ==================== issue 子命令组 ====================
+
+@cli.group()
+@click.pass_context
+def issue(ctx):
+    """Issue 管理"""
+    pass
+
+
+@issue.command('list')
+@click.option('--state', default='open', type=click.Choice(['open', 'closed', 'all']),
+              help='Issue 状态过滤')
+@click.option('--label', default=None, help='按标签过滤')
+@click.option('--limit', default=30, type=int, help='最大返回数量')
+@click.pass_context
+def issue_list(ctx, state, label, limit):
+    """列出 Issues"""
+    c = ctx.obj
+    print(f"[issue list] repo={c['repo']}, state={state}, label={label}, limit={limit}")
+    if c['debug']:
+        print(f"  DEBUG: hostname={c['hostname']}, no_prompt={c['no_prompt']}")
+
+
+@issue.command('create')
+@click.option('--title', '-t', required=True, help='Issue 标题')
+@click.option('--body', '-b', default='', help='Issue 正文')
+@click.option('--assignee', '-a', default=None, help='指定负责人')
+@click.pass_context
+def issue_create(ctx, title, body, assignee):
+    """创建新 Issue"""
+    c = ctx.obj
+    print(f"[issue create] repo={c['repo']}, title={title}")
+    if body:
+        print(f"  body={body}")
+    if assignee:
+        print(f"  assignee={assignee}")
+
+
+@issue.command('view')
+@click.argument('number', type=int)
+@click.pass_context
+def issue_view(ctx, number):
+    """查看 Issue 详情"""
+    c = ctx.obj
+    print(f"[issue view] repo={c['repo']}, #{number}")
+
+
+# ==================== pr 子命令组 ====================
+
+@cli.group()
+@click.pass_context
+def pr(ctx):
+    """Pull Request 管理"""
+    pass
+
+
+@pr.command('list')
+@click.option('--state', default='open', type=click.Choice(['open', 'closed', 'merged', 'all']),
+              help='PR 状态过滤')
+@click.option('--author', default=None, help='按作者过滤')
+@click.pass_context
+def pr_list(ctx, state, author):
+    """列出 Pull Requests"""
+    c = ctx.obj
+    print(f"[pr list] repo={c['repo']}, state={state}, author={author}")
+
+
+@pr.command('create')
+@click.option('--title', '-t', required=True, help='PR 标题')
+@click.option('--body', '-b', default='', help='PR 描述')
+@click.option('--base', default='main', help='目标分支')
+@click.option('--draft', is_flag=True, help='创建为 Draft PR')
+@click.pass_context
+def pr_create(ctx, title, body, base, draft):
+    """创建新 Pull Request"""
+    c = ctx.obj
+    kind = 'Draft PR' if draft else 'PR'
+    print(f"[pr create] repo={c['repo']}, {kind}: {title} → {base}")
+    if c['debug']:
+        tok = '***' if c['auth_token'] else 'default'
+        print(f"  DEBUG: auth={tok}")
+
+
+@pr.command('merge')
+@click.option('--number', '-n', required=True, type=int, help='PR 编号')
+@click.option('--squash', is_flag=True, help='Squash 合并')
+@click.option('--delete-branch', is_flag=True, help='合并后删除分支')
+@click.pass_context
+def pr_merge(ctx, number, squash, delete_branch):
+    """合并 Pull Request"""
+    c = ctx.obj
+    method = 'squash' if squash else 'merge'
+    tok = '***' if c['auth_token'] else 'default'
+    print(f"[pr merge] repo={c['repo']}, #{number}, method={method}, auth={tok}")
+    if delete_branch:
+        print("  → 合并后将删除源分支")
+
+
+# ==================== repo 子命令组 ====================
+
+@cli.group()
+@click.pass_context
+def repo(ctx):
+    """仓库管理"""
+    pass
+
+
+@repo.command('clone')
+@click.argument('target_repo')
+@click.option('--depth', default=0, type=int, help='浅克隆深度 (0=完整)')
+@click.pass_context
+def repo_clone(ctx, target_repo, depth):
+    """克隆仓库"""
+    c = ctx.obj
+    depth_info = f' (depth={depth})' if depth else ''
+    print(f"[repo clone] {target_repo}{depth_info}")
+    if c['hostname']:
+        print(f"  → 从 {c['hostname']} 克隆")
+
+
+@repo.command('fork')
+@click.option('--org', default=None, help='Fork 到指定组织')
+@click.pass_context
+def repo_fork(ctx, org):
+    """Fork 仓库"""
+    c = ctx.obj
+    target = f" → {org}" if org else ''
+    print(f"[repo fork] {c['repo']}{target}")
+
+
+if __name__ == '__main__':
+    cli()
+
+`````
+
+--- **end of file: examples/github_cli_demos/gh_click.py** (project: nb_cmd) --- 
+
+---
+
+
+--- **start of file: examples/github_cli_demos/gh_comparison.md** (project: nb_cmd) --- 
+
+`````markdown
+---
+noteId: "e71b7b113bc511f1a9787921be2453f8"
+tags: []
+
+---
+
+# GitHub CLI 三框架实现对比：nb_cmd vs Click vs Typer
+
+> 以真实 GitHub CLI (`gh`) 的语义为基准，统一实现 **5 个全局参数 + 3 个子命令组 + 9 个子命令**，对比三个 Python CLI 框架的代码质量和开发体验。
+
+## 场景覆盖
+
+| 命令路径 | 功能 | 参数 |
+|---------|------|------|
+| `issue list` | 列出 Issues | `--state`, `--label`, `--limit` |
+| `issue create` | 创建 Issue | `--title/-t`, `--body/-b`, `--assignee/-a` |
+| `issue view` | 查看 Issue | `NUMBER` (必填) |
+| `pr list` | 列出 PRs | `--state`, `--author` |
+| `pr create` | 创建 PR | `--title/-t`, `--body/-b`, `--base`, `--draft` |
+| `pr merge` | 合并 PR | `--number/-n`, `--squash`, `--delete-branch` |
+| `repo clone` | 克隆仓库 | `TARGET_REPO` (必填), `--depth` |
+| `repo fork` | Fork 仓库 | `--org` |
+| `status` | 全局配置 | (无) |
+
+**全局参数**：`--repo/-R`, `--hostname`, `--auth-token`, `--debug`, `--no-prompt`
+
+---
+
+## 终端调用（三框架完全一致）
+
+```bash
+# 基础调用
+python gh_xxx.py --repo myorg/api issue list --state all
+
+# 覆盖全局参数 + 执行二级命令
+python gh_xxx.py --repo prod/web --debug pr merge --number 42 --squash
+
+# CI 场景（禁用交互 + 指定 Token）
+python gh_xxx.py -R team/cli --no-prompt --auth-token ghp_xxx issue create --title "Deploy failed"
+```
+
+---
+
+## 代码量化对比
+
+| 指标 | Click | Typer | nb_cmd |
+|------|-------|-------|--------|
+| **CLI 定义代码行** | 108 | 94 | 104 |
+| **装饰器数量** | **49 个** | 9 个 | **0 个** |
+| **全局参数传递方式** | `ctx.obj['repo']` 字典 | `state['repo']` 全局变量 | `self.nbctx.repo` 强类型 |
+| **IDE 补全/跳转** | ❌ 字符串键 | ❌ 字符串键 | ✅ dataclass 字段 |
+| **子命令独立性** | ❌ 绑定到 `@cli.group` | ❌ 绑定到 `app` 实例 | ✅ 纯 Class，可单独实例化 |
+| **自动文档生成** | ❌ 需 `sphinx-click` | ❌ 只搬运 `--help` | ✅ `CmdGen` 一行生成 Markdown |
+| **Web UI 支持** | ❌ 需额外重写 | ❌ 需额外重写 | ✅ `--web` 一键启动 |
+| **REST API 支持** | ❌ 需额外重写 | ❌ 需额外重写 | ✅ 内置 |
+
+---
+
+## 核心差异详解
+
+### 1. 全局参数定义与传递
+
+**Click** — 装饰器 + `ctx.obj` 字典：
+
+```python
+@click.group()
+@click.option('--repo', '-R', required=True, help='...')
+@click.option('--hostname', default=None, help='...')
+@click.option('--auth-token', default=None, help='...')
+@click.option('--debug', is_flag=True, help='...')
+@click.option('--no-prompt', is_flag=True, help='...')
+@click.pass_context
+def cli(ctx, repo, hostname, auth_token, debug, no_prompt):
+    ctx.ensure_object(dict)
+    ctx.obj.update(repo=repo, hostname=hostname, ...)
+```
+
+每个子命令/组必须加 `@click.pass_context`，取值靠 `ctx.obj['repo']`（拼错 key 运行时才爆发）。
+
+**Typer** — `@callback` + 模块全局字典：
+
+```python
+state = {}  # ⚠️ 破坏封装，非线程安全
+
+@app.callback()
+def main(repo: str = typer.Option(..., "--repo", "-R", help="..."), ...):
+    state.update(repo=repo, ...)
+```
+
+所有子命令读 `state['repo']` — 模块级全局变量，无法独立测试、并发时会串。
+
+**nb_cmd** — `__init__` + `make_nbctx()` 强类型上下文：
+
+```python
+@dataclass
+class GhCtx:
+    repo: Optional[str] = None
+    hostname: Optional[str] = None
+    auth_token: Optional[str] = None
+    debug: bool = False
+    no_prompt: bool = False
+
+class GhCli(NbCmd):
+    nbctx: GhCtx  # ← IDE 补全入口
+
+    def __init__(self,
+                 repo: Annotated[str, '目标仓库', 'R'] = None, ...):
+        self.repo = repo; ...
+
+    def make_nbctx(self):
+        return GhCtx(repo=self.repo, ...)
+
+    sub_commands = {'issue': IssueCmd, 'pr': PrCmd, 'repo': RepoCmd}
+```
+
+`self.nbctx.repo` 在 IDE 中自动补全、可跳转到 `GhCtx` 定义。拼写错误编译期就能发现。
+
+---
+
+### 2. 子命令组定义
+
+**Click** — 每新增一个子命令组需要 1 个 `@cli.group` + N 个 `@group.command` + N 个 `@click.pass_context`：
+
+```python
+@cli.group()
+@click.pass_context
+def issue(ctx): pass
+
+@issue.command('list')
+@click.option('--state', ...)
+@click.pass_context
+def issue_list(ctx, state):
+    c = ctx.obj  # 再次字典取值
+```
+
+**Typer** — 每新增一个子命令组需要 `Typer()` 实例 + `add_typer()` 注册：
+
+```python
+issue_app = typer.Typer(help="Issue 管理")
+app.add_typer(issue_app, name="issue")
+
+@issue_app.command("list")
+def issue_list(state_filter: str = typer.Option("open", "--state", ...)):
+    print(f"repo={state['repo']}")  # 全局变量取值
+```
+
+**nb_cmd** — 纯 Class 继承，一行声明层级：
+
+```python
+class IssueCmd(NbCmd):
+    """Issue 管理"""
+    nbctx: GhCtx  # IDE 补全
+
+    def list(self, state: Annotated[str, 'Issue 状态'] = 'open', ...):
+        print(f"repo={self.nbctx.repo}")  # 强类型取值
+```
+
+新增子命令组只需：写一个 Class + 在父级 `sub_commands` 加一项。全局参数自动穿透。
+
+---
+
+### 3. 子命令独立测试
+
+**Click/Typer** — 子命令强绑定到 `cli` / `app` 实例，无法脱离框架调用：
+
+```python
+# Click：无法直接调用 issue_list
+# Typer：需要 state 全局变量预先填充，且非线程安全
+```
+
+**nb_cmd** — 子命令组是独立 Class，可脱离框架运行/测试：
+
+```python
+# 直接实例化 + 注入 ctx，不需要启动整个 CLI 框架
+ctx = GhCtx(repo='myorg/api', debug=True)
+issue = IssueCmd()
+issue.nbctx = ctx
+issue.list(state='all')       # ✅ 直接调用
+issue.create(title='Bug')     # ✅ 直接调用
+```
+
+---
+
+### 4. 自动文档生成（nb_cmd 独有）
+
+一行代码生成完整 Markdown 文档，包含目录、参数表格、默认值标注、可复制 bash 命令行模板：
+
+```python
+from nb_cmd import CmdGen
+
+g = CmdGen(GhCli, script='gh_nb_cmd.py', fmt='markdown')
+g.doc(file='gh_nb_cmd_gen_doc.md')
+```
+
+生成结果包含：
+- Table of Contents（自动目录）
+- System Params / Global Params 表格
+- 每个命令的参数表格（Flag / Type / Default / Description）
+- 每个命令的可复制 bash 命令行模板
+
+Click 需要第三方 `sphinx-click`，Typer 只搬运 `--help` 纯文本输出。
+
+---
+
+### 5. 多模式支持（nb_cmd 独有）
+
+同一套代码自动获得 5 种能力：
+
+```bash
+# 1. Python 直接调用
+issue = IssueCmd(); issue.nbctx = GhCtx(repo='myorg/api')
+issue.list(state='all')
+
+# 2. CLI 命令行
+python gh_nb_cmd.py --repo myorg/api issue list
+
+# 3. REST API（随 Web 一起启动）
+curl -X POST http://localhost:8090/issue/list \
+  -d '{"state": "all", "init_params": {"repo": "myorg/api"}}'
+
+# 4. Web UI（一键启动，含表单/实时输出/Swagger）
+python gh_nb_cmd.py --web --web-port 8090
+
+# 5. Markdown 文档自动生成
+CmdGen(GhCli, script='gh_nb_cmd.py').doc(file='gh_nb_cmd_gen_doc.md')
+```
+
+Click 和 Typer 只提供 CLI，需额外用 FastAPI/Flask 重写才能支持 Web/API/TUI。
+
+---
+
+## 碾压点总结
+
+| 维度 | nb_cmd 优势 |
+|------|------------|
+| **上下文传递** | `make_nbctx()` → `self.nbctx.xxx` 强类型穿透，终结了 `ctx.obj` 字典和全局变量反模式 |
+| **装饰器数量** | 49 (Click) → 0 (nb_cmd)，代码噪音归零 |
+| **IDE 体验** | `self.nbctx.repo` 自动补全+类型校验，拼写错误静态可查 |
+| **可测试性** | 子命令组是独立 Class，可脱离框架单独实例化/注入 ctx/单元测试 |
+| **文档生成** | `CmdGen` 一行生成完整 Markdown，Click/Typer 无此能力 |
+| **多模式支持** | `--web` 一键获得 Web UI + REST API，Click/Typer 需额外重写 |
+| **新增子命令成本** | 写 Class + `sub_commands` 加一项，全局逻辑零改动 |
+| **架构映射** | `__init__` 即"连接/环境配置"，完美映射 gh/aws/kubectl 的全局参数语义 |
+
+---
+
+## 文件清单
+
+| 文件 | 说明 |
+|------|------|
+| `gh_click.py` | Click 实现（168 行，49 个装饰器） |
+| `gh_typer.py` | Typer 实现（154 行，9 个装饰器） |
+| `gh_nb_cmd.py` | nb_cmd 实现（216 行含本地演示，0 个装饰器） |
+| `gh_nb_cmd_gen_doc.md` | nb_cmd 自动生成的 Markdown 文档（CmdGen 产出） |
+| `gh_comparison.md` | 本文件 — 三框架对比总结 |
+
+`````
+
+--- **end of file: examples/github_cli_demos/gh_comparison.md** (project: nb_cmd) --- 
+
+---
+
+
+--- **start of file: examples/github_cli_demos/gh_nb_cmd.py** (project: nb_cmd) --- 
+
+`````python
+# -*- coding: utf-8 -*-
+"""
+GitHub CLI — nb_cmd 实现。
+
+演示 nb_cmd 在多层级子命令 + 全局参数场景下的碾压优势：
+  - 零装饰器：所有命令通过纯 Class + 方法定义
+  - __init__ 直接赋值 self.nbctx：无需 make_nbctx()，CLI/Web/TUI/API 所有模式均正确传参
+  - self.nbctx 强类型 + IDE 补全：子命令组通过类型注解获取代码补全和跳转
+  - 子命令独立可测：每个 NbCmd 子类可脱离父级单独实例化和测试
+  - CmdGen 自动文档：一行代码生成完整 Markdown 文档
+
+用法:
+    1. CLI:  python gh_nb_cmd.py --repo myorg/api issue list --state all
+    2. CLI:  python gh_nb_cmd.py --repo prod/web --debug pr merge --number 42 --squash
+    3. CLI:  python gh_nb_cmd.py -R team/cli --no-prompt --auth-token ghp_xxx issue create --title "Deploy failed"
+    4. Web:  python gh_nb_cmd.py --web --web-port 8090
+    5. 本地: python gh_nb_cmd.py  (无参数，进入本地演示)
+
+D:\ProgramData\miniconda3\envs\py39b\python.exe D:/codes/nb_cmd/examples/git_demos/git_nb_cmd.py --tui
+
+"""
+import sys
+import os
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
+
+from dataclasses import dataclass
+from typing import Optional
+from typing import Annotated
+from nb_cmd import NbCmd, CmdGen
+from nb_cmd.core.meta import NbCmdMeta
+
+
+# ==================== 1. 定义全局上下文 ====================
+
+@dataclass
+class GhCtx:
+    """GitHub CLI 全局上下文，所有子命令组共享"""
+    repo: Optional[str] = None
+    hostname: Optional[str] = None
+    auth_token: Optional[str] = None
+    debug: bool = False
+    no_prompt: bool = False
+
+
+# ==================== 2. 子命令组（纯 Class，可独立测试）====================
+
+class IssueCmd(NbCmd):
+    """Issue 管理"""
+    nbctx: GhCtx
+
+    def list(self, state: Annotated[str, 'Issue 状态过滤 (open/closed/all)'] = 'open',
+             label: Annotated[str, '按标签过滤'] = None,
+             limit: Annotated[int, '最大返回数量'] = 30):
+        """列出 Issues"""
+        print(f"[issue list] repo={self.nbctx.repo}, state={state}, label={label}, limit={limit}")
+        if self.nbctx.debug:
+            print(f"  DEBUG: hostname={self.nbctx.hostname}, no_prompt={self.nbctx.no_prompt}")
+
+    def create(self, title: Annotated[str, 'Issue 标题', 't'],
+               body: Annotated[str, 'Issue 正文', 'b'] = '',
+               assignee: Annotated[str, '指定负责人', 'a'] = None):
+        """创建新 Issue"""
+        print(f"[issue create] repo={self.nbctx.repo}, title={title}")
+        if body:
+            print(f"  body={body}")
+        if assignee:
+            print(f"  assignee={assignee}")
+
+    def view(self, number: Annotated[int, 'Issue 编号']):
+        """查看 Issue 详情"""
+        print(f"[issue view] repo={self.nbctx.repo}, #{number}")
+
+
+class PrCmd(NbCmd):
+    """Pull Request 管理"""
+    nbctx: GhCtx
+
+    def list(self, state: Annotated[str, 'PR 状态过滤 (open/closed/merged/all)'] = 'open',
+             author: Annotated[str, '按作者过滤'] = None):
+        """列出 Pull Requests"""
+        print(f"[pr list] repo={self.nbctx.repo}, state={state}, author={author}")
+
+    def create(self, title: Annotated[str, 'PR 标题', 't'],
+               body: Annotated[str, 'PR 描述', 'b'] = '',
+               base: Annotated[str, '目标分支'] = 'main',
+               draft: Annotated[bool, '创建为 Draft PR'] = False):
+        """创建新 Pull Request"""
+        kind = 'Draft PR' if draft else 'PR'
+        print(f"[pr create] repo={self.nbctx.repo}, {kind}: {title} → {base}")
+        if self.nbctx.debug:
+            tok = '***' if self.nbctx.auth_token else 'default'
+            print(f"  DEBUG: auth={tok}")
+
+    def merge(self, number: Annotated[int, 'PR 编号', 'n'],
+              squash: Annotated[bool, 'Squash 合并'] = False,
+              delete_branch: Annotated[bool, '合并后删除分支'] = False):
+        """合并 Pull Request"""
+        method = 'squash' if squash else 'merge'
+        tok = '***' if self.nbctx.auth_token else 'default'
+        print(f"[pr merge] repo={self.nbctx.repo}, #{number}, method={method}, auth={tok}")
+        if delete_branch:
+            print("  → 合并后将删除源分支")
+
+
+class RepoCmd(NbCmd):
+    """仓库管理"""
+    nbctx: GhCtx
+
+    def clone(self, target_repo: Annotated[str, '要克隆的仓库'],
+              depth: Annotated[int, '浅克隆深度 (0=完整)'] = 0):
+        """克隆仓库"""
+        depth_info = f' (depth={depth})' if depth else ''
+        print(f"[repo clone] {target_repo}{depth_info}")
+        if self.nbctx.hostname:
+            print(f"  → 从 {self.nbctx.hostname} 克隆")
+
+    def fork(self, org: Annotated[str, 'Fork 到指定组织'] = None):
+        """Fork 仓库"""
+        target = f" → {org}" if org else ''
+        print(f"[repo fork] {self.nbctx.repo}{target}")
+
+
+# ==================== 3. 顶层入口 ====================
+
+class GhCli(NbCmd):
+    """
+    gh-cli: GitHub 命令行工具 (nb_cmd 版)
+
+    全局参数 repo/hostname/auth_token/debug/no_prompt 自动穿透到所有子命令组。
+    """
+    nbctx: GhCtx
+
+    class Meta(NbCmdMeta):
+        name = 'gh-cli'
+        version = '1.0.0'
+        enable_exec = False
+        # 白名单示例：仅暴露 status + issue/list + pr/merge（Python 直接调用不受影响）
+        # allow_method_list = ['status', 'issue.list', 'pr/merge']
+        # 黑名单示例：隐藏 status（与白名单互斥，白名单优先）
+        # hide_method_list = ['status']
+        # 鉴权示例：API/Web 请求须带 Authorization: Bearer <token>
+        auth_token = 'my-secret-token'
+        # 超时示例：命令执行超过 60 秒自动终止
+        # timeout = 60
+
+    def __init__(
+        self,
+        repo: Annotated[str, '目标仓库 (owner/repo)', 'R'] = None,
+        hostname: Annotated[str, 'GitHub Enterprise 域名'] = None,
+        auth_token: Annotated[str, '访问令牌 (覆盖配置)'] = None,
+        debug: Annotated[bool, '开启调试模式'] = False,
+        no_prompt: Annotated[bool, '禁用交互提示'] = False,
+    ):
+        self.repo = repo
+        self.hostname = hostname
+        self.auth_token = auth_token
+        self.debug = debug
+        self.no_prompt = no_prompt
+        # 直接赋值 nbctx，CLI/Web/TUI/API 所有模式均能拿到正确的参数值
+        self.nbctx = GhCtx(
+            repo=self.repo,
+            hostname=self.hostname,
+            auth_token=self.auth_token,
+            debug=self.debug,
+            no_prompt=self.no_prompt,
+        )
+        # 也可以用 make_nbctx() 模板方法替代上面的直接赋值（两种方式均可）：
+        # def make_nbctx(self):
+        #     return GhCtx(repo=self.repo, ...)
+
+    sub_commands = {
+        'issue': IssueCmd,
+        'pr': PrCmd,
+        'repo': RepoCmd,
+    }
+
+    def status(self):
+        """查看 CLI 全局配置状态"""
+        print("=== gh-cli 全局配置 ===")
+        print(f"repo:       {self.nbctx.repo}")
+        print(f"hostname:   {self.nbctx.hostname}")
+        print(f"auth_token: {'***' if self.nbctx.auth_token else 'None'}")
+        print(f"debug:      {self.nbctx.debug}")
+        print(f"no_prompt:  {self.nbctx.no_prompt}")
+
+
+if __name__ == '__main__':
+    import sys as _sys
+
+    if len(_sys.argv) > 1:
+        GhCli().run()
+    else:
+        print('=' * 60)
+        print('GitHub CLI (nb_cmd 版) — 本地直接调用 + CmdGen 文档演示')
+        print('=' * 60)
+
+        # 场景 1: 本地直接调用（子命令独立测试）
+        print('\n--- 场景 1: 子命令独立测试（无需启动整个 CLI）---')
+        ctx = GhCtx(repo='myorg/api', debug=True)
+        issue = IssueCmd()
+        issue.nbctx = ctx
+        issue.list(state='all', limit=10)
+        issue.create(title='Bug: login failed')
+
+        # 场景 2: 多个子命令组共享同一个 ctx
+        print('\n--- 场景 2: 多子命令组共享 ctx ---')
+        ctx = GhCtx(repo='prod/web', auth_token='ghp_xxx')
+        pr = PrCmd()
+        repo = RepoCmd()
+        pr.nbctx = ctx
+        repo.nbctx = ctx
+        pr.merge(number=42, squash=True)
+        repo.fork(org='my-team')
+
+        # 场景 3: CmdGen 自动生成命令行示例
+        print('\n--- 场景 3: CmdGen 命令行示例 ---')
+        g = CmdGen(GhCli, script='gh_nb_cmd.py')
+        print(g.cmd(IssueCmd.list))
+        print(g.cmd(IssueCmd.create))
+        print(g.cmd(PrCmd.merge))
+        print(g.cmd(RepoCmd.clone))
+        print(g.cmd(GhCli.status))
+
+        # 场景 4: CmdGen.doc() 生成完整 Markdown 文档
+        print('\n--- 场景 4: CmdGen.doc() 生成 Markdown ---')
+        g_md = CmdGen(GhCli, script='gh_nb_cmd.py', fmt='markdown')
+        doc_path = os.path.join(os.path.dirname(__file__), 'gh_nb_cmd_gen_doc.md')
+        g_md.doc(file=doc_path)
+        print(f'Markdown 文档已生成: {doc_path}')
+
+`````
+
+--- **end of file: examples/github_cli_demos/gh_nb_cmd.py** (project: nb_cmd) --- 
+
+---
+
+
+--- **start of file: examples/github_cli_demos/gh_nb_cmd_gen_doc.md** (project: nb_cmd) --- 
+
+`````markdown
+> *Auto-generated by nb-cmd CmdGen*
+
+# gh-cli v1.0.0
+
+> gh-cli: GitHub 命令行工具 (nb_cmd 版)
+
+全局参数 repo/hostname/auth_token/debug/no_prompt 自动穿透到所有子命令组。
+
+## Table of Contents
+
+- [`status`](#status)
+- [`issue`  *(子命令组)*](#issue-子命令组)
+  - [`issue create`](#issue-create)
+  - [`issue list`](#issue-list)
+  - [`issue view`](#issue-view)
+- [`pr`  *(子命令组)*](#pr-子命令组)
+  - [`pr create`](#pr-create)
+  - [`pr list`](#pr-list)
+  - [`pr merge`](#pr-merge)
+- [`repo`  *(子命令组)*](#repo-子命令组)
+  - [`repo clone`](#repo-clone)
+  - [`repo fork`](#repo-fork)
+
+---
+
+## System Params
+
+| Flag | Description |
+|------|-------------|
+| `-h`, `--help` | 显示帮助信息 |
+| `-fh`, `--full-help` | 显示完整帮助（所有参数详情） |
+| `-eh`, `--easy-help` | 显示简易帮助（argparse 原生格式） |
+| `--cmd-version` | 显示版本号 |
+| `--web` | 以 Web UI + REST API 模式启动 |
+| `--web-port PORT` | Web UI 服务端口（用于 `--web`） |
+
+## Global Params (`__init__`)
+
+| Flag | Type | Default | Description |
+|------|------|---------|-------------|
+| `--repo, -R` | `str` | `None` | 目标仓库 (owner/repo) |
+| `--hostname` | `str` | `None` | GitHub Enterprise 域名 |
+| `--auth-token` | `str` | `None` | 访问令牌 (覆盖配置) |
+| `--debug` | `bool` | `False` | 开启调试模式 |
+| `--no-prompt` | `bool` | `False` | 禁用交互提示 |
+
+## Quick Start
+
+```bash
+# 查看完整帮助
+D:\ProgramData\miniconda3\envs\py39b\python.exe gh_nb_cmd.py -fh
+
+# 查看版本
+D:\ProgramData\miniconda3\envs\py39b\python.exe gh_nb_cmd.py --cmd-version
+
+# 启动 Web UI
+D:\ProgramData\miniconda3\envs\py39b\python.exe gh_nb_cmd.py --web
+```
+
+## 命令行约定
+
+命令格式：`python script.py [全局参数] <子命令路径> [命令参数]`
+
+| 标记 | 含义 |
+|------|------|
+| `${value}` | 带默认值的参数 — 可按需替换 |
+| `$<name>` | **必填**参数 — 必须提供值 |
+| `--flag`（无值） | 布尔开关，添加即启用 |
+
+---
+
+## Commands
+
+### `status`
+
+查看 CLI 全局配置状态
+
+```bash
+D:\ProgramData\miniconda3\envs\py39b\python.exe gh_nb_cmd.py --repo ${None} --hostname ${None} --auth-token ${None} --debug --no-prompt status
+```
+
+### `issue` *(子命令组)*
+
+> Issue 管理
+
+#### `issue create`
+
+创建新 Issue
+
+| Param | Type | Default | Description |
+|-------|------|---------|-------------|
+| `--title, -t` | `str` | *(required)* | Issue 标题 |
+| `--body, -b` | `str` | `` | Issue 正文 |
+| `--assignee, -a` | `str` | `None` | 指定负责人 |
+
+```bash
+D:\ProgramData\miniconda3\envs\py39b\python.exe gh_nb_cmd.py --repo ${None} --hostname ${None} --auth-token ${None} --debug --no-prompt issue create --title $<title> --body ${} --assignee ${None}
+```
+
+#### `issue list`
+
+列出 Issues
+
+| Param | Type | Default | Description |
+|-------|------|---------|-------------|
+| `--state` | `str` | `open` | Issue 状态过滤 (open/closed/all) |
+| `--label` | `str` | `None` | 按标签过滤 |
+| `--limit` | `int` | `30` | 最大返回数量 |
+
+```bash
+D:\ProgramData\miniconda3\envs\py39b\python.exe gh_nb_cmd.py --repo ${None} --hostname ${None} --auth-token ${None} --debug --no-prompt issue list --state ${open} --label ${None} --limit ${30}
+```
+
+#### `issue view`
+
+查看 Issue 详情
+
+| Param | Type | Default | Description |
+|-------|------|---------|-------------|
+| `--number` | `int` | *(required)* | Issue 编号 |
+
+```bash
+D:\ProgramData\miniconda3\envs\py39b\python.exe gh_nb_cmd.py --repo ${None} --hostname ${None} --auth-token ${None} --debug --no-prompt issue view --number $<number>
+```
+
+### `pr` *(子命令组)*
+
+> Pull Request 管理
+
+#### `pr create`
+
+创建新 Pull Request
+
+| Param | Type | Default | Description |
+|-------|------|---------|-------------|
+| `--title, -t` | `str` | *(required)* | PR 标题 |
+| `--body, -b` | `str` | `` | PR 描述 |
+| `--base` | `str` | `main` | 目标分支 |
+| `--draft` | `bool` | `False` | 创建为 Draft PR |
+
+```bash
+D:\ProgramData\miniconda3\envs\py39b\python.exe gh_nb_cmd.py --repo ${None} --hostname ${None} --auth-token ${None} --debug --no-prompt pr create --title $<title> --body ${} --base ${main} --draft
+```
+
+#### `pr list`
+
+列出 Pull Requests
+
+| Param | Type | Default | Description |
+|-------|------|---------|-------------|
+| `--state` | `str` | `open` | PR 状态过滤 (open/closed/merged/all) |
+| `--author` | `str` | `None` | 按作者过滤 |
+
+```bash
+D:\ProgramData\miniconda3\envs\py39b\python.exe gh_nb_cmd.py --repo ${None} --hostname ${None} --auth-token ${None} --debug --no-prompt pr list --state ${open} --author ${None}
+```
+
+#### `pr merge`
+
+合并 Pull Request
+
+| Param | Type | Default | Description |
+|-------|------|---------|-------------|
+| `--number, -n` | `int` | *(required)* | PR 编号 |
+| `--squash` | `bool` | `False` | Squash 合并 |
+| `--delete-branch` | `bool` | `False` | 合并后删除分支 |
+
+```bash
+D:\ProgramData\miniconda3\envs\py39b\python.exe gh_nb_cmd.py --repo ${None} --hostname ${None} --auth-token ${None} --debug --no-prompt pr merge --number $<number> --squash --delete-branch
+```
+
+### `repo` *(子命令组)*
+
+> 仓库管理
+
+#### `repo clone`
+
+克隆仓库
+
+| Param | Type | Default | Description |
+|-------|------|---------|-------------|
+| `--target-repo` | `str` | *(required)* | 要克隆的仓库 |
+| `--depth` | `int` | `0` | 浅克隆深度 (0=完整) |
+
+```bash
+D:\ProgramData\miniconda3\envs\py39b\python.exe gh_nb_cmd.py --repo ${None} --hostname ${None} --auth-token ${None} --debug --no-prompt repo clone --target-repo $<target_repo> --depth ${0}
+```
+
+#### `repo fork`
+
+Fork 仓库
+
+| Param | Type | Default | Description |
+|-------|------|---------|-------------|
+| `--org` | `str` | `None` | Fork 到指定组织 |
+
+```bash
+D:\ProgramData\miniconda3\envs\py39b\python.exe gh_nb_cmd.py --repo ${None} --hostname ${None} --auth-token ${None} --debug --no-prompt repo fork --org ${None}
+```
+
+`````
+
+--- **end of file: examples/github_cli_demos/gh_nb_cmd_gen_doc.md** (project: nb_cmd) --- 
+
+---
+
+
+--- **start of file: examples/github_cli_demos/gh_typer.py** (project: nb_cmd) --- 
+
+`````python
+# -*- coding: utf-8 -*-
+"""
+GitHub CLI — Typer 实现。
+
+演示 Typer 在多层级子命令 + 全局参数场景下的典型写法：
+  - 必须用模块级全局 state 字典穿透参数（破坏封装、非线程安全）
+  - add_typer() 手动管理多个 Typer 实例
+  - 子命令与全局状态强耦合，无法独立测试
+
+用法:
+    python gh_typer.py --repo myorg/api issue list --state all
+    python gh_typer.py --repo prod/web --debug pr merge --number 42 --squash
+    python gh_typer.py -R team/cli --no-prompt --auth-token ghp_xxx issue create --title "Deploy failed"
+"""
+import typer
+from typing import Optional
+
+app = typer.Typer(help="gh-cli: GitHub 命令行工具 (Typer 版)")
+
+# ⚠️ 模块级全局字典 — 破坏封装，非线程安全
+state = {}
+
+
+@app.callback()
+def main(
+    repo: str = typer.Option(..., "--repo", "-R", help="目标仓库 (owner/repo)"),
+    hostname: Optional[str] = typer.Option(None, help="GitHub Enterprise 域名"),
+    auth_token: Optional[str] = typer.Option(None, help="访问令牌 (覆盖配置)"),
+    debug: bool = typer.Option(False, help="开启调试模式"),
+    no_prompt: bool = typer.Option(False, help="禁用交互提示"),
+):
+    """全局参数入口"""
+    state.update(
+        repo=repo,
+        hostname=hostname,
+        auth_token=auth_token,
+        debug=debug,
+        no_prompt=no_prompt,
+    )
+
+
+# ==================== issue 子命令组 ====================
+
+issue_app = typer.Typer(help="Issue 管理")
+app.add_typer(issue_app, name="issue")
+
+
+@issue_app.command("list")
+def issue_list(
+    state_filter: str = typer.Option("open", "--state", help="Issue 状态过滤 (open/closed/all)"),
+    label: Optional[str] = typer.Option(None, help="按标签过滤"),
+    limit: int = typer.Option(30, help="最大返回数量"),
+):
+    """列出 Issues"""
+    print(f"[issue list] repo={state['repo']}, state={state_filter}, label={label}, limit={limit}")
+    if state['debug']:
+        print(f"  DEBUG: hostname={state['hostname']}, no_prompt={state['no_prompt']}")
+
+
+@issue_app.command("create")
+def issue_create(
+    title: str = typer.Option(..., "--title", "-t", help="Issue 标题"),
+    body: str = typer.Option("", "--body", "-b", help="Issue 正文"),
+    assignee: Optional[str] = typer.Option(None, "--assignee", "-a", help="指定负责人"),
+):
+    """创建新 Issue"""
+    print(f"[issue create] repo={state['repo']}, title={title}")
+    if body:
+        print(f"  body={body}")
+    if assignee:
+        print(f"  assignee={assignee}")
+
+
+@issue_app.command("view")
+def issue_view(
+    number: int = typer.Argument(..., help="Issue 编号"),
+):
+    """查看 Issue 详情"""
+    print(f"[issue view] repo={state['repo']}, #{number}")
+
+
+# ==================== pr 子命令组 ====================
+
+pr_app = typer.Typer(help="Pull Request 管理")
+app.add_typer(pr_app, name="pr")
+
+
+@pr_app.command("list")
+def pr_list(
+    state_filter: str = typer.Option("open", "--state", help="PR 状态过滤 (open/closed/merged/all)"),
+    author: Optional[str] = typer.Option(None, help="按作者过滤"),
+):
+    """列出 Pull Requests"""
+    print(f"[pr list] repo={state['repo']}, state={state_filter}, author={author}")
+
+
+@pr_app.command("create")
+def pr_create(
+    title: str = typer.Option(..., "--title", "-t", help="PR 标题"),
+    body: str = typer.Option("", "--body", "-b", help="PR 描述"),
+    base: str = typer.Option("main", help="目标分支"),
+    draft: bool = typer.Option(False, help="创建为 Draft PR"),
+):
+    """创建新 Pull Request"""
+    kind = 'Draft PR' if draft else 'PR'
+    print(f"[pr create] repo={state['repo']}, {kind}: {title} → {base}")
+    if state['debug']:
+        tok = '***' if state['auth_token'] else 'default'
+        print(f"  DEBUG: auth={tok}")
+
+
+@pr_app.command("merge")
+def pr_merge(
+    number: int = typer.Option(..., "--number", "-n", help="PR 编号"),
+    squash: bool = typer.Option(False, help="Squash 合并"),
+    delete_branch: bool = typer.Option(False, help="合并后删除分支"),
+):
+    """合并 Pull Request"""
+    method = 'squash' if squash else 'merge'
+    tok = '***' if state['auth_token'] else 'default'
+    print(f"[pr merge] repo={state['repo']}, #{number}, method={method}, auth={tok}")
+    if delete_branch:
+        print("  → 合并后将删除源分支")
+
+
+# ==================== repo 子命令组 ====================
+
+repo_app = typer.Typer(help="仓库管理")
+app.add_typer(repo_app, name="repo")
+
+
+@repo_app.command("clone")
+def repo_clone(
+    target_repo: str = typer.Argument(..., help="要克隆的仓库"),
+    depth: int = typer.Option(0, help="浅克隆深度 (0=完整)"),
+):
+    """克隆仓库"""
+    depth_info = f' (depth={depth})' if depth else ''
+    print(f"[repo clone] {target_repo}{depth_info}")
+    if state['hostname']:
+        print(f"  → 从 {state['hostname']} 克隆")
+
+
+@repo_app.command("fork")
+def repo_fork(
+    org: Optional[str] = typer.Option(None, help="Fork 到指定组织"),
+):
+    """Fork 仓库"""
+    target = f" → {org}" if org else ''
+    print(f"[repo fork] {state['repo']}{target}")
+
+
+if __name__ == "__main__":
+    app()
+
+`````
+
+--- **end of file: examples/github_cli_demos/gh_typer.py** (project: nb_cmd) --- 
+
+---
+
+
+--- **start of file: examples/git_demos/git_click.py** (project: nb_cmd) --- 
+
+`````python
+# -*- coding: utf-8 -*-
+"""
+Git 命令行工具 — Click 实现。
+
+演示 Click 在多层级子命令 + 全局参数场景下的典型写法：
+  - 全局参数通过 @click.group() + @click.pass_context 传递
+  - 子命令组通过 @cli.group() 嵌套
+  - 深层子命令 (config → user → name/email) 通过 ctx.obj 访问全局参数
+  - 每个子命令都要加 @click.pass_context 才能访问全局参数
+
+用法:
+    python git_click.py --verbose status
+    python git_click.py -C /etc/git remote add origin https://github.com/user/repo.git
+    python git_click.py --verbose branch create feature/login --from-branch develop
+    python git_click.py -C ~/my-config config user name "John Doe"
+    python git_click.py --verbose config user email
+"""
+import click
+
+
+@click.group()
+@click.option('--verbose', '-v', is_flag=True, help='详细输出')
+@click.option('--path', '-C', default='.', help='工作目录路径')
+@click.pass_context
+def cli(ctx, verbose, path):
+    """Git 命令行工具 (Click 版)"""
+    ctx.ensure_object(dict)
+    ctx.obj.update(
+        verbose=verbose,
+        path=path,
+    )
+
+
+# ==================== 一级命令 ====================
+
+@cli.command()
+@click.pass_context
+def status(ctx):
+    """查看仓库状态"""
+    c = ctx.obj
+    verbose_flag = ' (详细模式)' if c['verbose'] else ''
+    print(f'[status] 检查仓库状态{verbose_flag}')
+    print(f'  工作目录: {c["path"]}')
+    print('  On branch main')
+    print('  nothing to commit, working tree clean')
+
+
+@cli.command()
+@click.option('--oneline', is_flag=True, help='单行显示')
+@click.option('--graph', is_flag=True, help='图形化显示')
+@click.option('--max-count', '-n', default=10, type=int, help='最大显示数量')
+@click.pass_context
+def log(ctx, oneline, graph, max_count):
+    """查看提交历史"""
+    c = ctx.obj
+    if c['verbose']:
+        print(f'[log] 工作目录: {c["path"]}')
+    fmt = '--oneline' if oneline else ''
+    graph_flag = '--graph' if graph else ''
+    print(f'git log {fmt} {graph_flag} -{max_count}')
+    print('  commit a1b2c3d4 (HEAD -> main)')
+    print('  Author: User <user@example.com>')
+    print('  Date:   2026-05-11')
+    print('      initial commit')
+
+
+# ==================== remote 子命令组 (二级) ====================
+
+@cli.group()
+@click.pass_context
+def remote(ctx):
+    """远程仓库管理"""
+    pass
+
+
+@remote.command('add')
+@click.argument('name')
+@click.argument('url')
+@click.pass_context
+def remote_add(ctx, name, url):
+    """添加远程仓库"""
+    c = ctx.obj
+    if c['verbose']:
+        print(f'[remote add] 工作目录: {c["path"]}')
+    print(f'git remote add {name} {url}')
+
+
+@remote.command('remove')
+@click.argument('name')
+@click.pass_context
+def remote_remove(ctx, name):
+    """删除远程仓库"""
+    c = ctx.obj
+    print(f'git remote remove {name}')
+    if c['verbose']:
+        print(f'  (工作目录: {c["path"]})')
+
+
+@remote.command('show')
+@click.argument('name', required=False, default=None)
+@click.pass_context
+def remote_show(ctx, name):
+    """显示远程仓库信息"""
+    c = ctx.obj
+    target = name or 'origin'
+    print(f'git remote show {target}')
+    if c['verbose']:
+        print(f'  工作目录: {c["path"]}')
+    print(f'  Fetch URL: https://github.com/user/{target}.git')
+    print(f'  Push  URL: https://github.com/user/{target}.git')
+
+
+# ==================== branch 子命令组 (二级) ====================
+
+@cli.group()
+@click.pass_context
+def branch(ctx):
+    """分支管理"""
+    pass
+
+
+@branch.command('create')
+@click.argument('name')
+@click.option('--from-branch', default='main', help='基于哪个分支')
+@click.pass_context
+def branch_create(ctx, name, from_branch):
+    """创建分支"""
+    c = ctx.obj
+    print(f'git checkout -b {name} {from_branch}')
+    if c['verbose']:
+        print(f'  (工作目录: {c["path"]})')
+
+
+@branch.command('delete')
+@click.argument('name')
+@click.option('--force', '-f', is_flag=True, help='强制删除')
+@click.pass_context
+def branch_delete(ctx, name, force):
+    """删除分支"""
+    c = ctx.obj
+    flag = '-D' if force else '-d'
+    print(f'git branch {flag} {name}')
+    if c['verbose']:
+        print('  (强制模式)')
+
+
+@branch.command('list')
+@click.option('--merged', is_flag=True, help='只显示已合并的分支')
+@click.pass_context
+def branch_list(ctx, merged):
+    """列出分支"""
+    c = ctx.obj
+    filter_flag = '--merged' if merged else ''
+    print(f'git branch {filter_flag}')
+    if c['verbose']:
+        print(f'  工作目录: {c["path"]}')
+    print('  * main')
+    print('    develop')
+    print('    feature/login')
+
+
+# ==================== config → user 深层子命令组 (三级) ====================
+
+@cli.group()
+@click.pass_context
+def config(ctx):
+    """配置管理"""
+    pass
+
+
+@config.group()
+@click.pass_context
+def user(ctx):
+    """用户配置"""
+    pass
+
+
+@user.command('name')
+@click.argument('value', required=False, default=None)
+@click.pass_context
+def user_name(ctx, value):
+    """获取/设置用户名 — 深层子命令，通过 ctx.obj 访问全局参数"""
+    c = ctx.obj
+    work_path = c['path']
+    if value:
+        print(f'git -C {work_path} config user.name "{value}"')
+        print(f'  → 用户名已设置为: {value}')
+    else:
+        print(f'git -C {work_path} config user.name')
+        print(f'  → 当前用户名: User')
+    if c['verbose']:
+        print(f'  (详细模式: 工作目录={work_path})')
+
+
+@user.command('email')
+@click.argument('value', required=False, default=None)
+@click.pass_context
+def user_email(ctx, value):
+    """获取/设置用户邮箱 — 深层子命令，通过 ctx.obj 访问全局参数"""
+    c = ctx.obj
+    work_path = c['path']
+    if value:
+        print(f'git -C {work_path} config user.email "{value}"')
+        print(f'  → 邮箱已设置为: {value}')
+    else:
+        print(f'git -C {work_path} config user.email')
+        print(f'  → 当前邮箱: user@example.com')
+    if c['verbose']:
+        print(f'  (详细模式: 工作目录={work_path})')
+
+
+if __name__ == '__main__':
+    cli()
+`````
+
+--- **end of file: examples/git_demos/git_click.py** (project: nb_cmd) --- 
+
+---
+
+
+--- **start of file: examples/git_demos/git_nb_cmd.py** (project: nb_cmd) --- 
+
+`````python
+# -*- coding: utf-8 -*-
+"""
+Git 命令行工具 — nb_cmd 实现。
+
+演示 nb_cmd 在多层级子命令 + 全局参数场景下的优势：
+  - 零装饰器：所有命令通过纯 Class + 方法定义
+  - __init__ 即全局参数：self.nbctx 自动穿透到所有子命令组
+  - self.nbctx 强类型 + IDE 补全：子命令组通过类型注解获取代码补全
+  - 子命令独立可测：每个 NbCmd 子类可脱离父级单独实例化和测试
+  - 深层子命令 (config → user → name/email) 通过 self.nbctx 访问全局参数
+
+用法:
+    python git_nb_cmd.py --verbose status
+    python git_nb_cmd.py -C /etc/git remote add origin https://github.com/user/repo.git
+    python git_nb_cmd.py --verbose branch create feature/login --from-branch develop
+    python git_nb_cmd.py -C ~/my-config config user name "John Doe"
+    python git_nb_cmd.py --verbose config user email
+
+D:/ProgramData/Miniconda3/envs/py39b/python.exe D:\codes/nb_cmd/examples/git_demos/git_nb_cmd.py --tui
+
+
+"""
+import sys
+import os
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
+
+from dataclasses import dataclass
+from typing import Annotated
+from nb_cmd import NbCmd
+
+
+# ==================== 1. 定义全局上下文 ====================
+
+@dataclass
+class GitCtx:
+    """Git 全局上下文，所有子命令组共享"""
+    verbose: bool = False
+    path: str = '.'
+
+
+# ==================== 2. 子命令组（纯 Class，可独立测试）====================
+
+class RemoteCmd(NbCmd):
+    """远程仓库管理 (二级子命令组)"""
+    nbctx: GitCtx
+
+    def add(self, name: Annotated[str, '远程仓库名'], url: Annotated[str, '仓库 URL']):
+        """添加远程仓库"""
+        if self.nbctx.verbose:
+            print(f'[remote add] 工作目录: {self.nbctx.path}')
+        print(f'git remote add {name} {url}')
+
+    def remove(self, name: Annotated[str, '要删除的远程名']):
+        """删除远程仓库"""
+        print(f'git remote remove {name}')
+        if self.nbctx.verbose:
+            print(f'  (工作目录: {self.nbctx.path})')
+
+    def show(self, name: Annotated[str, '远程仓库名'] = None):
+        """显示远程仓库信息"""
+        target = name or 'origin'
+        print(f'git remote show {target}')
+        if self.nbctx.verbose:
+            print(f'  工作目录: {self.nbctx.path}')
+        print(f'  Fetch URL: https://github.com/user/{target}.git')
+        print(f'  Push  URL: https://github.com/user/{target}.git')
+
+
+class BranchCmd(NbCmd):
+    """分支管理 (二级子命令组)"""
+    nbctx: GitCtx
+
+    def create(self, name: Annotated[str, '分支名'],
+               from_branch: Annotated[str, '基于哪个分支'] = 'main'):
+        """创建分支"""
+        print(f'git checkout -b {name} {from_branch}')
+        if self.nbctx.verbose:
+            print(f'  (工作目录: {self.nbctx.path})')
+
+    def delete(self, name: Annotated[str, '分支名'],
+               force: Annotated[bool, '强制删除', 'f'] = False):
+        """删除分支"""
+        flag = '-D' if force else '-d'
+        print(f'git branch {flag} {name}')
+        if self.nbctx.verbose:
+            print('  (强制模式)')
+
+    def list(self, merged: Annotated[bool, '只显示已合并的分支'] = False):
+        """列出分支"""
+        filter_flag = '--merged' if merged else ''
+        print(f'git branch {filter_flag}')
+        if self.nbctx.verbose:
+            print(f'  工作目录: {self.nbctx.path}')
+        print('  * main')
+        print('    develop')
+        print('    feature/login')
+
+
+class UserConfigCmd(NbCmd):
+    """用户配置 (三级深层子命令组，通过 self.nbctx 访问全局参数)"""
+    nbctx: GitCtx
+
+    def name(self, value: Annotated[str, '用户名 (不传则查询)'] = None):
+        """获取/设置用户名 — 深层子命令，（通过 self.nbctx 访问全局参数）"""
+        work_path = self.nbctx.path
+        if value:
+            print(f'git -C {work_path} config user.name "{value}"')
+            print(f'  → 用户名已设置为: {value}')
+        else:
+            print(f'git -C {work_path} config user.name')
+            print(f'  → 当前用户名: User')
+        if self.nbctx.verbose:
+            print(f'  (详细模式: 工作目录={work_path})')
+
+    def email(self, value: Annotated[str, '用户邮箱 (不传则查询)'] = None):
+        """获取/设置用户邮箱 — 深层子命令，（通过 self.nbctx 访问全局参数，传入 value 则设置，不传入则查询）"""
+        work_path = self.nbctx.path
+        if value:
+            print(f'git -C {work_path} config user.email "{value}"')
+            print(f'  → 邮箱已设置为: {value}')
+        else:
+            print(f'git -C {work_path} config user.email')
+            print(f'  → 当前邮箱: user@example.com')
+        if self.nbctx.verbose:
+            print(f'  (详细模式: 工作目录={work_path})')
+
+
+class ConfigCmd(NbCmd):
+    """配置管理 (二级子命令组，挂载三级子命令)"""
+    nbctx: GitCtx
+
+    sub_commands = {
+        'user': UserConfigCmd,
+    }
+
+
+# ==================== 3. 顶层入口 ====================
+
+class GitTool(NbCmd):
+    """
+    Git 命令行工具 (nb_cmd 版)
+
+    全局参数 verbose/config_dir 自动穿透到所有子命令组。
+    演示多层级子命令: remote, branch (二级), config → user (三级)
+    """
+    nbctx: GitCtx
+
+    def __init__(
+        self,
+        verbose: Annotated[bool, '详细输出', 'v'] = False,
+        path: Annotated[str, '工作目录路径', 'C'] = '.',
+    ):
+        self.verbose = verbose
+        self.path = path
+        self.nbctx = GitCtx(
+            verbose=self.verbose,
+            path=self.path,
+        )
+
+    sub_commands = {
+        'remote': RemoteCmd,
+        'branch': BranchCmd,
+        'config': ConfigCmd,
+    }
+
+    def status(self):
+        """查看仓库状态"""
+        verbose_flag = ' (详细模式)' if self.nbctx.verbose else ''
+        print(f'[status] 检查仓库状态{verbose_flag}')
+        print(f'  工作目录: {self.nbctx.path}')
+        print('  On branch main')
+        print('  nothing to commit, working tree clean')
+
+    def log(self,
+            oneline: Annotated[bool, '单行显示'] = False,
+            graph: Annotated[bool, '图形化显示'] = False,
+            max_count: Annotated[int, '最大显示数量', 'n'] = 10):
+        """查看提交历史"""
+        if self.nbctx.verbose:
+            print(f'[log] 工作目录: {self.nbctx.path}')
+        fmt = '--oneline' if oneline else ''
+        graph_flag = '--graph' if graph else ''
+        print(f'git log {fmt} {graph_flag} -{max_count}')
+        print('  commit a1b2c3d4 (HEAD -> main)')
+        print('  Author: User <user@example.com>')
+        print('  Date:   2026-05-11')
+        print('      initial commit')
+
+
+if __name__ == '__main__':
+    GitTool().run()
+`````
+
+--- **end of file: examples/git_demos/git_nb_cmd.py** (project: nb_cmd) --- 
+
+---
+
+
+--- **start of file: examples/git_demos/README.md** (project: nb_cmd) --- 
+
+`````markdown
+# Git 命令行工具 — Click vs nb_cmd 实现对比
+
+## 概述
+
+本目录用 **Click** 和 **nb_cmd** 两种框架分别实现了 Git 部分命令，重点演示三个核心特性：
+
+| 特性 | 说明 |
+|------|------|
+| **全局传参** | `--verbose` / `-v` 和 `--path` / `-C` 两个全局参数穿透到所有子命令 |
+| **多层级子命令** | `remote`、`branch`（二级），`config → user`（三级） |
+| **深层子命令使用全局参数** | `config user name/email` 读取全局 `--path` 和 `--verbose` |
+
+---
+
+## 文件说明
+
+| 文件 | 框架 | 装饰器数 |
+|------|------|---------|
+| `git_click.py` | Click | 18 个 |
+| `git_nb_cmd.py` | nb_cmd | **0 个** |
+
+---
+
+## 命令结构
+
+```
+git-tool
+├── --verbose / -v          # 全局参数：详细输出
+├── --path / -C             # 全局参数：工作目录路径
+│
+├── status                  # 一级命令
+├── log [--oneline] [--graph] [-n]   # 一级命令
+│
+├── remote                  # 二级子命令组
+│   ├── add <name> <url>
+│   ├── remove <name>
+│   └── show [name]
+│
+├── branch                  # 二级子命令组
+│   ├── create <name> [--from-branch]
+│   ├── delete <name> [--force]
+│   └── list [--merged]
+│
+└── config                  # 二级子命令组
+    └── user                # 三级深层子命令组
+        ├── name [value]    ← 使用全局 --path 和 --verbose
+        └── email [value]   ← 使用全局 --path 和 --verbose
+```
+
+---
+
+## 全局传参方式对比
+
+### Click：`@click.pass_context` + `ctx.obj` 字典
+
+```python
+@click.group()
+@click.option('--verbose', '-v', is_flag=True)
+@click.option('--path', '-C', default='.')
+@click.pass_context
+def cli(ctx, verbose, path):
+    ctx.ensure_object(dict)
+    ctx.obj.update(verbose=verbose, path=path)
+
+# 每个子命令都要加 @click.pass_context
+@remote.command('add')
+@click.argument('name')
+@click.argument('url')
+@click.pass_context
+def remote_add(ctx, name, url):
+    c = ctx.obj          # 字典取值，无 IDE 补全
+    if c['verbose']:     # 字符串 key，拼写错误无提示
+        ...
+```
+
+**痛点：**
+- 每个子命令都要加 `@click.pass_context` 装饰器
+- 取值靠 `ctx.obj['key']`（字符串键，无 IDE 补全，拼写错误运行时才暴露）
+- 装饰器随层级指数叠加：三级子命令 `config user name` 需要 4 个装饰器
+
+### nb_cmd：`__init__` + `self.nbctx` 强类型属性
+
+```python
+@dataclass
+class GitCtx:
+    verbose: bool = False
+    path: str = '.'
+
+class GitTool(NbCmd):
+    nbctx: GitCtx
+
+    def __init__(self, verbose: bool = False, path: str = '.'):
+        self.nbctx = GitCtx(verbose=verbose, path=path)
+
+    sub_commands = {'remote': RemoteCmd, 'branch': BranchCmd, 'config': ConfigCmd}
+
+# 子命令组中直接通过 self.nbctx 访问
+class RemoteCmd(NbCmd):
+    nbctx: GitCtx
+
+    def add(self, name: str, url: str):
+        if self.nbctx.verbose:    # 强类型属性，IDE 自动补全
+            print(self.nbctx.path)
+```
+
+**优势：**
+- 零装饰器：`__init__` 即全局参数定义
+- `self.nbctx.verbose` 强类型访问，IDE 自动补全 + 跳转
+- 框架自动 `child.nbctx = parent.nbctx` 递归传递，任意嵌套深度无需额外代码
+
+---
+
+## 多层级子命令定义对比
+
+### Click：装饰器嵌套
+
+```python
+# 二级：@cli.group()
+@cli.group()
+@click.pass_context
+def remote(ctx): pass
+
+@remote.command('add')
+@click.pass_context
+def remote_add(ctx, name, url): ...
+
+# 三级：@cli.group() → @config.group()
+@cli.group()
+@click.pass_context
+def config(ctx): pass
+
+@config.group()
+@click.pass_context
+def user(ctx): pass
+
+@user.command('name')
+@click.pass_context
+def user_name(ctx, value): ...
+```
+
+**痛点：**
+- 每新增一个子命令组需要 `@cli.group()` + 函数定义
+- 装饰器用错实例（如 `@remote.command()` 写成 `@branch.command()`），命令跑到错误层级，不报错但行为异常
+- 函数散落各处，层级关系靠装饰器维持，代码可读性差
+
+### nb_cmd：`sub_commands` 字典
+
+```python
+class GitTool(NbCmd):
+    sub_commands = {
+        'remote': RemoteCmd,    # 二级
+        'branch': BranchCmd,    # 二级
+        'config': ConfigCmd,    # 二级 → 三级
+    }
+
+class ConfigCmd(NbCmd):
+    sub_commands = {
+        'user': UserConfigCmd,  # 三级
+    }
+
+class UserConfigCmd(NbCmd):
+    def name(self, value=None): ...   # 三级子命令
+    def email(self, value=None): ...  # 三级子命令
+```
+
+**优势：**
+- 子命令组是独立 Class，层级关系一目了然
+- 新增子命令组只需：写一个 Class + 在父级 `sub_commands` 加一项
+- 子命令组可单独实例化、单独测试、单独复用
+
+---
+
+## 深层子命令使用全局参数
+
+### Click 版（`config user name` 使用 `--path`）
+
+```python
+@user.command('name')
+@click.argument('value', required=False, default=None)
+@click.pass_context
+def user_name(ctx, value):
+    c = ctx.obj
+    work_path = c['path']               # 从 ctx.obj 取全局参数
+    if c['verbose']:                    # 从 ctx.obj 取全局参数
+        print(f'详细模式: 工作目录={work_path}')
+    print(f'git -C {work_path} config user.name "{value}"')
+```
+
+### nb_cmd 版（`config user name` 使用 `--path`）
+
+```python
+class UserConfigCmd(NbCmd):
+    nbctx: GitCtx
+
+    def name(self, value: str = None):
+        work_path = self.nbctx.path     # 强类型属性访问
+        if self.nbctx.verbose:          # 强类型属性访问
+            print(f'详细模式: 工作目录={work_path}')
+        print(f'git -C {work_path} config user.name "{value}"')
+```
+**关键差异：** nb_cmd 的 `self.nbctx` 由框架自动从父级传递到子级，`UserConfigCmd` 不需要任何额外代码就能拿到全局参数。Click 需要每层都加 `@click.pass_context` 并手动从 `ctx.obj` 取值。
+
+---
+
+## 运行示例
+
+```bash
+# 1. 查看状态（带全局参数）
+python git_click.py --verbose status
+python git_nb_cmd.py --verbose status
+
+# 2. 添加远程仓库（指定工作目录）
+python git_click.py -C /etc/git remote add origin https://github.com/user/repo.git
+python git_nb_cmd.py -C /etc/git remote add origin https://github.com/user/repo.git
+
+# 3. 创建分支（详细模式）
+python git_click.py --verbose branch create feature/login --from-branch develop
+python git_nb_cmd.py --verbose branch create feature/login --from-branch develop
+
+# 4. 深层子命令：设置用户名（使用全局 -C）
+python git_click.py -C ~/my-config config user name "John Doe"
+python git_nb_cmd.py -C ~/my-config config user name "John Doe"
+
+# 5. 深层子命令：查询邮箱（使用全局 --verbose）
+python git_click.py --verbose config user email
+python git_nb_cmd.py --verbose config user email
+
+# 6. 查看帮助
+python git_click.py --help
+python git_nb_cmd.py --help
+
+python git_click.py remote --help
+python git_nb_cmd.py remote --help
+
+python git_click.py config user --help
+python git_nb_cmd.py config user --help
+```
+
+---
+
+## 总结
+
+| 维度 | Click | nb_cmd |
+|------|-------|--------|
+| **全局参数定义** | `@click.group()` + `@click.option()` | `__init__` 方法参数 |
+| **全局参数传递** | `@click.pass_context` + `ctx.obj['key']` | `self.nbctx.attr` 自动穿透 |
+| **子命令组定义** | `@cli.group()` 装饰器嵌套 | `sub_commands = {...}` 字典 |
+| **深层子命令** | 每层都要 `@group()` + `@pass_context` | 框架自动递归传递 `nbctx` |
+| **IDE 补全** | ❌ `ctx.obj['key']` 无补全 | ✅ `self.nbctx.attr` 强类型补全 |
+| **独立测试** | ❌ 函数绑定到 `cli` 实例 | ✅ Class 可单独实例化测试 |
+| **装饰器数量** | 18 个 | **0 个** |
+| **代码可读性** | 装饰器散落，层级关系隐式 | Class 嵌套，层级关系显式 |
+
+**结论：** 对于多层级子命令 + 全局参数的 CLI 工具，nb_cmd 的 OOP 设计（`__init__` 定义全局参数、`sub_commands` 声明层级、`self.nbctx` 自动穿透）比 Click 的函数式 + 装饰器方案更简洁、更可维护、更易测试。
+`````
+
+--- **end of file: examples/git_demos/README.md** (project: nb_cmd) --- 
+
+---
+
+
 --- **start of file: examples/nbctx_demo/nbctx_demo.py** (project: nb_cmd) --- 
 
 `````python
@@ -3161,11 +6510,13 @@ nb_cmd nbctx 跨层级上下文传递 demo。
 
 演示：顶层全局参数（region/env/debug）如何自动穿透到任意深度的子命令组。
 
-四种使用方式：
-    1. CLI:  python nbctx_demo.py --region shanghai db migrate
-    2. Web:  python nbctx_demo.py --web --web-port 8085
-    3. API:  curl -X POST http://localhost:8085/db/migrate -d '{"init_params":{"region":"shanghai"}}'
-    4. 本地: 见本文件底部 if __name__ == '__main__' 部分
+六种能力：
+    1. Python 直接调用: 见本文件底部 if __name__ == '__main__' 部分
+    2. CLI:  python nbctx_demo.py --region shanghai db migrate
+    3. REST API:  curl -X POST http://localhost:8085/db/migrate -d '{"init_params":{"region":"shanghai"}}'
+    4. Web UI:  python nbctx_demo.py --web --web-port 8085
+    5. TUI:  python nbctx_demo.py --tui
+    6. 文档生成: 见本文件底部 CmdGen 示例
 """
 import sys
 import os
@@ -3365,6 +6716,8 @@ if __name__ == '__main__':
 --- **start of file: examples/nbctx_demo/nbctx_demo_gen_doc.md** (project: nb_cmd) --- 
 
 `````markdown
+> *Auto-generated by nb-cmd CmdGen*
+
 # cloud-tool v1.0.0
 
 > 云平台管理工具 —— nbctx 跨层级上下文传递 demo。
@@ -3411,13 +6764,13 @@ if __name__ == '__main__':
 
 ```bash
 # 查看完整帮助
-D:\ProgramData\Miniconda3\envs\py39b\python.exe d:/codes/nb_cmd/examples/nbctx_demo/nbctx_demo.py -fh
+D:\ProgramData\miniconda3\envs\py39b\python.exe nbctx_demo.py -fh
 
 # 查看版本
-D:\ProgramData\Miniconda3\envs\py39b\python.exe d:/codes/nb_cmd/examples/nbctx_demo/nbctx_demo.py --cmd-version
+D:\ProgramData\miniconda3\envs\py39b\python.exe nbctx_demo.py --cmd-version
 
 # 启动 Web UI
-D:\ProgramData\Miniconda3\envs\py39b\python.exe d:/codes/nb_cmd/examples/nbctx_demo/nbctx_demo.py --web
+D:\ProgramData\miniconda3\envs\py39b\python.exe nbctx_demo.py --web
 ```
 
 ## 命令行约定
@@ -3439,7 +6792,7 @@ D:\ProgramData\Miniconda3\envs\py39b\python.exe d:/codes/nb_cmd/examples/nbctx_d
 查看全局状态
 
 ```bash
-D:\ProgramData\Miniconda3\envs\py39b\python.exe d:/codes/nb_cmd/examples/nbctx_demo/nbctx_demo.py --region ${beijing} --env ${prod} --debug status
+D:\ProgramData\miniconda3\envs\py39b\python.exe nbctx_demo.py --region ${beijing} --env ${prod} --debug status
 ```
 
 ### `whoami`
@@ -3447,7 +6800,7 @@ D:\ProgramData\Miniconda3\envs\py39b\python.exe d:/codes/nb_cmd/examples/nbctx_d
 显示当前用户信息
 
 ```bash
-D:\ProgramData\Miniconda3\envs\py39b\python.exe d:/codes/nb_cmd/examples/nbctx_demo/nbctx_demo.py --region ${beijing} --env ${prod} --debug whoami
+D:\ProgramData\miniconda3\envs\py39b\python.exe nbctx_demo.py --region ${beijing} --env ${prod} --debug whoami
 ```
 
 ### `db` *(子命令组)*
@@ -3463,7 +6816,7 @@ D:\ProgramData\Miniconda3\envs\py39b\python.exe d:/codes/nb_cmd/examples/nbctx_d
 | `--compress` | `bool` | `True` | 启用压缩 |
 
 ```bash
-D:\ProgramData\Miniconda3\envs\py39b\python.exe d:/codes/nb_cmd/examples/nbctx_demo/nbctx_demo.py --region ${beijing} --env ${prod} --debug db backup
+D:\ProgramData\miniconda3\envs\py39b\python.exe nbctx_demo.py --region ${beijing} --env ${prod} --debug db backup
 ```
 
 #### `db migrate`
@@ -3475,7 +6828,7 @@ D:\ProgramData\Miniconda3\envs\py39b\python.exe d:/codes/nb_cmd/examples/nbctx_d
 | `--dry-run` | `bool` | `False` | 仅模拟，不执行 |
 
 ```bash
-D:\ProgramData\Miniconda3\envs\py39b\python.exe d:/codes/nb_cmd/examples/nbctx_demo/nbctx_demo.py --region ${beijing} --env ${prod} --debug db migrate --dry-run
+D:\ProgramData\miniconda3\envs\py39b\python.exe nbctx_demo.py --region ${beijing} --env ${prod} --debug db migrate --dry-run
 ```
 
 #### `db status`
@@ -3483,7 +6836,7 @@ D:\ProgramData\Miniconda3\envs\py39b\python.exe d:/codes/nb_cmd/examples/nbctx_d
 查看数据库连接状态
 
 ```bash
-D:\ProgramData\Miniconda3\envs\py39b\python.exe d:/codes/nb_cmd/examples/nbctx_demo/nbctx_demo.py --region ${beijing} --env ${prod} --debug db status
+D:\ProgramData\miniconda3\envs\py39b\python.exe nbctx_demo.py --region ${beijing} --env ${prod} --debug db status
 ```
 
 ### `server` *(子命令组)*
@@ -3495,7 +6848,7 @@ D:\ProgramData\Miniconda3\envs\py39b\python.exe d:/codes/nb_cmd/examples/nbctx_d
 查看服务器信息
 
 ```bash
-D:\ProgramData\Miniconda3\envs\py39b\python.exe d:/codes/nb_cmd/examples/nbctx_demo/nbctx_demo.py --region ${beijing} --env ${prod} --debug server info
+D:\ProgramData\miniconda3\envs\py39b\python.exe nbctx_demo.py --region ${beijing} --env ${prod} --debug server info
 ```
 
 #### `server ssh`
@@ -3507,7 +6860,7 @@ SSH 登录
 | `--user` | `str` | `root` | 登录用户名 |
 
 ```bash
-D:\ProgramData\Miniconda3\envs\py39b\python.exe d:/codes/nb_cmd/examples/nbctx_demo/nbctx_demo.py --region ${beijing} --env ${prod} --debug server ssh --user ${root}
+D:\ProgramData\miniconda3\envs\py39b\python.exe nbctx_demo.py --region ${beijing} --env ${prod} --debug server ssh --user ${root}
 ```
 
 #### `server ops` *(子命令组)*
@@ -3524,7 +6877,7 @@ D:\ProgramData\Miniconda3\envs\py39b\python.exe d:/codes/nb_cmd/examples/nbctx_d
 | `--rollback` | `bool` | `False` | 是否回滚 |
 
 ```bash
-D:\ProgramData\Miniconda3\envs\py39b\python.exe d:/codes/nb_cmd/examples/nbctx_demo/nbctx_demo.py --region ${beijing} --env ${prod} --debug server ops deploy --version $<version> --rollback
+D:\ProgramData\miniconda3\envs\py39b\python.exe nbctx_demo.py --region ${beijing} --env ${prod} --debug server ops deploy --version $<version> --rollback
 ```
 
 ##### `server ops restart`
@@ -3532,7 +6885,7 @@ D:\ProgramData\Miniconda3\envs\py39b\python.exe d:/codes/nb_cmd/examples/nbctx_d
 重启服务
 
 ```bash
-D:\ProgramData\Miniconda3\envs\py39b\python.exe d:/codes/nb_cmd/examples/nbctx_demo/nbctx_demo.py --region ${beijing} --env ${prod} --debug server ops restart
+D:\ProgramData\miniconda3\envs\py39b\python.exe nbctx_demo.py --region ${beijing} --env ${prod} --debug server ops restart
 ```
 
 `````
@@ -3551,6 +6904,7 @@ D:\ProgramData\Miniconda3\envs\py39b\python.exe d:/codes/nb_cmd/examples/nbctx_d
 
 └── nb_cmd
     ├── __init__.py
+    ├── cli.py
     ├── core
     │   ├── __init__.py
     │   ├── _io_dispatch.py
@@ -3558,6 +6912,7 @@ D:\ProgramData\Miniconda3\envs\py39b\python.exe d:/codes/nb_cmd/examples/nbctx_d
     │   ├── base.py
     │   ├── discovery.py
     │   ├── gen_cmd.py
+    │   ├── gen_skill.py
     │   ├── meta.py
     │   ├── parser.py
     │   ├── result_handler.py
@@ -3566,6 +6921,7 @@ D:\ProgramData\Miniconda3\envs\py39b\python.exe d:/codes/nb_cmd/examples/nbctx_d
     │   ├── __init__.py
     │   ├── api_mode.py
     │   ├── cli_mode.py
+    │   ├── tui_mode.py
     │   └── web_mode.py
     ├── ui
     │   ├── __init__.py
@@ -3583,8 +6939,10 @@ D:\ProgramData\Miniconda3\envs\py39b\python.exe d:/codes/nb_cmd/examples/nbctx_d
 ---
 
 
-## nb_cmd (relative dir: `nb_cmd`)  Included Files (total: 23 files)
+## nb_cmd (relative dir: `nb_cmd`)  Included Files (total: 26 files)
 
+
+- `nb_cmd/cli.py`
 
 - `nb_cmd/__init__.py`
 
@@ -3595,6 +6953,8 @@ D:\ProgramData\Miniconda3\envs\py39b\python.exe d:/codes/nb_cmd/examples/nbctx_d
 - `nb_cmd/core/discovery.py`
 
 - `nb_cmd/core/gen_cmd.py`
+
+- `nb_cmd/core/gen_skill.py`
 
 - `nb_cmd/core/meta.py`
 
@@ -3611,6 +6971,8 @@ D:\ProgramData\Miniconda3\envs\py39b\python.exe d:/codes/nb_cmd/examples/nbctx_d
 - `nb_cmd/modes/api_mode.py`
 
 - `nb_cmd/modes/cli_mode.py`
+
+- `nb_cmd/modes/tui_mode.py`
 
 - `nb_cmd/modes/web_mode.py`
 
@@ -3636,13 +6998,60 @@ D:\ProgramData\Miniconda3\envs\py39b\python.exe d:/codes/nb_cmd/examples/nbctx_d
 ---
 
 
+--- **start of file: nb_cmd/cli.py** (project: nb_cmd) --- 
+
+`````python
+# -*- coding: utf-8 -*-
+"""
+nbcmd —— 个人命令中心。
+
+零代码启动，通过 exec 收藏和管理所有常用系统命令。
+
+用法:
+    nbcmd --tui          # TUI 终端交互模式
+    nbcmd --web          # Web 浏览器模式
+    nbcmd exec <命令>    # 直接执行系统命令
+    nbcmd -h             # 查看帮助
+"""
+import os
+
+from nb_cmd.core.base import NbCmd
+from nb_cmd.core.meta import NbCmdMeta
+
+
+class _NbCmdApp(NbCmd):
+    """个人命令中心 —— 收藏和管理常用系统命令"""
+
+    class Meta(NbCmdMeta):
+        name = 'nbcmd'
+        version = '0.2.1'
+        description = '个人命令中心 —— 通过 exec 收藏和管理所有常用系统命令'
+        web_title = 'NbCmd 命令中心'
+        db_dir = os.path.join(os.path.expanduser('~'), '.nb_cmd')
+
+
+def main():
+    app = _NbCmdApp()
+    app.run()
+
+
+if __name__ == '__main__':
+    main()
+
+`````
+
+--- **end of file: nb_cmd/cli.py** (project: nb_cmd) --- 
+
+---
+
+
 --- **start of file: nb_cmd/__init__.py** (project: nb_cmd) --- 
 
 `````python
 # -*- coding: utf-8 -*-
 """
-nb_cmd — 万能接口生成器
-你写一个 Python class，自动获得 CLI + REST API + Web UI 三种接口。
+nb_cmd — Python 码农的低代码平台
+写一个 class，自动获得六种能力：Python 直接调用 + CLI + REST API + Web UI + TUI 终端交互 + Markdown 文档。
 
 用法::
 
@@ -3665,6 +7074,7 @@ from .core.arg import Annotated, Param  # noqa: F401
 from .ui.helper import UIHelper, cmdui  # noqa: F401
 from .utils.validators import validate  # noqa: F401
 from .core.gen_cmd import CmdGen  # noqa: F401
+from .core.gen_skill import SkillGen  # noqa: F401
 
 `````
 
@@ -3783,6 +7193,7 @@ def unwrap_arg(hint):
     - Annotated[str, '描述']                     → (str, _ArgMeta(desc='描述'))
     - Annotated[str, '描述', 'n']                → (str, _ArgMeta(desc='描述', aliases=['-n']))
     - Annotated[str, Param(desc='描述', alias='n')]  → 同上
+    - Optional[Annotated[str, '描述']]           → (str, _ArgMeta(desc='描述'))
     - str                                        → (str, None)
     """
     if Annotated is not None and get_origin(hint) is Annotated:
@@ -3805,7 +7216,32 @@ def unwrap_arg(hint):
             return real_type, _ArgMeta(desc=desc, aliases=aliases)
         return real_type, None
 
+    # Optional[Annotated[...]] — get_type_hints 对 default=None 的参数自动包装 Optional
+    if _is_optional(hint):
+        inner = _unwrap_optional(hint)
+        if inner is not hint and Annotated is not None and get_origin(inner) is Annotated:
+            return unwrap_arg(inner)
+
     return hint, None
+
+
+def _is_optional(tp):
+    """判断 tp 是否为 Optional[X]（即 Union[X, None]），兼容 Python 3.7+"""
+    import typing
+    origin = getattr(tp, '__origin__', None)
+    if origin is getattr(typing, 'Union', None):
+        args = getattr(tp, '__args__', ())
+        return type(None) in args
+    return False
+
+
+def _unwrap_optional(tp):
+    """Optional[X] → X，兼容 Python 3.7+"""
+    args = getattr(tp, '__args__', ())
+    non_none = [a for a in args if a is not type(None)]
+    if len(non_none) == 1:
+        return non_none[0]
+    return tp
 
 `````
 
@@ -3821,10 +7257,20 @@ def unwrap_arg(hint):
 """
 NbCmd 基类 —— 所有命令行工具的父类。
 """
+from __future__ import annotations
+
 import logging
 import sys
 
 from .meta import NbCmdMeta
+
+try:
+    from typing import Annotated
+except ImportError:
+    try:
+        from typing_extensions import Annotated
+    except ImportError:
+        pass
 
 
 class NbCmd(object):
@@ -3839,7 +7285,7 @@ class NbCmd(object):
     功能:
         - 公有方法 → 子命令
         - 方法签名 → 参数自动推导
-        - 支持 CLI / REST API / Web UI 三种模式
+        - 六种能力：Python 直接调用 / CLI / REST API / Web UI / TUI 终端交互 / Markdown 文档
         - 支持 OOP 继承覆写
         - 支持多层级子命令（sub_commands）
         - 支持 nbctx 跨层级上下文传递
@@ -3855,10 +7301,6 @@ class NbCmd(object):
     Meta = NbCmdMeta
 
     nbctx = None  # 跨层级共享的上下文对象，子类通过 nbctx: AppCtx 注解获取 IDE 补全
-
-    def __init__(self):
-        self._logger = None
-        self._setup_logging()
 
     def make_nbctx(self):
         """
@@ -3922,8 +7364,10 @@ class NbCmd(object):
         return getattr(self.__class__, 'Meta', NbCmd.Meta)
 
     @property
-    def logger(self):
-        """日志器"""
+    def logger(self) -> logging.Logger:
+        """日志器（懒初始化：子类未调 super().__init__() 时也能正常工作）"""
+        if not hasattr(self, '_logger') or self._logger is None:
+            self._setup_logging()
         return self._logger
 
     # ==================== 生命周期钩子 ====================
@@ -3938,8 +7382,7 @@ class NbCmd(object):
 
     def on_error(self, command, error):
         """子命令执行出错时的钩子，子类可覆写"""
-        if self._logger:
-            self._logger.error('命令 {} 执行失败: {}'.format(command, error))
+        self.logger.error('命令 {} 执行失败: {}'.format(command, error))
 
     # ==================== 系统命令工具 ====================
 
@@ -3958,24 +7401,38 @@ class NbCmd(object):
         str (capture=True 时返回 stdout) 或 None
         """
         import subprocess
-        result = subprocess.run(
-            cmd, shell=True, capture_output=True, text=True,
-        )
-        if check and result.returncode != 0:
-            raise RuntimeError(
-                '命令执行失败 (exit {}): {}\n{}'.format(
-                    result.returncode, cmd, result.stderr
-                )
-            )
         if capture:
+            result = subprocess.run(
+                cmd, shell=True, capture_output=True, text=True,
+            )
+            if check and result.returncode != 0:
+                raise RuntimeError(
+                    '命令执行失败 (exit {}): {}\n{}'.format(
+                        result.returncode, cmd, result.stderr
+                    )
+                )
             return result.stdout.strip()
-        else:
-            if result.stdout:
-                print(result.stdout, end='')
-            if result.stderr:
-                print(result.stderr, end='', file=sys.stderr)
 
-    def exec(self, cmd: str):
+        proc = subprocess.Popen(
+            cmd, shell=True,
+            stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+            text=True, bufsize=1,
+        )
+        try:
+            if proc.stdout:
+                for line in proc.stdout:
+                    print(line, end='')
+            proc.wait()
+        except KeyboardInterrupt:
+            proc.kill()
+            proc.wait()
+            raise
+        if check and proc.returncode != 0:
+            raise RuntimeError(
+                '命令执行失败 (exit {}): {}'.format(proc.returncode, cmd)
+            )
+
+    def exec(self, cmd: Annotated[str, '要执行的系统命令', 'c']):
         """执行任意系统命令"""
         self.shell(cmd)
 
@@ -3998,6 +7455,9 @@ class NbCmd(object):
 
         if '--web' in raw_args:
             return self._start_web_server(raw_args)
+
+        if '--tui' in raw_args:
+            return self._start_tui()
 
         from ..modes.cli_mode import run_cli
         return run_cli(self, NbCmd, args)
@@ -4042,6 +7502,11 @@ class NbCmd(object):
 
         from ..modes.web_mode import start_web_server
         start_web_server(self, NbCmd, host=host, port=port)
+
+    def _start_tui(self):
+        """启动 TUI 模式"""
+        from ..modes.tui_mode import start_tui
+        start_tui(self, NbCmd)
 
     @staticmethod
     def _extract_port(raw_args):
@@ -4089,7 +7554,8 @@ else:
 from .arg import unwrap_arg
 
 
-def discover_commands(instance, base_cls, include_builtins=True, enable_exec=True):
+def discover_commands(instance, base_cls, include_builtins=True, enable_exec=True,
+                      allow_method_list=None, hide_method_list=None, command_prefix=''):
     """
     发现 instance 上所有应暴露为 CLI 子命令的方法，以及 sub_commands 中的子命令组。
 
@@ -4099,11 +7565,22 @@ def discover_commands(instance, base_cls, include_builtins=True, enable_exec=Tru
         是否包含基类内置命令（如 exec），顶层类为 True，子命令组为 False
     enable_exec : bool
         是否启用内置 exec 命令，由 Meta.enable_exec 控制
+    allow_method_list : list[str] or None
+        命令白名单。为空/None 表示不过滤；有值时仅暴露白名单命令。
+        支持写法：['status', 'db.migrate', 'db/migrate', 'db migrate']。
+    hide_method_list : list[str] or None
+        命令黑名单。为空/None 表示不过滤；有值时隐藏指定命令。
+        与 allow_method_list 互斥，同时配置时 allow_method_list 优先。
+    command_prefix : str
+        当前 discover 所在的命令路径前缀（内部递归使用）。
 
     返回: OrderedDict  { cmd_name: cmd_info_dict }
     """
     from collections import OrderedDict
     commands = OrderedDict()
+    allow_set = _normalize_allow_method_set(allow_method_list)
+    hide_set = _normalize_allow_method_set(hide_method_list) if not allow_set else set()
+    current_prefix = _normalize_command_path(command_prefix)
 
     _BUILTIN_COMMANDS = {'exec'} if (include_builtins and enable_exec) else set()
     base_methods = set(dir(base_cls)) - _BUILTIN_COMMANDS
@@ -4165,6 +7642,12 @@ def discover_commands(instance, base_cls, include_builtins=True, enable_exec=Tru
                 )
             )
 
+        full_path = _join_command_path(current_prefix, name)
+        if not _is_method_allowed(full_path, allow_set):
+            continue
+        if _is_method_hidden(full_path, hide_set):
+            continue
+
         commands[name] = {
             'method': attr,
             'signature': sig,
@@ -4177,12 +7660,26 @@ def discover_commands(instance, base_cls, include_builtins=True, enable_exec=Tru
 
     sub_cmds = getattr(instance.__class__, 'sub_commands', {})
     for group_name, group_val in sub_cmds.items():
+        group_path = _join_command_path(current_prefix, group_name)
+        if not _is_group_allowed(group_path, allow_set):
+            continue
+        if _is_group_hidden(group_path, hide_set):
+            continue
+
         if inspect.isclass(group_val) and issubclass(group_val, base_cls):
             commands[group_name] = {
                 'cls': group_val,
                 'doc': (inspect.getdoc(group_val) or "").split('\n')[0],
                 'is_group': True,
                 'init_kwargs': {},
+            }
+        elif isinstance(group_val, dict) and 'cls' in group_val:
+            group_cls = group_val['cls']
+            commands[group_name] = {
+                'cls': group_cls,
+                'doc': group_val.get('doc', (inspect.getdoc(group_cls) or "").split('\n')[0]),
+                'is_group': True,
+                'init_kwargs': {k: v for k, v in group_val.items() if k not in ('cls', 'doc')},
             }
         elif isinstance(group_val, base_cls):
             group_cls = group_val.__class__
@@ -4193,7 +7690,155 @@ def discover_commands(instance, base_cls, include_builtins=True, enable_exec=Tru
                 'init_kwargs': _extract_init_kwargs(group_val),
             }
 
+    if _BUILTIN_COMMANDS:
+        ordered = OrderedDict()
+        for builtin_name in sorted(_BUILTIN_COMMANDS):
+            if builtin_name in commands:
+                ordered[builtin_name] = commands.pop(builtin_name)
+        ordered.update(commands)
+        return ordered
+
     return commands
+
+
+def _normalize_allow_method_set(allow_method_list):
+    """
+    归一化 allow_method_list，返回 set。
+
+    - None / [] / () / '' -> 空 set（表示不过滤）
+    - str -> 视为单条规则
+    - 路径分隔支持 '.', '/', 空格
+    - CLI 风格 '-' 自动转为 '_'（与 Python 方法名对齐）
+    """
+    if allow_method_list is None:
+        return set()
+
+    if isinstance(allow_method_list, str):
+        raw_items = [allow_method_list]
+    elif isinstance(allow_method_list, (list, tuple, set)):
+        raw_items = list(allow_method_list)
+    else:
+        raw_items = [str(allow_method_list)]
+
+    normalized = set()
+    for item in raw_items:
+        p = _normalize_command_path(item)
+        if p:
+            normalized.add(p)
+    return normalized
+
+
+def _normalize_command_path(path):
+    """将命令路径统一为 'group/sub/cmd' 形式（内部用 '_' 命名）。"""
+    if path is None:
+        return ''
+    s = str(path).strip()
+    if not s:
+        return ''
+
+    # 支持 db.migrate / db/migrate / db migrate
+    s = s.replace('\\', '/').replace('.', '/').replace(' ', '/')
+    while '//' in s:
+        s = s.replace('//', '/')
+    s = s.strip('/')
+    if not s:
+        return ''
+
+    parts = []
+    for part in s.split('/'):
+        p = part.strip()
+        if not p:
+            continue
+        parts.append(p.replace('-', '_'))
+    return '/'.join(parts)
+
+
+def _join_command_path(prefix, name):
+    """拼接完整命令路径。"""
+    p = _normalize_command_path(prefix)
+    n = _normalize_command_path(name)
+    if not p:
+        return n
+    if not n:
+        return p
+    return p + '/' + n
+
+
+def _iter_ancestor_paths(path):
+    """迭代 path 的祖先路径（不含自身），用于白名单祖先命中判断。"""
+    p = _normalize_command_path(path)
+    if not p:
+        return []
+    parts = p.split('/')
+    ancestors = []
+    # issue/list -> ['issue']
+    for i in range(1, len(parts)):
+        ancestors.append('/'.join(parts[:i]))
+    return ancestors
+
+
+def _is_method_allowed(method_path, allow_set):
+    """方法是否在白名单内（支持父组命中）。"""
+    if not allow_set:
+        return True
+
+    p = _normalize_command_path(method_path)
+    if p in allow_set:
+        return True
+
+    # allow=['issue'] 时，issue 下所有方法可见
+    for anc in _iter_ancestor_paths(p):
+        if anc in allow_set:
+            return True
+    return False
+
+
+def _is_group_allowed(group_path, allow_set):
+    """命令组是否需要暴露（自身命中、祖先命中、或有子命令命中）。"""
+    if not allow_set:
+        return True
+
+    p = _normalize_command_path(group_path)
+    if p in allow_set:
+        return True
+
+    # allow=['admin']，admin/ops 也应可见
+    for anc in _iter_ancestor_paths(p):
+        if anc in allow_set:
+            return True
+
+    # allow=['issue/list']，issue 组需保留用于路由到子命令
+    prefix = p + '/'
+    for item in allow_set:
+        if item.startswith(prefix):
+            return True
+    return False
+
+
+def _is_method_hidden(method_path, hide_set):
+    """方法是否在黑名单内（精确命中或祖先组被隐藏）。"""
+    if not hide_set:
+        return False
+    p = _normalize_command_path(method_path)
+    if p in hide_set:
+        return True
+    for anc in _iter_ancestor_paths(p):
+        if anc in hide_set:
+            return True
+    return False
+
+
+def _is_group_hidden(group_path, hide_set):
+    """命令组是否整体被隐藏（自身命中或祖先命中）。"""
+    if not hide_set:
+        return False
+    p = _normalize_command_path(group_path)
+    if p in hide_set:
+        return True
+    for anc in _iter_ancestor_paths(p):
+        if anc in hide_set:
+            return True
+    return False
 
 
 def _extract_init_kwargs(instance):
@@ -4261,6 +7906,8 @@ class CmdGen(object):
         self.python = python or sys.executable
         self.fmt = fmt
         self._base_cls = _find_base_cls(entry_cls)
+        self._allow_methods = _get_allow_method_list(entry_cls)
+        self._hide_methods = _get_hide_method_list(entry_cls)
 
     def cmd(self, method):
         """
@@ -4343,15 +7990,20 @@ class CmdGen(object):
         instance = _safe_instantiate(self.entry_cls)
         full_help = get_full_help_text(instance, self._base_cls)
 
-        lines = [full_help.rstrip(), '']
+        lines = ['[This Doc Is Auto-generated by nb-cmd CmdGen]', '', full_help.rstrip(), '']
         lines.append('{} 命令行示例'.format(app_name))
         lines.append('=' * (len(app_name) + 14))
 
         global_args = _format_init_args(self.entry_cls)
         commands = discover_commands(instance, self._base_cls,
-                                     include_builtins=False, enable_exec=False)
+                                     include_builtins=False, enable_exec=False,
+                                     allow_method_list=self._allow_methods,
+                                     hide_method_list=self._hide_methods)
         _collect_text_doc(commands, self._base_cls, self.script, self.python,
-                          global_args, '', lines, depth=0)
+                          global_args, '', lines, depth=0,
+                          allow_method_list=self._allow_methods,
+                          hide_method_list=self._hide_methods,
+                          command_prefix='')
 
         return '\n'.join(lines)
 
@@ -4364,17 +8016,24 @@ class CmdGen(object):
         description = inspect.getdoc(instance) or self.entry_cls.__name__
 
         commands = discover_commands(instance, self._base_cls,
-                                     include_builtins=False, enable_exec=False)
+                                     include_builtins=False, enable_exec=False,
+                                     allow_method_list=self._allow_methods,
+                                     hide_method_list=self._hide_methods)
         global_args = _format_init_args(self.entry_cls)
 
         lines = []
 
+        lines.append('> *Auto-generated by nb-cmd CmdGen*')
+        lines.append('')
         lines.append('# {} v{}'.format(app_name, version))
         lines.append('')
         lines.append('> {}'.format(description))
         lines.append('')
 
-        toc_items = _collect_toc(commands, self._base_cls, prefix='')
+        toc_items = _collect_toc(commands, self._base_cls, prefix='',
+                                 allow_method_list=self._allow_methods,
+                                 hide_method_list=self._hide_methods,
+                                 command_prefix='')
         if toc_items:
             lines.append('## Table of Contents')
             lines.append('')
@@ -4402,6 +8061,7 @@ class CmdGen(object):
             ('`--cmd-version`', '显示版本号'),
             ('`--web`', '以 Web UI + REST API 模式启动'),
             ('`--web-port PORT`', 'Web UI 服务端口（用于 `--web`）'),
+            ('`--tui`', '以 TUI 终端交互模式启动'),
         ]
         for flag, desc in sys_params:
             lines.append('| {} | {} |'.format(flag, desc))
@@ -4429,6 +8089,9 @@ class CmdGen(object):
         lines.append('')
         lines.append('# 启动 Web UI')
         lines.append('{} {} --web'.format(self.python, self.script))
+        lines.append('')
+        lines.append('# 启动 TUI 终端交互')
+        lines.append('{} {} --tui'.format(self.python, self.script))
         lines.append('```')
         lines.append('')
 
@@ -4449,12 +8112,16 @@ class CmdGen(object):
         lines.append('')
 
         _collect_md_doc(commands, self._base_cls, self.script, self.python,
-                        global_args, '', lines, depth=0)
+                        global_args, '', lines, depth=0,
+                        allow_method_list=self._allow_methods,
+                        hide_method_list=self._hide_methods,
+                        command_prefix='')
 
         return '\n'.join(lines)
 
 
-def _collect_toc(commands, base_cls, prefix='', depth=0):
+def _collect_toc(commands, base_cls, prefix='', depth=0, allow_method_list=None,
+                 hide_method_list=None, command_prefix=''):
     """递归收集命令目录结构"""
     items = []
     for cmd_name, cmd_info in commands.items():
@@ -4465,10 +8132,17 @@ def _collect_toc(commands, base_cls, prefix='', depth=0):
             items.append({'display': display, 'is_group': True, 'depth': depth})
             group_cls = cmd_info['cls']
             group_instance = _safe_instantiate(group_cls)
+            group_path = '{}/{}'.format(command_prefix, cmd_name) if command_prefix else cmd_name
             sub_commands = discover_commands(group_instance, base_cls,
-                                             include_builtins=False, enable_exec=False)
+                                             include_builtins=False, enable_exec=False,
+                                             allow_method_list=allow_method_list,
+                                             hide_method_list=hide_method_list,
+                                             command_prefix=group_path)
             items.extend(_collect_toc(sub_commands, base_cls, prefix=full_path,
-                                      depth=depth + 1))
+                                      depth=depth + 1,
+                                      allow_method_list=allow_method_list,
+                                      hide_method_list=hide_method_list,
+                                      command_prefix=group_path))
         else:
             items.append({'display': display, 'is_group': False, 'depth': depth})
     return items
@@ -4508,7 +8182,8 @@ def _collect_init_params(entry_cls):
 
 
 def _collect_text_doc(commands, base_cls, script_name, python_path, global_args,
-                      prefix, lines, depth):
+                      prefix, lines, depth, allow_method_list=None,
+                      hide_method_list=None, command_prefix=''):
     """递归收集纯文本格式的命令文档"""
     for cmd_name, cmd_info in commands.items():
         full_path = '{} {}'.format(prefix, cmd_name).strip() if prefix else cmd_name
@@ -4520,10 +8195,17 @@ def _collect_text_doc(commands, base_cls, script_name, python_path, global_args,
             lines.append('')
             lines.append('{}[{}]  {}'.format(indent, full_path, group_doc))
             group_instance = _safe_instantiate(group_cls)
+            group_path = '{}/{}'.format(command_prefix, cmd_name) if command_prefix else cmd_name
             sub_commands = discover_commands(group_instance, base_cls,
-                                             include_builtins=False, enable_exec=False)
+                                             include_builtins=False, enable_exec=False,
+                                             allow_method_list=allow_method_list,
+                                             hide_method_list=hide_method_list,
+                                             command_prefix=group_path)
             _collect_text_doc(sub_commands, base_cls, script_name, python_path,
-                              global_args, full_path, lines, depth=depth + 1)
+                              global_args, full_path, lines, depth=depth + 1,
+                              allow_method_list=allow_method_list,
+                              hide_method_list=hide_method_list,
+                              command_prefix=group_path)
         else:
             method = cmd_info['method']
             doc = cmd_info.get('doc', '')
@@ -4545,7 +8227,8 @@ def _collect_text_doc(commands, base_cls, script_name, python_path, global_args,
 
 
 def _collect_md_doc(commands, base_cls, script_name, python_path, global_args,
-                    prefix, lines, depth):
+                    prefix, lines, depth, allow_method_list=None,
+                    hide_method_list=None, command_prefix=''):
     """递归收集 Markdown 格式的命令文档"""
     from .type_utils import (
         is_optional, unwrap_optional, type_display_name,
@@ -4565,10 +8248,17 @@ def _collect_md_doc(commands, base_cls, script_name, python_path, global_args,
                 lines.append('> {}'.format(group_doc))
                 lines.append('')
             group_instance = _safe_instantiate(group_cls)
+            group_path = '{}/{}'.format(command_prefix, cmd_name) if command_prefix else cmd_name
             sub_commands = discover_commands(group_instance, base_cls,
-                                             include_builtins=False, enable_exec=False)
+                                             include_builtins=False, enable_exec=False,
+                                             allow_method_list=allow_method_list,
+                                             hide_method_list=hide_method_list,
+                                             command_prefix=group_path)
             _collect_md_doc(sub_commands, base_cls, script_name, python_path,
-                            global_args, full_path, lines, depth=depth + 1)
+                            global_args, full_path, lines, depth=depth + 1,
+                            allow_method_list=allow_method_list,
+                            hide_method_list=hide_method_list,
+                            command_prefix=group_path)
         else:
             method = cmd_info['method']
             doc = cmd_info.get('doc', '')
@@ -4650,6 +8340,22 @@ def _find_base_cls(entry_cls):
     """找到 NbCmd 基类"""
     from .base import NbCmd
     return NbCmd
+
+
+def _get_allow_method_list(entry_cls):
+    """从 entry_cls.Meta 获取命令白名单（为空表示不过滤）。"""
+    meta = getattr(entry_cls, 'Meta', None)
+    if meta is None:
+        return None
+    return getattr(meta, 'allow_method_list', None)
+
+
+def _get_hide_method_list(entry_cls):
+    """从 entry_cls.Meta 获取命令黑名单（为空表示不过滤）。"""
+    meta = getattr(entry_cls, 'Meta', None)
+    if meta is None:
+        return None
+    return getattr(meta, 'hide_method_list', None)
 
 
 def _find_command_path(entry_cls, target_cls, base_cls):
@@ -4749,6 +8455,596 @@ def _apply_fmt(cmd_line, fmt):
 ---
 
 
+--- **start of file: nb_cmd/core/gen_skill.py** (project: nb_cmd) --- 
+
+`````python
+# -*- coding: utf-8 -*-
+"""
+AI Skill 文件夹生成器 —— 自动生成符合 agentskills.io 规范的 Skill 文件夹。
+
+用法::
+
+    from nb_cmd import SkillGen
+
+    g = SkillGen(MyApp, output_dir='./skills/my-app')
+    g.gen()
+"""
+import os
+import re
+import sys
+import inspect
+
+from .discovery import discover_commands
+from .gen_cmd import (
+    _find_base_cls,
+    _get_allow_method_list,
+    _get_hide_method_list,
+    _find_command_path,
+    _format_init_args,
+    _format_method_args,
+    _safe_instantiate,
+    _collect_init_params,
+)
+from .type_utils import is_optional, unwrap_optional, type_display_name
+
+
+class SkillGen(object):
+    """
+    AI Skill 文件夹生成器。
+
+    根据 NbCmd 子类的结构，自动生成符合 agentskills.io 规范的 Skill 文件夹。
+
+    Parameters
+    ----------
+    entry_cls : class
+        顶层入口类，如 MyApp
+    name : str, optional
+        Skill name（默认从 Meta.name 或类名转 kebab-case）。
+        最终生成的 Skill 文件夹名即为 name。
+    base_dir : str, optional
+        父目录路径。默认当前目录 `.`。最终输出路径为 `{base_dir}/{name}/`。
+    script : str, optional
+        脚本名。默认用 sys.argv[0]。
+    python : str, optional
+        Python 解释器路径。默认用 sys.executable。
+    description : str, optional
+        Skill description（默认从 Meta.description 或类 docstring）
+    license : str, optional
+        License 名称
+    compatibility : str, optional
+        环境兼容性说明
+    metadata : dict, optional
+        额外元数据键值对
+    allowed_tools : str, optional
+        允许使用的工具列表（空格分隔）
+    disable_model_invocation : bool, optional
+        是否禁用模型自动触发（默认 False，允许自动触发）
+    user_highest_priority_skill_prompt : str, optional
+        用户自定义的最高优先级提示语，会放在 SKILL.md 的显要位置。
+        可用于告知 AI 运行环境信息（如 Python 解释器路径、脚本位置、
+        PYTHONPATH 设置等）。
+    include_cli_examples : bool, optional
+        是否在 SKILL.md 中包含 CLI 命令示例（默认 True）
+    include_python_examples : bool, optional
+        是否在 SKILL.md 中包含 Python 调用示例（默认 False）
+    include_api_examples : bool, optional
+        是否在 SKILL.md 中包含 REST API 调用示例（默认 False）
+    """
+
+    def __init__(
+        self,
+        entry_cls,
+        name=None,
+        base_dir='.',
+        script=None,
+        python=None,
+        description=None,
+        license=None,
+        compatibility=None,
+        metadata=None,
+        allowed_tools=None,
+        disable_model_invocation=False,
+        user_highest_priority_skill_prompt=None,
+        include_cli_examples=True,
+        include_python_examples=False,
+        include_api_examples=False,
+    ):
+        self.entry_cls = entry_cls
+        self._base_dir = base_dir
+        self.script = script or self._get_script_name()
+        self.python = python or sys.executable
+        self._cli_python = 'python'  # CLI 示例中使用简写，提升 AI 阅读体验
+        self._base_cls = _find_base_cls(entry_cls)
+        self._allow_methods = _get_allow_method_list(entry_cls)
+        self._hide_methods = _get_hide_method_list(entry_cls)
+
+        self._user_name = name
+        self._user_description = description
+        self._license = license
+        self._compatibility = compatibility
+        self._metadata = metadata or {}
+        self._allowed_tools = allowed_tools
+        self._disable_model_invocation = disable_model_invocation
+        self._user_priority_prompt = user_highest_priority_skill_prompt
+
+        self._include_cli = include_cli_examples
+        self._include_python = include_python_examples
+        self._include_api = include_api_examples
+
+        self._name = self._resolve_name()
+        self._description = self._resolve_description()
+        self._validate_name()
+        self._validate_description()
+        self.output_dir = os.path.join(self._base_dir, self._name)
+
+    def _get_script_name(self):
+        import os
+        name = sys.argv[0] if sys.argv[0] else 'script.py'
+        return os.path.basename(name)
+
+    def _resolve_name(self):
+        """解析 Skill name，优先级：用户传入 > Meta.name > 类名转 kebab-case"""
+        if self._user_name:
+            return self._user_name.strip()
+        meta = getattr(self.entry_cls, 'Meta', None)
+        if meta:
+            meta_name = getattr(meta, 'name', None)
+            if meta_name:
+                return self._to_kebab_case(meta_name)
+        return self._to_kebab_case(self.entry_cls.__name__)
+
+    def _to_kebab_case(self, s):
+        """将字符串转为 kebab-case"""
+        s = re.sub(r'([A-Z]+)([A-Z][a-z])', r'\1-\2', s)
+        s = re.sub(r'([a-z\d])([A-Z])', r'\1-\2', s)
+        s = s.lower().replace('_', '-').replace(' ', '-')
+        s = re.sub(r'-+', '-', s)
+        return s.strip('-')
+
+    def _validate_name(self):
+        """校验 name 是否符合 agentskills.io 规范"""
+        n = self._name
+        if not n:
+            raise ValueError('Skill name cannot be empty')
+        if len(n) > 64:
+            raise ValueError('Skill name must be <= 64 characters, got {}'.format(len(n)))
+        if n.startswith('-') or n.endswith('-'):
+            raise ValueError('Skill name cannot start or end with a hyphen')
+        if '--' in n:
+            raise ValueError('Skill name cannot contain consecutive hyphens')
+        if not re.match(r'^[a-z0-9]+(-[a-z0-9]+)*$', n):
+            raise ValueError(
+                'Skill name must be lowercase alphanumeric with hyphens only, '
+                'got: {}'.format(n)
+            )
+
+    def _resolve_description(self):
+        """解析 Skill description，优先级：用户传入 > Meta.description > 类 docstring > 自动生成"""
+        if self._user_description:
+            return self._user_description.strip()
+        meta = getattr(self.entry_cls, 'Meta', None)
+        if meta:
+            meta_desc = getattr(meta, 'description', None)
+            if meta_desc:
+                return meta_desc.strip()
+        doc = inspect.getdoc(self.entry_cls)
+        if doc:
+            lines = [ln.strip() for ln in doc.strip().split('\n') if ln.strip()]
+            if lines:
+                # 取前几句（不超过 200 字符），确保包含足够信息
+                desc = lines[0]
+                for ln in lines[1:]:
+                    if len(desc) + len(ln) + 1 < 200:
+                        desc += ' ' + ln
+                    else:
+                        break
+                return desc
+        return self._auto_description()
+
+    def _auto_description(self):
+        """自动生成 description"""
+        meta = getattr(self.entry_cls, 'Meta', None)
+        app_name = getattr(meta, 'name', self.entry_cls.__name__) if meta else self.entry_cls.__name__
+        instance = _safe_instantiate(self.entry_cls)
+        commands = discover_commands(
+            instance, self._base_cls,
+            include_builtins=False, enable_exec=False,
+            allow_method_list=self._allow_methods,
+            hide_method_list=self._hide_methods,
+        )
+        cmd_names = [k.replace('_', '-') for k in commands.keys() if not commands[k].get('is_group')]
+        if not cmd_names:
+            cmd_names = [k.replace('_', '-') for k in commands.keys()]
+        cmd_preview = ', '.join(cmd_names[:5])
+        if len(commands) > 5:
+            cmd_preview += ' 等'
+        desc = '{} —— 支持 {} 等操作。当需要执行 {} 相关命令时使用。'.format(
+            app_name, cmd_preview, app_name
+        )
+        return desc
+
+    def _validate_description(self):
+        """校验 description 长度"""
+        if not self._description:
+            raise ValueError('Skill description cannot be empty')
+        if len(self._description) > 1024:
+            raise ValueError(
+                'Skill description must be <= 1024 characters, got {}'.format(len(self._description))
+            )
+
+    def gen(self):
+        """
+        生成 Skill 文件夹（仅包含 SKILL.md）。
+
+        Returns
+        -------
+        str
+            生成的 Skill 文件夹路径
+        """
+        os.makedirs(self.output_dir, exist_ok=True)
+
+        skill_md_content = self.gen_skill_md()
+        skill_md_path = os.path.join(self.output_dir, 'SKILL.md')
+        with open(skill_md_path, 'w', encoding='utf-8') as f:
+            f.write(skill_md_content)
+
+        return self.output_dir
+
+    def gen_skill_md(self):
+        """
+        生成 SKILL.md 内容字符串。
+
+        Returns
+        -------
+        str
+            SKILL.md 完整内容
+        """
+        frontmatter = self._gen_frontmatter()
+        body = self._gen_body()
+        return frontmatter + '\n' + body
+
+    def _gen_frontmatter(self):
+        """生成 YAML frontmatter"""
+        lines = ['---']
+        lines.append('name: {}'.format(self._name))
+
+        # description 使用 >- 折叠块样式（保留换行但折叠为空格）
+        desc = self._description
+        lines.append('description: >-')
+        for paragraph in desc.split('\n\n'):
+            for wrap_line in self._wrap_text(paragraph.strip(), 78):
+                lines.append('  {}'.format(wrap_line))
+
+        if self._license:
+            lines.append('license: {}'.format(self._license))
+        if self._compatibility:
+            lines.append('compatibility: {}'.format(self._compatibility))
+        if self._metadata:
+            lines.append('metadata:')
+            for k, v in self._metadata.items():
+                lines.append('  {}: "{}"'.format(k, v))
+        if self._allowed_tools:
+            lines.append('allowed-tools: {}'.format(self._allowed_tools))
+        if self._disable_model_invocation:
+            lines.append('disable-model-invocation: true')
+
+        lines.append('---')
+        return '\n'.join(lines)
+
+    def _wrap_text(self, text, width):
+        """简单文本折行"""
+        if len(text) <= width:
+            return [text]
+        words = text.split(' ')
+        lines = []
+        current = ''
+        for word in words:
+            if len(current) + len(word) + 1 > width:
+                if current:
+                    lines.append(current)
+                current = word
+            else:
+                current = current + ' ' + word if current else word
+        if current:
+            lines.append(current)
+        return lines if lines else ['']
+
+    def _gen_body(self):
+        """生成 Markdown body"""
+        instance = _safe_instantiate(self.entry_cls)
+        commands = discover_commands(
+            instance, self._base_cls,
+            include_builtins=False, enable_exec=False,
+            allow_method_list=self._allow_methods,
+            hide_method_list=self._hide_methods,
+        )
+        meta = getattr(self.entry_cls, 'Meta', type('Meta', (), {}))
+        app_name = getattr(meta, 'name', self.entry_cls.__name__) if meta else self.entry_cls.__name__
+        doc = inspect.getdoc(instance) or app_name
+
+        lines = []
+        lines.append('# {}'.format(app_name))
+        lines.append('')
+        lines.append('## Overview')
+        lines.append('')
+        lines.append(doc)
+        lines.append('')
+
+        if self._user_priority_prompt:
+            lines.append('## Important')
+            lines.append('')
+            lines.append(self._user_priority_prompt)
+            lines.append('')
+
+        lines.append('## When to Use')
+        lines.append('')
+        lines.append(self._gen_when_to_use(commands, app_name))
+        lines.append('')
+
+        lines.append('## Command Structure')
+        lines.append('')
+        lines.append(self._gen_command_structure())
+        lines.append('')
+
+        init_params = _collect_init_params(self.entry_cls)
+        if init_params:
+            lines.append('## Global Parameters')
+            lines.append('')
+            lines.append('These parameters are defined in `__init__` and passed to all subcommands automatically.')
+            lines.append('')
+            lines.append('| Flag | Type | Default | Description |')
+            lines.append('|------|------|---------|-------------|')
+            for p in init_params:
+                lines.append('| `{}` | `{}` | `{}` | {} |'.format(
+                    p['flag'], p['type'], p['default'], p['desc']))
+            lines.append('')
+
+        lines.append('## Commands')
+        lines.append('')
+        self._collect_skill_commands(
+            commands, '', lines, depth=0,
+            allow_method_list=self._allow_methods,
+            hide_method_list=self._hide_methods,
+            command_prefix='',
+        )
+        lines.append('')
+
+        lines.append('## Guidelines')
+        lines.append('')
+        lines.append(self._gen_guidelines(init_params))
+
+        return '\n'.join(lines)
+
+    def _gen_when_to_use(self, commands, app_name):
+        """生成 When to Use 段落（递归收集所有叶子命令）"""
+        cmd_names = []
+        self._collect_leaf_commands(commands, '', cmd_names)
+
+        when_lines = ['Activate this skill when you need to perform {}-related operations, such as:'.format(app_name)]
+        for cmd_name in cmd_names[:15]:
+            when_lines.append('- {}'.format(cmd_name))
+        if len(cmd_names) > 15:
+            when_lines.append('- And other {} commands'.format(app_name))
+        return '\n'.join(when_lines)
+
+    def _collect_leaf_commands(self, commands, prefix, result):
+        """递归收集所有叶子命令名"""
+        for cmd_name, cmd_info in commands.items():
+            full_path = '{} {}'.format(prefix, cmd_name).strip() if prefix else cmd_name
+            display = full_path.replace('_', '-')
+            if cmd_info.get('is_group'):
+                group_cls = cmd_info['cls']
+                group_instance = _safe_instantiate(group_cls)
+                sub_commands = discover_commands(
+                    group_instance, self._base_cls,
+                    include_builtins=False, enable_exec=False,
+                    allow_method_list=self._allow_methods,
+                    hide_method_list=self._hide_methods,
+                )
+                self._collect_leaf_commands(sub_commands, full_path, result)
+            else:
+                result.append(display)
+
+    def _gen_command_structure(self):
+        """生成命令结构说明"""
+        lines = []
+        if self._include_cli:
+            lines.append('### CLI')
+            lines.append('```bash')
+            lines.append('python {} [global_params] <command_path> [command_params]'.format(self.script))
+            lines.append('```')
+            lines.append('')
+        if self._include_python:
+            lines.append('### Python')
+            lines.append('```python')
+            lines.append('from {} import {}'.format(
+                self._module_name_hint(), self.entry_cls.__name__))
+            lines.append('app = {}()  # pass global params if needed'.format(self.entry_cls.__name__))
+            lines.append('# app.group.method(param=value)')
+            lines.append('```')
+            lines.append('')
+        if self._include_api:
+            lines.append('### REST API')
+            lines.append('```bash')
+            lines.append('curl -X POST http://localhost:8000/api/v1/<command_path> \\')
+            lines.append('  -H "Content-Type: application/json" \\')
+            lines.append('  -d \'{"param": "value"}\'')
+            lines.append('```')
+            lines.append('')
+        lines.append('**Parameter conventions:**')
+        lines.append('- `${value}` — parameter with default value (replace as needed)')
+        lines.append('- `$<name>` — **required** parameter (must provide a value)')
+        lines.append('- `--flag` (no value) — boolean switch (add to enable)')
+        return '\n'.join(lines)
+
+    def _module_name_hint(self):
+        """推测模块导入名"""
+        module = inspect.getmodule(self.entry_cls)
+        if module and hasattr(module, '__name__') and module.__name__ != '__main__':
+            return module.__name__
+        return self.script.replace('.py', '').replace('/', '.').replace('\\', '.')
+
+    def _collect_skill_commands(self, commands, prefix, lines, depth=0,
+                                allow_method_list=None, hide_method_list=None,
+                                command_prefix=''):
+        """递归收集命令说明（面向 AI 的 Skill 格式）"""
+        for cmd_name, cmd_info in commands.items():
+            full_path = '{} {}'.format(prefix, cmd_name).strip() if prefix else cmd_name
+            display = full_path.replace('_', '-')
+
+            if cmd_info.get('is_group'):
+                group_cls = cmd_info['cls']
+                group_doc = cmd_info.get('doc', '')
+                level = '###'
+                lines.append('{} `{}` *(subcommand group)*'.format(level, display))
+                lines.append('')
+                if group_doc:
+                    lines.append(group_doc)
+                    lines.append('')
+                group_instance = _safe_instantiate(group_cls)
+                group_path = '{}/{}'.format(command_prefix, cmd_name) if command_prefix else cmd_name
+                sub_commands = discover_commands(
+                    group_instance, self._base_cls,
+                    include_builtins=False, enable_exec=False,
+                    allow_method_list=allow_method_list,
+                    hide_method_list=hide_method_list,
+                    command_prefix=group_path,
+                )
+                self._collect_skill_commands(
+                    sub_commands, full_path, lines, depth=depth + 1,
+                    allow_method_list=allow_method_list,
+                    hide_method_list=hide_method_list,
+                    command_prefix=group_path,
+                )
+            else:
+                method = cmd_info['method']
+                doc = cmd_info.get('doc', '')
+                level = '###'
+                lines.append('{} `{}`'.format(level, display))
+                lines.append('')
+                if doc:
+                    lines.append(doc)
+                    lines.append('')
+
+                # 参数表格
+                sig = cmd_info['signature']
+                hints = cmd_info.get('type_hints', {})
+                arg_meta = cmd_info.get('arg_meta', {})
+                param_rows = []
+                for pname, param in sig.parameters.items():
+                    if pname == 'self':
+                        continue
+                    ptype = hints.get(pname, str)
+                    real_type = unwrap_optional(ptype) if is_optional(ptype) else ptype
+                    tname = type_display_name(real_type)
+                    has_default = param.default is not inspect.Parameter.empty
+                    arg_inst = arg_meta.get(pname)
+                    desc = arg_inst.desc if arg_inst and arg_inst.desc else '-'
+                    flag = '--{}'.format(pname.replace('_', '-'))
+                    if arg_inst and arg_inst.aliases:
+                        flag = '{}, {}'.format(flag, ', '.join(arg_inst.aliases))
+                    default_str = '`{}`'.format(param.default) if has_default else '*(required)*'
+                    param_rows.append((flag, tname, default_str, desc))
+
+                if param_rows:
+                    lines.append('| Param | Type | Default | Description |')
+                    lines.append('|-------|------|---------|-------------|')
+                    for flag, tname, default_str, desc in param_rows:
+                        lines.append('| `{}` | `{}` | {} | {} |'.format(
+                            flag, tname, default_str, desc))
+                    lines.append('')
+
+                # 示例
+                method_args = _format_method_args(method)
+                # 清理 CLI 示例：去掉 ${None} 这种无意义的默认值展示
+                method_args = self._clean_cli_args(method_args)
+                display_name = cmd_name.replace('_', '-')
+
+                if self._include_cli:
+                    global_args = _format_init_args(self.entry_cls)
+                    parts = [self.python, self.script]
+                    if global_args:
+                        parts.append(global_args)
+                    if prefix:
+                        parts.append(prefix.replace('_', '-'))
+                    parts.append(display_name)
+                    if method_args:
+                        parts.append(method_args)
+                    cmd_line = ' '.join(parts)
+                    lines.append('**CLI:**')
+                    lines.append('```bash')
+                    lines.append(cmd_line)
+                    lines.append('```')
+                    lines.append('')
+
+                if self._include_python:
+                    lines.append('**Python:**')
+                    lines.append('```python')
+                    # 生成 Python 调用示例
+                    py_parts = ['app']
+                    if prefix:
+                        for part in prefix.split():
+                            py_parts.append(part.replace('_', ''))
+                    py_parts.append('{}({})'.format(
+                        cmd_name,
+                        self._format_python_args(method),
+                    ))
+                    lines.append('.'.join(py_parts))
+                    lines.append('```')
+                    lines.append('')
+
+    def _format_python_args(self, method):
+        """格式化 Python 调用示例的参数"""
+        sig = inspect.signature(method)
+        parts = []
+        for pname, param in sig.parameters.items():
+            if pname == 'self':
+                continue
+            default = param.default
+            if default is inspect.Parameter.empty:
+                ptype = param.annotation if param.annotation is not inspect.Parameter.empty else str
+                if ptype is bool:
+                    parts.append('{}=True'.format(pname))
+                else:
+                    parts.append('{}=<{}>'.format(pname, pname))
+            else:
+                if isinstance(default, bool):
+                    parts.append('{}={}'.format(pname, default))
+                elif isinstance(default, str):
+                    parts.append('{}="{}"'.format(pname, default))
+                else:
+                    parts.append('{}={}'.format(pname, default))
+        return ', '.join(parts)
+
+    def _clean_cli_args(self, method_args):
+        """清理 CLI 示例参数，去掉 ${None} 等无意义的默认值展示"""
+        if not method_args:
+            return method_args
+        # 移除 --flag ${None} 形式的参数（None 默认值在 CLI 中不需要展示）
+        cleaned = re.sub(r'--[\w-]+\s+\$\{None\}(\s+|$)', ' ', method_args)
+        cleaned = re.sub(r'\s+', ' ', cleaned).strip()
+        return cleaned
+
+    def _gen_guidelines(self, init_params):
+        """生成使用指南"""
+        lines = []
+        if init_params:
+            lines.append('- Global parameters defined in `__init__` are automatically passed to all subcommands.')
+        lines.append('- Boolean flags default to `False`; add the flag to set it to `True`.')
+        lines.append('- Subcommand groups are accessed via space or dot, e.g., `db migrate` or `db.migrate`.')
+        lines.append('- Use `--help` or `-h` to see available commands and options.')
+        lines.append('- Use `--full-help` or `-fh` to see detailed parameter descriptions.')
+        return '\n'.join(lines)
+
+
+
+`````
+
+--- **end of file: nb_cmd/core/gen_skill.py** (project: nb_cmd) --- 
+
+---
+
+
 --- **start of file: nb_cmd/core/meta.py** (project: nb_cmd) --- 
 
 `````python
@@ -4767,6 +9063,8 @@ NbCmd Meta 配置基类。
             use_nb_log = True
 """
 
+from typing import Dict, List, Optional
+
 
 class NbCmdMeta(object):
     """
@@ -4774,22 +9072,27 @@ class NbCmdMeta(object):
 
     子类继承后可覆盖任意字段，IDE 可自动补全所有可用选项。
     """
-    name = None               # type: str   # CLI/API 名称（默认用类名）
-    version = '0.0.1'         # type: str   # 版本号（--cmd-version 显示）
-    description = None        # type: str   # 描述（默认用类的 docstring）
-    use_nb_log = False         # type: bool  # 启用 nb_log 增强日志
-    log_level = 'INFO'         # type: str   # 日志级别
-    log_file = None            # type: str   # 日志文件路径
-    auto_save_last_args = False  # type: bool  # 自动保存上次参数
-    config_file = None         # type: str   # 配置持久化文件路径
-    serve_host = '0.0.0.0'    # type: str   # Web/API 绑定地址
-    serve_port = 8080          # type: int   # Web/API 默认端口
-    serve_workers = 1          # type: int   # 工作进程数
-    web_title = None           # type: str   # Web UI 页面标题
-    web_theme = 'light'        # type: str   # Web UI 主题 ('light' / 'dark')
-    enable_exec = True         # type: bool  # 是否暴露内置 exec 命令（False 可防止恶意执行）
-    help_mode = 'full'         # type: str   # -h 帮助模式: 'full'(完整帮助) / 'easy'(简易帮助)
-    aliases = {}               # type: dict  # 参数别名（推荐用 Annotated 替代）
+    name: Optional[str] = None               # CLI/API 名称（默认用类名）
+    version: str = '0.0.1'                   # 版本号（--cmd-version 显示）
+    description: Optional[str] = None        # 描述（默认用类的 docstring）
+    use_nb_log: bool = False                 # 启用 nb_log 增强日志
+    log_level: str = 'INFO'                  # 日志级别
+    log_file: Optional[str] = None           # 日志文件路径
+    auto_save_last_args: bool = False        # 自动保存上次参数
+    config_file: Optional[str] = None        # 配置持久化文件路径
+    serve_host: str = '0.0.0.0'              # Web/API 绑定地址
+    serve_port: int = 8080                   # Web/API 默认端口
+    serve_workers: int = 1                   # 工作进程数
+    web_title: Optional[str] = None          # Web UI 页面标题
+    web_theme: str = 'light'                 # Web UI 主题 ('light' / 'dark')
+    enable_exec: bool = True                 # 是否暴露内置 exec 命令（False 可防止恶意执行）
+    help_mode: str = 'full'                  # -h 帮助模式: 'full'(完整帮助) / 'easy'(简易帮助)
+    aliases: Dict[str, List[str]] = {}       # 参数别名（推荐用 Annotated 替代）
+    allow_method_list: Optional[List[str]] = None  # 命令白名单（仅限制 CLI/API/Web 暴露；Python 直接调用不受影响）
+    hide_method_list: Optional[List[str]] = None   # 命令黑名单（与白名单互斥；仅限制 CLI/API/Web 暴露）
+    auth_token: Optional[str] = None               # 简易鉴权 token（配置后 API/Web 请求须带 Authorization: Bearer <token>）
+    timeout: int = 0                               # 命令执行超时秒数（0=不限；仅作用于 CLI/API/Web 模式）
+    db_dir: Optional[str] = None                     # SQLite 数据库目录（默认 None=当前工作目录；可设为 ~/.nb_cmd 等固定路径）
 
 `````
 
@@ -4820,7 +9123,8 @@ class _RawDefaultsHelpFormatter(argparse.RawDescriptionHelpFormatter,
     pass
 
 
-def build_parser(instance, commands, meta, base_cls=None):
+def build_parser(instance, commands, meta, base_cls=None, allow_method_list=None,
+                 hide_method_list=None):
     """
     为顶层 NbCmd 实例构建完整的 argparse 解析器。
 
@@ -4855,6 +9159,8 @@ def build_parser(instance, commands, meta, base_cls=None):
                            help='以Web UI + REST API模式启动')
     sys_group.add_argument('--web-port', type=int, default=None,
                            help='Web UI 服务端口（用于 --web）')
+    sys_group.add_argument('--tui', action='store_true',
+                           help='以 TUI 终端交互模式启动')
 
     init_group = parser.add_argument_group('init params')
     _add_init_global_options(init_group, instance)
@@ -4875,7 +9181,10 @@ def build_parser(instance, commands, meta, base_cls=None):
                 description=group_doc,
                 formatter_class=_RawDefaultsHelpFormatter,
             )
-            _build_group_subparser(sub, group_cls, base_cls, group_kwargs)
+            _build_group_subparser(sub, group_cls, base_cls, group_kwargs,
+                                   allow_method_list=allow_method_list,
+                                   hide_method_list=hide_method_list,
+                                   command_prefix=cmd_name)
         else:
             param_hint = _build_param_hint(cmd_info)
             help_text = cmd_info['doc']
@@ -4921,9 +9230,15 @@ def print_easy_help(instance, base_cls):
     """打印简易帮助（argparse 原生格式）"""
     meta = getattr(instance.__class__, 'Meta', type('Meta', (), {}))
     _enable_exec = getattr(meta, 'enable_exec', True)
+    _allow_methods = getattr(meta, 'allow_method_list', None)
+    _hide_methods = getattr(meta, 'hide_method_list', None)
     from .discovery import discover_commands
-    commands = discover_commands(instance, base_cls, enable_exec=_enable_exec)
-    parser = build_parser(instance, commands, meta, base_cls=base_cls)
+    commands = discover_commands(instance, base_cls, enable_exec=_enable_exec,
+                                 allow_method_list=_allow_methods,
+                                 hide_method_list=_hide_methods)
+    parser = build_parser(instance, commands, meta, base_cls=base_cls,
+                          allow_method_list=_allow_methods,
+                          hide_method_list=_hide_methods)
     parser.print_help()
 
 
@@ -4948,7 +9263,11 @@ def _build_full_help_lines(instance, base_cls, color=True):
 
     meta = getattr(instance.__class__, 'Meta', type('Meta', (), {}))
     _enable_exec = getattr(meta, 'enable_exec', True)
-    commands = discover_commands(instance, base_cls, enable_exec=_enable_exec)
+    _allow_methods = getattr(meta, 'allow_method_list', None)
+    _hide_methods = getattr(meta, 'hide_method_list', None)
+    commands = discover_commands(instance, base_cls, enable_exec=_enable_exec,
+                                 allow_method_list=_allow_methods,
+                                 hide_method_list=_hide_methods)
     description = inspect.getdoc(instance) or instance.__class__.__name__
     version = getattr(meta, 'version', '0.0.1')
 
@@ -4967,6 +9286,7 @@ def _build_full_help_lines(instance, base_cls, color=True):
         '    {:<24s} {}'.format('--cmd-version', '显示版本号'),
         '    {:<24s} {}'.format('--web', '以Web UI + REST API模式启动'),
         '    {:<24s} {}'.format('--web-port PORT', 'Web UI 服务端口（用于 --web）'),
+        '    {:<24s} {}'.format('--tui', '以 TUI 终端交互模式启动'),
         '',
     ]
 
@@ -4976,12 +9296,17 @@ def _build_full_help_lines(instance, base_cls, color=True):
         lines.append('')
 
     lines.append('-' * 56)
-    lines.extend(_build_group_command_lines(commands, base_cls, prefix='', color=color))
+    lines.extend(_build_group_command_lines(commands, base_cls, prefix='', color=color,
+                                            allow_method_list=_allow_methods,
+                                            hide_method_list=_hide_methods,
+                                            command_prefix=''))
 
     return lines
 
 
-def _build_group_command_lines(commands, base_cls, prefix='', color=True):
+def _build_group_command_lines(commands, base_cls, prefix='', color=True,
+                               allow_method_list=None, hide_method_list=None,
+                               command_prefix=''):
     """递归收集命令组及其所有子命令的帮助行"""
     from .discovery import discover_commands
 
@@ -4989,6 +9314,7 @@ def _build_group_command_lines(commands, base_cls, prefix='', color=True):
     for cmd_name, cmd_info in commands.items():
         cli_name = cmd_name.replace('_', '-')
         full_name = '{} {}'.format(prefix, cli_name).strip() if prefix else cli_name
+        cmd_path = '{}/{}'.format(command_prefix, cmd_name) if command_prefix else cmd_name
 
         if cmd_info.get('is_group'):
             tag = '\033[36m[子命令组]\033[0m' if color else '[子命令组]'
@@ -5000,9 +9326,15 @@ def _build_group_command_lines(commands, base_cls, prefix='', color=True):
             except TypeError:
                 group_inst = group_cls.__new__(group_cls)
             group_cmds = discover_commands(group_inst, base_cls,
-                                           include_builtins=False)
+                                           include_builtins=False,
+                                           allow_method_list=allow_method_list,
+                                           hide_method_list=hide_method_list,
+                                           command_prefix=cmd_path)
             lines.extend(_build_group_command_lines(group_cmds, base_cls,
-                                                    prefix=full_name, color=color))
+                                                    prefix=full_name, color=color,
+                                                    allow_method_list=allow_method_list,
+                                                    hide_method_list=hide_method_list,
+                                                    command_prefix=cmd_path))
             lines.append('')
         else:
             if prefix:
@@ -5172,13 +9504,20 @@ def _add_init_global_options(parser, instance):
 
 
 def _add_method_arguments(sub_parser, cmd_info, meta):
-    """根据方法签名向 subparser 添加参数"""
+    """根据方法签名向 subparser 添加参数。
+
+    必填参数采用"双模式"：同时注册位置参数（nargs='?'）和 --flag，
+    用户可以 ``fa 5`` 也可以 ``fa --x 5``，两种写法等价。
+    """
     sig = cmd_info['signature']
     hints = cmd_info.get('type_hints', {})
     arg_meta = cmd_info.get('arg_meta', {})
     method_name = cmd_info['method'].__name__
 
     aliases_map = getattr(meta, 'aliases', {})
+
+    pos_index = 0
+    positional_map = []
 
     for param_name, param in sig.parameters.items():
         if param_name == 'self':
@@ -5235,33 +9574,109 @@ def _add_method_arguments(sub_parser, cmd_info, meta):
         else:
             auto_help = '({}, 必填)'.format(type_name)
             help_text = '{} {}'.format(desc, auto_help) if desc else auto_help
-            if extra_flags:
+
+            use_dual = (nargs is None)
+
+            if use_dual:
+                pos_dest = '_nb_pos_{}'.format(pos_index)
+                pos_index += 1
+                positional_map.append((pos_dest, param_name, ap_type))
+
+                sub_parser.add_argument(
+                    pos_dest, nargs='?', default=None, type=str,
+                    help=argparse.SUPPRESS,
+                )
+
                 flags = [cli_flag] + extra_flags
-                kwargs = dict(
+                flag_kwargs = dict(
                     type=ap_type,
-                    required=True,
+                    default=None,
                     dest=param_name,
                     help=help_text,
                 )
-                if nargs is not None:
-                    kwargs['nargs'] = nargs
                 if choices is not None:
-                    kwargs['choices'] = choices
-                sub_parser.add_argument(*flags, **kwargs)
+                    flag_kwargs['choices'] = choices
+                sub_parser.add_argument(*flags, **flag_kwargs)
             else:
-                kwargs = dict(
-                    type=ap_type,
-                    help=help_text,
-                    metavar=param_name.upper(),
-                )
-                if nargs is not None:
-                    kwargs['nargs'] = nargs
-                if choices is not None:
-                    kwargs['choices'] = choices
-                sub_parser.add_argument(param_name, **kwargs)
+                if extra_flags:
+                    flags = [cli_flag] + extra_flags
+                    kwargs = dict(
+                        type=ap_type,
+                        required=True,
+                        dest=param_name,
+                        help=help_text,
+                    )
+                    if nargs is not None:
+                        kwargs['nargs'] = nargs
+                    if choices is not None:
+                        kwargs['choices'] = choices
+                    sub_parser.add_argument(*flags, **kwargs)
+                else:
+                    kwargs = dict(
+                        type=ap_type,
+                        help=help_text,
+                        metavar=param_name.upper(),
+                    )
+                    if nargs is not None:
+                        kwargs['nargs'] = nargs
+                    if choices is not None:
+                        kwargs['choices'] = choices
+                    sub_parser.add_argument(param_name, **kwargs)
+
+    if positional_map:
+        sub_parser.set_defaults(_nb_pos_map=positional_map)
 
 
-def _build_group_subparser(parent_parser, group_cls, base_cls, init_kwargs=None, depth=1):
+def reassign_positionals(parsed):
+    """后处理：将位置参数值与 --flag 值智能合并。
+
+    规则：--flag 优先；被 flag "顶掉" 的位置值向后挪给其他未填参数。
+    位置参数统一以 str 类型接收，此处完成目标类型的转换。
+    """
+    pos_map = getattr(parsed, '_nb_pos_map', None)
+    if not pos_map:
+        return
+
+    free_values = []
+    for pos_dest, param_name, ap_type in pos_map:
+        flag_val = getattr(parsed, param_name, None)
+        pos_val = getattr(parsed, pos_dest, None)
+        if flag_val is not None and pos_val is not None:
+            free_values.append((pos_val, ap_type))
+        elif flag_val is None and pos_val is not None:
+            setattr(parsed, param_name, _safe_convert(pos_val, ap_type))
+
+    for _, param_name, ap_type in pos_map:
+        if getattr(parsed, param_name, None) is None and free_values:
+            val, orig_type = free_values.pop(0)
+            setattr(parsed, param_name, _safe_convert(val, ap_type))
+
+    for pos_dest, _, _ in pos_map:
+        try:
+            delattr(parsed, pos_dest)
+        except AttributeError:
+            pass
+
+    missing = [pn for _, pn, _ in pos_map if getattr(parsed, pn, None) is None]
+    if missing:
+        import sys
+        flags = ', '.join('--' + m.replace('_', '-') for m in missing)
+        sys.stderr.write('error: 缺少必填参数: {}\n'.format(flags))
+        raise SystemExit(2)
+
+
+def _safe_convert(value, ap_type):
+    """将字符串值转换为目标类型，转换失败时原样返回"""
+    if ap_type is None or ap_type is str:
+        return value
+    try:
+        return ap_type(value)
+    except (ValueError, TypeError):
+        return value
+
+
+def _build_group_subparser(parent_parser, group_cls, base_cls, init_kwargs=None, depth=1,
+                           allow_method_list=None, hide_method_list=None, command_prefix=''):
     """递归为子命令组构建 subparser"""
     from .discovery import discover_commands
 
@@ -5275,7 +9690,10 @@ def _build_group_subparser(parent_parser, group_cls, base_cls, init_kwargs=None,
             except TypeError:
                 pass
 
-    group_commands = discover_commands(group_instance, base_cls, include_builtins=False)
+    group_commands = discover_commands(group_instance, base_cls, include_builtins=False,
+                                       allow_method_list=allow_method_list,
+                                       hide_method_list=hide_method_list,
+                                       command_prefix=command_prefix)
 
     if not group_commands:
         return
@@ -5298,7 +9716,11 @@ def _build_group_subparser(parent_parser, group_cls, base_cls, init_kwargs=None,
                 description=nested_doc,
                 formatter_class=_RawDefaultsHelpFormatter,
             )
-            _build_group_subparser(nested_sub, nested_cls, base_cls, nested_kwargs, depth + 1)
+            _build_group_subparser(nested_sub, nested_cls, base_cls, nested_kwargs, depth + 1,
+                                   allow_method_list=allow_method_list,
+                                   hide_method_list=hide_method_list,
+                                   command_prefix='{}/{}'.format(command_prefix, cmd_name)
+                                   if command_prefix else cmd_name)
         else:
             sub = group_subparsers.add_parser(
                 cli_name,
@@ -5750,8 +10172,20 @@ def start_api_server(instance, base_cls, host=None, port=None):
     )
 
     _enable_exec = getattr(meta, 'enable_exec', True)
-    commands = discover_commands(instance, base_cls, enable_exec=_enable_exec)
-    _register_routes(app, instance, commands, base_cls=base_cls)
+    _allow_methods = getattr(meta, 'allow_method_list', None)
+    _hide_methods = getattr(meta, 'hide_method_list', None)
+    _auth_token = getattr(meta, 'auth_token', None)
+    _timeout = getattr(meta, 'timeout', 0)
+    commands = discover_commands(instance, base_cls, enable_exec=_enable_exec,
+                                 allow_method_list=_allow_methods,
+                                 hide_method_list=_hide_methods)
+
+    if _auth_token:
+        _install_auth_middleware(app, _auth_token)
+
+    _register_routes(app, instance, commands, base_cls=base_cls,
+                     allow_method_list=_allow_methods, hide_method_list=_hide_methods,
+                     command_prefix='', timeout=_timeout)
 
     from fastapi.responses import RedirectResponse
 
@@ -5807,13 +10241,16 @@ def _safe_default(value):
     return str(value)
 
 
-def _register_routes(app, instance, commands, base_cls=None, prefix=''):
+def _register_routes(app, instance, commands, base_cls=None, prefix='',
+                     allow_method_list=None, hide_method_list=None,
+                     command_prefix='', timeout=0):
     """为每个命令注册 POST 路由，支持递归注册子命令组"""
     for cmd_name, cmd_info in commands.items():
         if cmd_info.get('is_group'):
             if base_cls is not None:
                 group_cls = cmd_info['cls']
                 group_kwargs = cmd_info.get('init_kwargs', {})
+                group_path = '{}/{}'.format(command_prefix, cmd_name) if command_prefix else cmd_name
                 try:
                     group_instance = group_cls(**group_kwargs) if group_kwargs else group_cls()
                 except TypeError:
@@ -5822,10 +10259,16 @@ def _register_routes(app, instance, commands, base_cls=None, prefix=''):
                 if parent_ctx is not None:
                     group_instance.nbctx = parent_ctx
                 group_commands = discover_commands(group_instance, base_cls,
-                                                   include_builtins=False)
+                                                   include_builtins=False,
+                                                   allow_method_list=allow_method_list,
+                                                   hide_method_list=hide_method_list,
+                                                   command_prefix=group_path)
                 group_prefix = '{}/{}'.format(prefix, cmd_name) if prefix else cmd_name
                 _register_routes(app, group_instance, group_commands,
-                                 base_cls=base_cls, prefix=group_prefix)
+                                 base_cls=base_cls, prefix=group_prefix,
+                                 allow_method_list=allow_method_list,
+                                 hide_method_list=hide_method_list,
+                                 command_prefix=group_path, timeout=timeout)
             continue
 
         sig = cmd_info['signature']
@@ -5880,7 +10323,7 @@ def _register_routes(app, instance, commands, base_cls=None, prefix=''):
         except Exception:
             RequestModel = None
 
-        _make_route(app, route_path, doc, cmd_name, instance, RequestModel, hints)
+        _make_route(app, route_path, doc, cmd_name, instance, RequestModel, hints, timeout=timeout)
 
 
 def _get_init_kwargs(instance):
@@ -5921,7 +10364,7 @@ def _get_init_types(instance):
     return types
 
 
-def _make_route(app, path, summary, cmd_name, instance, request_model, type_hints):
+def _make_route(app, path, summary, cmd_name, instance, request_model, type_hints, timeout=0):
     """创建单个 API 路由，每次请求新建实例执行命令，支持 init_params 覆盖全局参数"""
     _cmd_name = cmd_name
     _cls = instance.__class__
@@ -5929,6 +10372,7 @@ def _make_route(app, path, summary, cmd_name, instance, request_model, type_hint
     _init_types = _get_init_types(instance)
     _hints = type_hints
     _path = path
+    _timeout = timeout
 
     def _fresh(raw_init_params=None):
         if not raw_init_params or not _init_types:
@@ -5974,6 +10418,12 @@ def _make_route(app, path, summary, cmd_name, instance, request_model, type_hint
             _api_tls.captured_stderr = None
         return result, captured_out.getvalue(), captured_err.getvalue()
 
+    async def _exec_with_timeout(fresh_inst, kwargs):
+        coro = _run_in_thread(_exec_in_thread, fresh_inst, kwargs)
+        if _timeout > 0:
+            return await asyncio.wait_for(coro, timeout=_timeout)
+        return await coro
+
     if request_model is not None:
         @app.post('/{}'.format(path), summary=summary)
         async def endpoint(request: request_model):
@@ -5983,8 +10433,8 @@ def _make_route(app, path, summary, cmd_name, instance, request_model, type_hint
             fresh_inst = _fresh(raw_init)
             fresh_inst.before_run()
             try:
-                result, stdout_output, stderr_output = await _run_in_thread(
-                    _exec_in_thread, fresh_inst, kwargs)
+                result, stdout_output, stderr_output = await _exec_with_timeout(
+                    fresh_inst, kwargs)
                 api_result = handle_api_result(result)
                 duration_ms = int((time.time() - start) * 1000)
                 return {
@@ -5992,6 +10442,13 @@ def _make_route(app, path, summary, cmd_name, instance, request_model, type_hint
                     "result": api_result,
                     "stdout": stdout_output if stdout_output else None,
                     "stderr": stderr_output if stderr_output else None,
+                    "duration_ms": duration_ms,
+                }
+            except asyncio.TimeoutError:
+                duration_ms = int((time.time() - start) * 1000)
+                return {
+                    "status": "error",
+                    "error": "命令执行超时（{} 秒）".format(_timeout),
                     "duration_ms": duration_ms,
                 }
             except Exception as e:
@@ -6011,8 +10468,8 @@ def _make_route(app, path, summary, cmd_name, instance, request_model, type_hint
             fresh_inst = _fresh(raw_init)
             fresh_inst.before_run()
             try:
-                result, stdout_output, stderr_output = await _run_in_thread(
-                    _exec_in_thread, fresh_inst, request)
+                result, stdout_output, stderr_output = await _exec_with_timeout(
+                    fresh_inst, request)
                 api_result = handle_api_result(result)
                 duration_ms = int((time.time() - start) * 1000)
                 return {
@@ -6020,6 +10477,13 @@ def _make_route(app, path, summary, cmd_name, instance, request_model, type_hint
                     "result": api_result,
                     "stdout": stdout_output if stdout_output else None,
                     "stderr": stderr_output if stderr_output else None,
+                    "duration_ms": duration_ms,
+                }
+            except asyncio.TimeoutError:
+                duration_ms = int((time.time() - start) * 1000)
+                return {
+                    "status": "error",
+                    "error": "命令执行超时（{} 秒）".format(_timeout),
                     "duration_ms": duration_ms,
                 }
             except Exception as e:
@@ -6031,6 +10495,42 @@ def _make_route(app, path, summary, cmd_name, instance, request_model, type_hint
                 }
             finally:
                 fresh_inst.after_run()
+
+
+def _install_auth_middleware(app, token, exempt_prefixes=None):
+    """
+    安装 Bearer token 认证中间件。
+
+    Parameters
+    ----------
+    exempt_prefixes : list[str], optional
+        额外的免认证路径前缀列表。
+        默认已豁免 /docs /redoc /openapi.json。
+        Web 模式会传入 /api/ /ws/ 等前缀，使页面可以正常访问。
+    """
+    from starlette.middleware.base import BaseHTTPMiddleware
+    from starlette.responses import JSONResponse
+
+    _always_exempt = ('/', '/docs', '/redoc', '/openapi.json')
+    _extra_prefixes = tuple(exempt_prefixes) if exempt_prefixes else ()
+
+    class _AuthMiddleware(BaseHTTPMiddleware):
+        async def dispatch(self, request, call_next):
+            path = request.url.path
+            if path in _always_exempt:
+                return await call_next(request)
+            for prefix in _extra_prefixes:
+                if path.startswith(prefix):
+                    return await call_next(request)
+            auth_header = request.headers.get('authorization', '')
+            if not auth_header.startswith('Bearer '):
+                return JSONResponse({'detail': 'Missing or invalid Authorization header'},
+                                    status_code=401)
+            if auth_header[7:] != token:
+                return JSONResponse({'detail': 'Invalid token'}, status_code=403)
+            return await call_next(request)
+
+    app.add_middleware(_AuthMiddleware)
 
 `````
 
@@ -6050,7 +10550,7 @@ import asyncio
 import inspect
 
 from ..core.discovery import discover_commands
-from ..core.parser import build_parser
+from ..core.parser import build_parser, reassign_positionals
 from ..core.type_utils import convert_value
 from ..core.result_handler import handle_cli_result
 
@@ -6061,6 +10561,22 @@ def _run_method(method, kwargs):
     if inspect.iscoroutine(result):
         result = asyncio.run(result)
     return result
+
+
+def _run_method_with_timeout(method, kwargs, timeout):
+    """执行方法并在超时后抛出 TimeoutError（timeout=0 表示不限）"""
+    if timeout <= 0:
+        return _run_method(method, kwargs)
+
+    import concurrent.futures
+    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+        future = executor.submit(_run_method, method, kwargs)
+        try:
+            return future.result(timeout=timeout)
+        except concurrent.futures.TimeoutError:
+            raise TimeoutError(
+                '命令执行超时（{} 秒）。可通过 Meta.timeout 调整超时时间。'.format(timeout)
+            )
 
 
 def run_cli(instance, base_cls, args=None):
@@ -6075,10 +10591,18 @@ def run_cli(instance, base_cls, args=None):
     """
     meta = getattr(instance.__class__, 'Meta', type('Meta', (), {}))
     _enable_exec = getattr(meta, 'enable_exec', True)
-    commands = discover_commands(instance, base_cls, enable_exec=_enable_exec)
-    parser = build_parser(instance, commands, meta, base_cls=base_cls)
+    _allow_methods = getattr(meta, 'allow_method_list', None)
+    _hide_methods = getattr(meta, 'hide_method_list', None)
+    _timeout = getattr(meta, 'timeout', 0)
+    commands = discover_commands(instance, base_cls, enable_exec=_enable_exec,
+                                 allow_method_list=_allow_methods,
+                                 hide_method_list=_hide_methods)
+    parser = build_parser(instance, commands, meta, base_cls=base_cls,
+                          allow_method_list=_allow_methods,
+                          hide_method_list=_hide_methods)
 
     parsed = parser.parse_args(args)
+    reassign_positionals(parsed)
 
     _apply_init_args(instance, parsed)
     _ensure_nbctx(instance)
@@ -6091,7 +10615,9 @@ def run_cli(instance, base_cls, args=None):
     python_name = command_name.replace('-', '_')
 
     if python_name in commands and commands[python_name].get('is_group'):
-        _run_group_command(instance, commands[python_name], parsed, base_cls, depth=1)
+        _run_group_command(instance, commands[python_name], parsed, base_cls, depth=1,
+                           allow_method_list=_allow_methods, hide_method_list=_hide_methods,
+                           command_prefix=python_name)
         return
 
     if python_name not in commands:
@@ -6104,7 +10630,7 @@ def run_cli(instance, base_cls, args=None):
 
     instance.before_run()
     try:
-        result = _run_method(method, kwargs)
+        result = _run_method_with_timeout(method, kwargs, _timeout)
         handle_cli_result(result)
     except Exception as e:
         instance.on_error(command_name, e)
@@ -6114,20 +10640,32 @@ def run_cli(instance, base_cls, args=None):
 
 
 def _apply_init_args(instance, parsed):
-    """将解析出的全局选项（__init__参数）应用到实例上"""
+    """
+    将解析出的全局选项（__init__参数）应用到实例上。
+
+    通过重新调用 __init__（带 CLI 解析值）来更新实例状态，
+    这样用户在 __init__ 中直接赋值 self.nbctx = XxxCtx(...) 也能拿到正确的 CLI 值。
+    """
     init_method = instance.__class__.__init__
     if init_method is object.__init__:
         return
 
     sig = inspect.signature(init_method)
+    kwargs = {}
     for param_name in sig.parameters:
         if param_name == 'self':
             continue
         attr_name = '_nb_init_' + param_name
         if hasattr(parsed, attr_name):
-            val = getattr(parsed, attr_name)
-            if val is not None:
-                setattr(instance, param_name, val)
+            cli_val = getattr(parsed, attr_name)
+            if cli_val is not None:
+                kwargs[param_name] = cli_val
+            elif hasattr(instance, param_name):
+                kwargs[param_name] = getattr(instance, param_name)
+        elif hasattr(instance, param_name):
+            kwargs[param_name] = getattr(instance, param_name)
+
+    instance.__init__(**kwargs)
 
 
 def _extract_kwargs(method, cmd_info, parsed):
@@ -6163,7 +10701,8 @@ def _inject_nbctx(parent, child):
         child.nbctx = parent_ctx
 
 
-def _run_group_command(instance, group_info, parsed, base_cls, depth=1):
+def _run_group_command(instance, group_info, parsed, base_cls, depth=1,
+                       allow_method_list=None, hide_method_list=None, command_prefix=''):
     """执行子命令组中的命令"""
     group_cls = group_info['cls']
     group_kwargs = group_info.get('init_kwargs', {})
@@ -6182,11 +10721,17 @@ def _run_group_command(instance, group_info, parsed, base_cls, depth=1):
         return
 
     sub_python_name = sub_command.replace('-', '_')
-    sub_commands = discover_commands(group_instance, base_cls)
+    sub_commands = discover_commands(group_instance, base_cls,
+                                     allow_method_list=allow_method_list,
+                                     hide_method_list=hide_method_list,
+                                     command_prefix=command_prefix)
 
     if sub_python_name in sub_commands and sub_commands[sub_python_name].get('is_group'):
+        next_prefix = '{}/{}'.format(command_prefix, sub_python_name) if command_prefix else sub_python_name
         _run_group_command(group_instance, sub_commands[sub_python_name], parsed, base_cls,
-                           depth=depth + 1)
+                           depth=depth + 1, allow_method_list=allow_method_list,
+                           hide_method_list=hide_method_list,
+                           command_prefix=next_prefix)
         return
 
     if sub_python_name not in sub_commands:
@@ -6197,9 +10742,12 @@ def _run_group_command(instance, group_info, parsed, base_cls, depth=1):
     method = cmd_info['method']
     kwargs = _extract_kwargs(method, cmd_info, parsed)
 
+    meta = getattr(instance.__class__, 'Meta', type('Meta', (), {}))
+    _timeout = getattr(meta, 'timeout', 0)
+
     group_instance.before_run()
     try:
-        result = _run_method(method, kwargs)
+        result = _run_method_with_timeout(method, kwargs, _timeout)
         handle_cli_result(result)
     except Exception as e:
         group_instance.on_error(sub_command, e)
@@ -6210,6 +10758,1625 @@ def _run_group_command(instance, group_info, parsed, base_cls, depth=1):
 `````
 
 --- **end of file: nb_cmd/modes/cli_mode.py** (project: nb_cmd) --- 
+
+---
+
+
+--- **start of file: nb_cmd/modes/tui_mode.py** (project: nb_cmd) --- 
+
+`````python
+# -*- coding: utf-8 -*-
+"""
+TUI 模式 —— 基于 Textual 的终端图形交互界面。
+需要安装: pip install textual (Python 3.8+)
+"""
+import asyncio
+import inspect
+import sys
+import time
+
+from ..core.discovery import discover_commands
+from ..core.result_handler import handle_api_result
+
+
+class _TuiWriter(object):
+    """将 print 输出按行缓冲，通过回调安全地写入 RichLog。"""
+
+    def __init__(self, write_fn):
+        self._write = write_fn
+        self._buf = ''
+
+    def write(self, data):
+        if not data:
+            return
+        self._buf += data
+        lines = self._buf.split('\n')
+        for line in lines[:-1]:
+            self._write(line)
+        self._buf = lines[-1]
+
+    def flush(self):
+        if self._buf:
+            self._write(self._buf)
+            self._buf = ''
+
+
+def _detect_init_params(instance, unwrap_optional, _is_opt, is_enum_type,
+                        get_choices, type_display_name, unwrap_arg):
+    """提取 __init__ 中的参数信息，用于 TUI 全局参数面板。"""
+    init_method = instance.__class__.__init__
+    if init_method is object.__init__:
+        return []
+    sig = inspect.signature(init_method)
+    params = []
+    for pname, param in sig.parameters.items():
+        if pname == 'self':
+            continue
+        has_default = param.default is not inspect.Parameter.empty
+        raw_hint = param.annotation
+        if raw_hint is inspect.Parameter.empty:
+            if has_default and param.default is not None:
+                raw_hint = type(param.default)
+            else:
+                raw_hint = str
+        real_type, arg_inst = unwrap_arg(raw_hint)
+        unwrapped = unwrap_optional(real_type) if _is_opt(real_type) else real_type
+        desc = arg_inst.desc if arg_inst and arg_inst.desc else ''
+        choices = get_choices(real_type)
+        current_val = getattr(instance, pname, param.default if has_default else None)
+        params.append({
+            'name': pname,
+            'type': unwrapped,
+            'type_name': type_display_name(unwrapped),
+            'real_type': real_type,
+            'required': not has_default,
+            'default': param.default if has_default else None,
+            'current': current_val,
+            'choices': choices,
+            'desc': desc,
+            'is_enum': is_enum_type(unwrapped),
+        })
+    return params
+
+
+def start_tui(instance, base_cls):
+    """启动 TUI 模式"""
+    try:
+        from textual.app import App, ComposeResult
+        from textual.screen import Screen
+        from textual.widgets import (
+            Header, Footer, Tree, RichLog, Input, Button,
+            Switch, Select, Static, Markdown, Label, Collapsible,
+            TextArea,
+        )
+        from textual.containers import Horizontal, Vertical, VerticalScroll
+        from textual import work
+        from rich.text import Text
+    except ImportError:
+        print("TUI 模式需要安装 textual:")
+        print("  pip install nb-cmd[tui]")
+        if sys.version_info < (3, 8):
+            print("  注意: TUI 模式需要 Python 3.8+")
+        return
+
+    from ..core.type_utils import (
+        type_display_name, is_enum_type, unwrap_optional,
+        is_optional as _is_opt, get_choices, convert_value,
+    )
+    from ..core.gen_cmd import CmdGen
+    import re as _re
+
+    _ANSI_FG = {
+        '30': '#b0bec5', '31': '#ff6b6b', '32': '#69f0ae', '33': '#fff176',
+        '34': '#64b5f6', '35': '#ce93d8', '36': '#80deea', '37': '#ffffff',
+        '90': '#cfd8dc', '91': '#ff1744', '92': '#b9f6ca', '93': '#ffff8d',
+        '94': '#90caf9', '95': '#ea80fc', '96': '#b2ebf2', '97': '#ffffff',
+    }
+    _ANSI_BG = {
+        '40': '#78909c', '41': '#ff1744', '42': '#00e676', '43': '#ffea00',
+        '44': '#2979ff', '45': '#d500f9', '46': '#00e5ff', '47': '#ffffff',
+    }
+
+    def _ansi_to_rich(data):
+        """ANSI → Rich Text, stateful parser with vivid bg + auto-contrast."""
+        parts = _re.split(r'\x1b\[([0-9;]*)m', data)
+        txt = Text()
+        st_fg = None
+        st_bg = None
+        st_bold = False
+        st_ul = False
+        for i, part in enumerate(parts):
+            if i % 2 == 0:
+                if part:
+                    sp = []
+                    if st_bold:
+                        sp.append('bold')
+                    if st_ul:
+                        sp.append('underline')
+                    if st_bg:
+                        sp.append('on ' + st_bg)
+                        h = st_bg.lstrip('#')
+                        r = int(h[0:2], 16)
+                        g = int(h[2:4], 16)
+                        b = int(h[4:6], 16)
+                        lum = 0.299 * r + 0.587 * g + 0.114 * b
+                        sp.insert(0, '#000000' if lum > 128 else '#ffffff')
+                    elif st_fg:
+                        sp.insert(0, st_fg)
+                    txt.append(part, style=' '.join(sp) if sp else None)
+            else:
+                for c in part.split(';'):
+                    if c == '0' or c == '':
+                        st_fg = st_bg = None
+                        st_bold = st_ul = False
+                    elif c == '1':
+                        st_bold = True
+                    elif c == '4':
+                        st_ul = True
+                    elif c in _ANSI_FG:
+                        st_fg = _ANSI_FG[c]
+                    elif c in _ANSI_BG:
+                        st_bg = _ANSI_BG[c]
+        return txt
+
+    import os as _os
+    import sqlite3 as _sqlite3
+
+    _meta_db_dir = getattr(
+        getattr(instance.__class__, 'Meta', type('Meta', (), {})),
+        'db_dir', None)
+    if _meta_db_dir:
+        _db_dir = _os.path.expanduser(_meta_db_dir)
+        if not _os.path.isdir(_db_dir):
+            _os.makedirs(_db_dir, exist_ok=True)
+    else:
+        _db_dir = _os.getcwd()
+    _db_path = _os.path.join(_db_dir, 'nb_cmd_web.db')
+
+    def _get_db():
+        conn = _sqlite3.connect(_db_path)
+        conn.execute(
+            'CREATE TABLE IF NOT EXISTS saved_commands '
+            '(id INTEGER PRIMARY KEY AUTOINCREMENT, '
+            'command TEXT UNIQUE NOT NULL, '
+            'alias TEXT DEFAULT NULL, '
+            'created_at TEXT DEFAULT CURRENT_TIMESTAMP)')
+        conn.execute(
+            'CREATE TABLE IF NOT EXISTS command_history '
+            '(id INTEGER PRIMARY KEY AUTOINCREMENT, '
+            'command TEXT NOT NULL, '
+            'executed_at TEXT DEFAULT CURRENT_TIMESTAMP)')
+        try:
+            conn.execute('ALTER TABLE saved_commands ADD COLUMN alias TEXT DEFAULT NULL')
+        except Exception:
+            pass
+        return conn
+
+    _get_db().close()
+
+    meta = getattr(instance.__class__, 'Meta', type('Meta', (), {}))
+    title = (getattr(meta, 'web_title', None)
+             or getattr(meta, 'name', None)
+             or instance.__class__.__name__)
+    version = getattr(meta, 'version', None) or '0.0.1'
+    _enable_exec = getattr(meta, 'enable_exec', True)
+    _allow = getattr(meta, 'allow_method_list', None)
+    _hide = getattr(meta, 'hide_method_list', None)
+    _timeout = getattr(meta, 'timeout', 0)
+
+    commands = discover_commands(
+        instance, base_cls,
+        enable_exec=_enable_exec,
+        allow_method_list=_allow,
+        hide_method_list=_hide,
+    )
+    user_cls = instance.__class__
+
+    from ..core.arg import unwrap_arg
+    init_params_info = _detect_init_params(instance, unwrap_optional, _is_opt,
+                                           is_enum_type, get_choices,
+                                           type_display_name, unwrap_arg)
+
+    gen = CmdGen(user_cls, fmt='markdown')
+    md_doc = gen.doc()
+
+    # ================================================================
+    #  HistoryScreen — 命令执行历史
+    # ================================================================
+    class HistoryScreen(Screen):
+        BINDINGS = [("escape", "dismiss_screen", "返回")]
+
+        def compose(self):
+            yield Header()
+            yield Static(" \u25b6 命令执行历史 (最近100条)", id="hist-title")
+            yield VerticalScroll(id="hist-list")
+            yield Footer()
+
+        async def on_mount(self):
+            container = self.query_one("#hist-list")
+            conn = _get_db()
+            rows = conn.execute(
+                'SELECT command, executed_at FROM command_history '
+                'ORDER BY id DESC LIMIT 100'
+            ).fetchall()
+            conn.close()
+            if not rows:
+                await container.mount(
+                    Static("暂无历史记录", classes="hist-empty"))
+                return
+            seen = set()
+            for cmd, ts in rows:
+                if cmd in seen:
+                    continue
+                seen.add(cmd)
+                btn = Button(
+                    '{} ({})'.format(cmd, ts[:16] if ts else ''),
+                    classes="hist-item",
+                )
+                btn._hist_cmd = cmd
+                await container.mount(btn)
+
+        def on_button_pressed(self, event):
+            cmd = getattr(event.button, '_hist_cmd', None)
+            if cmd:
+                self.app.pop_screen()
+                try:
+                    main = self.app.get_screen("main")
+                    gen_input = main.query_one("#cmd-gen", TextArea)
+                    gen_input.text = cmd
+                    main.notify("已填充: {}".format(cmd[:40]), timeout=2)
+                except Exception:
+                    pass
+
+        def action_dismiss_screen(self):
+            self.app.pop_screen()
+
+    # ================================================================
+    #  AliasInputScreen — 别名输入弹窗
+    # ================================================================
+    class AliasInputScreen(Screen):
+        BINDINGS = [("escape", "dismiss_screen", "取消")]
+
+        def __init__(self, command, existing_alias='', on_done=None):
+            super().__init__()
+            self._command = command
+            self._existing_alias = existing_alias or ''
+            self._on_done = on_done
+
+        def compose(self):
+            yield Header()
+            with Vertical(id="alias-box"):
+                yield Static("为收藏命令设置别名（可留空跳过）", id="alias-hint")
+                yield Static("命令: {}".format(
+                    self._command[:60] + ('...' if len(self._command) > 60 else '')
+                ), id="alias-cmd-preview")
+                yield Input(
+                    value=self._existing_alias,
+                    placeholder="输入别名，如: 查看日志、部署生产...",
+                    id="alias-input",
+                )
+                with Horizontal(id="alias-btn-bar"):
+                    yield Button("确定", variant="success", id="alias-ok")
+                    yield Button("跳过", variant="default", id="alias-skip")
+            yield Footer()
+
+        def on_button_pressed(self, event):
+            if event.button.id == 'alias-ok':
+                alias = self.query_one("#alias-input", Input).value.strip()
+                self._finish(alias)
+            elif event.button.id == 'alias-skip':
+                self._finish('')
+
+        def on_input_submitted(self, event):
+            if event.input.id == 'alias-input':
+                alias = event.input.value.strip()
+                self._finish(alias)
+
+        def _finish(self, alias):
+            if self._on_done:
+                self._on_done(self._command, alias)
+            self.app.pop_screen()
+
+        def action_dismiss_screen(self):
+            self.app.pop_screen()
+
+    # ================================================================
+    #  FavoritesScreen — 收藏命令
+    # ================================================================
+    class FavoritesScreen(Screen):
+        BINDINGS = [("escape", "dismiss_screen", "返回")]
+
+        def compose(self):
+            yield Header()
+            yield Static(" \u2605 收藏命令列表", id="fav-title")
+            yield VerticalScroll(id="fav-list")
+            yield Footer()
+
+        async def on_mount(self):
+            await self._load_items()
+
+        async def _load_items(self):
+            container = self.query_one("#fav-list")
+            await container.remove_children()
+            conn = _get_db()
+            rows = conn.execute(
+                'SELECT command, alias, created_at FROM saved_commands '
+                'ORDER BY id DESC'
+            ).fetchall()
+            conn.close()
+            if not rows:
+                await container.mount(
+                    Static("暂无收藏命令", classes="fav-empty"))
+                return
+            for cmd, alias, ts in rows:
+                row = Horizontal(classes="fav-row")
+                await container.mount(row)
+                if alias:
+                    label = Text()
+                    label.append('[{}]'.format(alias), style='bold #e65100')
+                    label.append(' {}'.format(cmd))
+                else:
+                    label = cmd
+                btn = Button(label, classes="fav-item")
+                btn._fav_cmd = cmd
+                run_btn = Button("\u25b6", variant="success", classes="fav-run")
+                run_btn._fav_cmd = cmd
+                copy_btn = Button("\u2398", variant="primary", classes="fav-copy")
+                copy_btn._fav_cmd = cmd
+                edit_btn = Button("\u270e", variant="warning", classes="fav-edit")
+                edit_btn._fav_cmd = cmd
+                edit_btn._fav_alias = alias or ''
+                del_btn = Button("\u2716", variant="error", classes="fav-del")
+                del_btn._fav_cmd = cmd
+                await row.mount(btn, run_btn, copy_btn, edit_btn, del_btn)
+
+        def _on_alias_edited(self, command, alias):
+            conn = _get_db()
+            try:
+                conn.execute(
+                    'UPDATE saved_commands SET alias = ? WHERE command = ?',
+                    (alias if alias else None, command))
+                conn.commit()
+            finally:
+                conn.close()
+            self.notify("别名已更新" if alias else "别名已清除", timeout=2)
+            self.call_later(self._load_items)
+
+        def on_button_pressed(self, event):
+            cmd = getattr(event.button, '_fav_cmd', None)
+            if not cmd:
+                return
+            if 'fav-del' in event.button.classes:
+                conn = _get_db()
+                try:
+                    conn.execute(
+                        'DELETE FROM saved_commands WHERE command = ?', (cmd,))
+                    conn.commit()
+                finally:
+                    conn.close()
+                self.notify("已取消收藏", timeout=2)
+                self.call_later(self._load_items)
+            elif 'fav-edit' in event.button.classes:
+                existing = getattr(event.button, '_fav_alias', '')
+                self.app.push_screen(
+                    AliasInputScreen(cmd, existing, self._on_alias_edited))
+            elif 'fav-run' in event.button.classes:
+                self.app.pop_screen()
+                try:
+                    main = self.app.get_screen("main")
+                    gen_input = main.query_one("#cmd-gen", TextArea)
+                    gen_input.text = cmd
+                    main._execute_from_cli_text()
+                except Exception:
+                    pass
+            elif 'fav-copy' in event.button.classes:
+                try:
+                    self.app.copy_to_clipboard(cmd)
+                    self.notify("已复制: {}".format(cmd[:40]), timeout=2)
+                except Exception:
+                    self.notify("复制失败", timeout=2)
+            else:
+                self.app.pop_screen()
+                try:
+                    main = self.app.get_screen("main")
+                    gen_input = main.query_one("#cmd-gen", TextArea)
+                    gen_input.text = cmd
+                    main.notify("已填充: {}".format(cmd[:40]), timeout=2)
+                except Exception:
+                    pass
+
+        def action_dismiss_screen(self):
+            self.app.pop_screen()
+
+    # ================================================================
+    #  DocScreen — 首屏: CmdGen 生成的 Markdown 文档
+    # ================================================================
+    class DocScreen(Screen):
+        BINDINGS = [
+            ("enter", "go_main", "请按回车键进入交互模式"),
+            ("escape", "go_main", "请按回车键进入交互模式"),
+            ("ctrl+q", "quit_app", "退出"),
+        ]
+
+        def compose(self):
+            yield Header()
+            with VerticalScroll():
+                yield Markdown(md_doc, id="doc-md")
+            yield Footer()
+
+        def action_go_main(self):
+            self.app.switch_screen("main")
+
+        def action_quit_app(self):
+            self.app.exit()
+
+    # ================================================================
+    #  MainScreen — 左右分栏交互界面
+    # ================================================================
+    class MainScreen(Screen):
+        BINDINGS = [
+            ("ctrl+e", "execute", "执行"),
+            ("ctrl+x", "stop", "停止"),
+            ("ctrl+h", "show_history", "历史"),
+            ("ctrl+f", "show_favorites", "收藏夹"),
+            ("ctrl+l", "clear_log", "清空控制台"),
+            ("ctrl+y", "copy_log", "复制输出"),
+            ("ctrl+d", "show_doc", "查看文档"),
+            ("ctrl+q", "quit_app", "退出"),
+        ]
+
+        def __init__(self):
+            super().__init__()
+            self._current_cmd = None
+            self._current_path = None
+            from collections import deque
+            self._log_buffer = deque(maxlen=5000)
+            self._worker_tid = None
+            self._param_cache = {}
+
+        def compose(self):
+            yield Header()
+            with Horizontal(id="main-split"):
+                with Vertical(id="left-panel"):
+                    with VerticalScroll(id="left-scroll"):
+                        yield Static(" \u25b6 命令列表", id="tree-title")
+                        tree = Tree(title, id="cmd-tree")
+                        tree.root.expand()
+                        self._build_tree(tree.root, commands, '')
+                        yield tree
+
+                        if init_params_info:
+                            with Collapsible(title="全局参数", id="init-collapsible", collapsed=False):
+                                init_form = VerticalScroll(id="init-form")
+                                yield init_form
+
+                        with Collapsible(title="参数", id="param-collapsible", collapsed=False):
+                            yield VerticalScroll(
+                                Static("\u2190 请在上方选择一个命令", id="form-hint"),
+                                id="param-form",
+                            )
+                    with Horizontal(id="cmd-gen-bar"):
+                        yield Label("CLI:", classes="cmd-gen-label")
+                        yield TextArea(
+                            id="cmd-gen",
+                            language=None,
+                            soft_wrap=True,
+                            show_line_numbers=False,
+                        )
+                        with Vertical(id="cmd-gen-btns"):
+                            yield Button("\u2605", id="btn-star")
+                            yield Button("生成", id="btn-gen")
+                            yield Button("运行", id="btn-run")
+                    with Horizontal(id="btn-bar"):
+                        yield Button("执行", variant="success", id="btn-exec")
+                        yield Button("停止", variant="error", id="btn-stop", disabled=True)
+                        yield Button("历史", id="btn-history")
+                        yield Button("收藏夹", id="btn-favs")
+                        yield Button("复制输出", variant="primary", id="btn-copy")
+                        yield Button("清空控制台", variant="warning", id="btn-clear")
+                        yield Button("退出", id="btn-quit")
+
+                with Vertical(id="right-panel"):
+                    yield Static(" \u25b6 输出控制台", id="log-title")
+                    yield RichLog(
+                        highlight=True,
+                        markup=True,
+                        auto_scroll=True,
+                        wrap=True,
+                        max_lines=5000,
+                        id="output-log",
+                    )
+            yield Footer()
+
+        # ---------- Init params form ----------
+
+        async def on_mount(self):
+            if not init_params_info:
+                return
+            form = self.query_one("#init-form")
+            for p in init_params_info:
+                pname = p['name']
+                wid = 'init-{}'.format(pname)
+                req = ' *' if p['required'] else ''
+                label_text = '--{}{}:'.format(pname.replace('_', '-'), req)
+                if p['desc']:
+                    label_text += ' ({})'.format(p['desc'])
+
+                val = p['current']
+                if p['type'] is bool:
+                    widget = Switch(value=bool(val) if val else False, id=wid)
+                elif p['is_enum'] and p['choices']:
+                    opts = [(str(c), c) for c in p['choices']]
+                    sel_val = Select.BLANK
+                    if val is not None:
+                        dv = val.value if hasattr(val, 'value') else val
+                        for _, v in opts:
+                            if v == dv:
+                                sel_val = dv
+                                break
+                    widget = Select(options=opts, value=sel_val, id=wid)
+                else:
+                    sv = str(val) if val is not None else ''
+                    widget = Input(value=sv, placeholder=p['type_name'], id=wid)
+
+                row = Horizontal(classes="form-row")
+                await form.mount(row)
+                await row.mount(
+                    Label(label_text, classes="param-label"),
+                    widget,
+                )
+
+        def _collect_init_params(self):
+            """Collect init params from widgets, return dict or None."""
+            if not init_params_info:
+                return None
+            form = self.query_one("#init-form")
+            kwargs = {}
+            for p in init_params_info:
+                wid = '#init-{}'.format(p['name'])
+                try:
+                    w = form.query_one(wid)
+                except Exception:
+                    continue
+                if isinstance(w, Switch):
+                    kwargs[p['name']] = w.value
+                elif isinstance(w, Select):
+                    if w.value != Select.BLANK:
+                        kwargs[p['name']] = convert_value(w.value, p['real_type'])
+                elif isinstance(w, Input):
+                    if w.value.strip():
+                        kwargs[p['name']] = convert_value(w.value.strip(), p['real_type'])
+                    elif p['default'] is not None:
+                        kwargs[p['name']] = p['default']
+            return kwargs if kwargs else None
+
+        def _make_instance(self, init_kwargs=None):
+            """Create a fresh instance with optional init param overrides."""
+            if not init_kwargs:
+                inst = user_cls()
+            else:
+                inst = user_cls(**init_kwargs)
+            ctx = inst.make_nbctx()
+            if ctx is not None:
+                inst.nbctx = ctx
+            return inst
+
+        # ---------- Tree building ----------
+
+        def _build_tree(self, parent, cmds, prefix):
+            for name, info in cmds.items():
+                cli_name = name.replace('_', '-')
+                full_path = '{}/{}'.format(prefix, name) if prefix else name
+                if info.get('is_group'):
+                    doc = info.get('doc', '')
+                    label = '{} {}'.format(
+                        cli_name,
+                        '({})'.format(doc[:30]) if doc else '',
+                    )
+                    node = parent.add(
+                        label,
+                        data={'type': 'group', 'path': full_path, 'info': info},
+                    )
+                    g_cls = info['cls']
+                    g_kw = info.get('init_kwargs', {})
+                    try:
+                        g_inst = g_cls(**g_kw) if g_kw else g_cls()
+                    except TypeError:
+                        g_inst = g_cls.__new__(g_cls)
+                    g_cmds = discover_commands(
+                        g_inst, base_cls, include_builtins=False,
+                        allow_method_list=_allow,
+                        hide_method_list=_hide,
+                        command_prefix=full_path,
+                    )
+                    self._build_tree(node, g_cmds, full_path)
+                    node.expand()
+                else:
+                    doc = info.get('doc', '')
+                    label = cli_name
+                    if doc:
+                        label = '{}  {}'.format(cli_name, doc[:40])
+                    parent.add_leaf(
+                        label,
+                        data={'type': 'command', 'path': full_path, 'info': info},
+                    )
+
+        # ---------- Tree selection → form update ----------
+
+        async def on_tree_node_selected(self, event):
+            node_data = event.node.data
+            if not node_data or node_data['type'] != 'command':
+                return
+            if self._current_path and self._current_cmd:
+                self._param_cache[self._current_path] = self._collect_params()
+            self._current_cmd = node_data['info']
+            self._current_path = node_data['path']
+            if init_params_info:
+                try:
+                    init_coll = self.query_one("#init-collapsible")
+                    is_builtin = node_data['path'] in ('exec', 'shell')
+                    init_coll.display = not is_builtin
+                except Exception:
+                    pass
+            await self._refresh_form(node_data['info'])
+
+        async def _refresh_form(self, cmd_info):
+            form = self.query_one("#param-form")
+            await form.remove_children()
+
+            sig = cmd_info['signature']
+            hints = cmd_info.get('type_hints', {})
+            arg_meta = cmd_info.get('arg_meta', {})
+
+            rows = []
+            for pname, param in sig.parameters.items():
+                if pname == 'self':
+                    continue
+                ptype = hints.get(pname, str)
+                has_default = param.default is not inspect.Parameter.empty
+                default = param.default if has_default else None
+                real_type = unwrap_optional(ptype) if _is_opt(ptype) else ptype
+                choices = get_choices(ptype)
+
+                arg_inst = arg_meta.get(pname)
+                desc = arg_inst.desc if arg_inst and arg_inst.desc else ''
+                req = ' *' if not has_default else ''
+                label_text = '--{}{}:'.format(pname.replace('_', '-'), req)
+                if desc:
+                    label_text += ' ({})'.format(desc)
+
+                wid = 'param-{}'.format(pname)
+                if real_type is bool:
+                    widget = Switch(
+                        value=bool(default) if default else False,
+                        id=wid,
+                    )
+                elif is_enum_type(real_type) and choices:
+                    opts = [(str(c), c) for c in choices]
+                    sel_val = Select.BLANK
+                    if default is not None:
+                        dv = default.value if hasattr(default, 'value') else default
+                        for _, v in opts:
+                            if v == dv:
+                                sel_val = dv
+                                break
+                    widget = Select(options=opts, value=sel_val, id=wid)
+                elif pname == 'cmd' and real_type is str:
+                    val = str(default) if default is not None else ''
+                    widget = TextArea(
+                        val, id=wid, language=None,
+                        soft_wrap=True, show_line_numbers=False,
+                    )
+                else:
+                    val = str(default) if default is not None else ''
+                    ph = type_display_name(real_type)
+                    widget = Input(value=val, placeholder=ph, id=wid)
+
+                rows.append((label_text, widget))
+
+            if not rows:
+                await form.mount(
+                    Static("该命令没有参数，直接点击执行", id="no-params")
+                )
+                return
+
+            for label_text, widget in rows:
+                row = Horizontal(classes="form-row")
+                await form.mount(row)
+                await row.mount(
+                    Label(label_text, classes="param-label"),
+                    widget,
+                )
+
+            cached = self._param_cache.get(self._current_path)
+            if cached:
+                for pname, val in cached.items():
+                    wid = '#param-{}'.format(pname)
+                    try:
+                        w = form.query_one(wid)
+                    except Exception:
+                        continue
+                    if isinstance(w, Switch):
+                        w.value = bool(val)
+                    elif isinstance(w, Select):
+                        sv = val.value if hasattr(val, 'value') else val
+                        try:
+                            w.value = sv
+                        except Exception:
+                            pass
+                    elif isinstance(w, TextArea):
+                        w.text = str(val) if val is not None else ''
+                    elif isinstance(w, Input):
+                        w.value = str(val) if val is not None else ''
+
+        # ---------- Collect form values ----------
+
+        def _collect_params(self):
+            if not self._current_cmd:
+                return {}
+            form = self.query_one("#param-form")
+            sig = self._current_cmd['signature']
+            hints = self._current_cmd.get('type_hints', {})
+            kwargs = {}
+            for pname, param in sig.parameters.items():
+                if pname == 'self':
+                    continue
+                wid = '#param-{}'.format(pname)
+                try:
+                    w = form.query_one(wid)
+                except Exception:
+                    continue
+                ptype = hints.get(pname, str)
+                if isinstance(w, Switch):
+                    kwargs[pname] = w.value
+                elif isinstance(w, Select):
+                    if w.value != Select.BLANK:
+                        kwargs[pname] = convert_value(w.value, ptype)
+                elif isinstance(w, TextArea):
+                    if w.text.strip():
+                        kwargs[pname] = convert_value(w.text.strip(), ptype)
+                    elif param.default is not inspect.Parameter.empty:
+                        kwargs[pname] = param.default
+                elif isinstance(w, Input):
+                    if w.value.strip():
+                        kwargs[pname] = convert_value(w.value.strip(), ptype)
+                    elif param.default is not inspect.Parameter.empty:
+                        kwargs[pname] = param.default
+            return kwargs
+
+        def _build_cmd_str(self, path=None, kwargs=None):
+            if path is None:
+                path = self._current_path or ''
+            if kwargs is None:
+                kwargs = self._collect_params()
+            cmd = path.replace('/', ' ').replace('_', '-')
+            for k, v in kwargs.items():
+                if isinstance(v, bool):
+                    if v:
+                        cmd += ' --{}'.format(k.replace('_', '-'))
+                else:
+                    sv = str(v)
+                    if ' ' in sv or '\n' in sv or '"' in sv:
+                        sv = '"{}"'.format(sv.replace('"', '\\"'))
+                    cmd += ' --{} {}'.format(k.replace('_', '-'), sv)
+            is_builtin = path in ('exec', 'shell')
+            if not is_builtin:
+                init_kw = self._collect_init_params()
+                if init_kw:
+                    for k, v in init_kw.items():
+                        if isinstance(v, bool):
+                            if v:
+                                cmd += ' --{}'.format(k.replace('_', '-'))
+                        else:
+                            sv = str(v)
+                            if ' ' in sv or '\n' in sv or '"' in sv:
+                                sv = '"{}"'.format(sv.replace('"', '\\"'))
+                            cmd += ' --{} {}'.format(k.replace('_', '-'), sv)
+            return cmd
+
+        def _update_cmd_gen(self):
+            try:
+                gen_input = self.query_one("#cmd-gen", TextArea)
+                gen_input.text = self._build_cmd_str()
+            except Exception:
+                pass
+
+        def _parse_cli_text(self):
+            """解析 CLI 输入框文本 → (cmd_path, kwargs, cmd_info) 或 None"""
+            text = self.query_one("#cmd-gen", TextArea).text.strip()
+            if not text:
+                return None
+            import shlex
+            try:
+                tokens = shlex.split(text)
+            except ValueError:
+                tokens = text.split()
+            if not tokens:
+                return None
+
+            path_parts = []
+            current_cmds = commands
+            i = 0
+            cmd_info = None
+            while i < len(tokens):
+                token = tokens[i]
+                if token.startswith('-'):
+                    break
+                py_name = token.replace('-', '_')
+                if py_name not in current_cmds:
+                    break
+                info = current_cmds[py_name]
+                path_parts.append(py_name)
+                if info.get('is_group'):
+                    g_cls = info['cls']
+                    g_kw = info.get('init_kwargs', {})
+                    try:
+                        g_inst = g_cls(**g_kw) if g_kw else g_cls()
+                    except TypeError:
+                        g_inst = g_cls.__new__(g_cls)
+                    current_cmds = discover_commands(
+                        g_inst, base_cls, include_builtins=False,
+                        allow_method_list=_allow,
+                        hide_method_list=_hide,
+                        command_prefix='/'.join(path_parts),
+                    )
+                else:
+                    cmd_info = info
+                    i += 1
+                    break
+                i += 1
+
+            if not path_parts or cmd_info is None:
+                return None
+            cmd_path = '/'.join(path_parts)
+
+            arg_tokens = tokens[i:]
+            raw_kwargs = {}
+            positional_tokens = []
+            j = 0
+            while j < len(arg_tokens):
+                tok = arg_tokens[j]
+                if tok.startswith('--'):
+                    key = tok[2:].replace('-', '_')
+                    if j + 1 < len(arg_tokens) and not arg_tokens[j + 1].startswith('-'):
+                        raw_kwargs[key] = arg_tokens[j + 1]
+                        j += 2
+                    else:
+                        raw_kwargs[key] = True
+                        j += 1
+                elif tok.startswith('-') and len(tok) == 2:
+                    short_flag = tok
+                    alias_map = cmd_info.get('arg_meta', {})
+                    matched = None
+                    for pn, am in alias_map.items():
+                        if am and short_flag in am.aliases:
+                            matched = pn
+                            break
+                    key = matched or tok[1:]
+                    if j + 1 < len(arg_tokens) and not arg_tokens[j + 1].startswith('-'):
+                        raw_kwargs[key] = arg_tokens[j + 1]
+                        j += 2
+                    else:
+                        raw_kwargs[key] = True
+                        j += 1
+                else:
+                    positional_tokens.append(tok)
+                    j += 1
+
+            sig = cmd_info.get('signature')
+            hints = cmd_info.get('type_hints', {})
+
+            if sig and positional_tokens:
+                pos_idx = 0
+                for pname, param in sig.parameters.items():
+                    if pname == 'self' or pname in raw_kwargs:
+                        continue
+                    if param.default is not inspect.Parameter.empty:
+                        continue
+                    if pos_idx < len(positional_tokens):
+                        raw_kwargs[pname] = positional_tokens[pos_idx]
+                        pos_idx += 1
+                if pos_idx < len(positional_tokens):
+                    last_required = None
+                    for pname, param in sig.parameters.items():
+                        if pname == 'self':
+                            continue
+                        if param.default is inspect.Parameter.empty:
+                            last_required = pname
+                    if last_required and last_required in raw_kwargs:
+                        remaining = positional_tokens[pos_idx:]
+                        raw_kwargs[last_required] = raw_kwargs[last_required] + ' ' + ' '.join(remaining)
+
+            kwargs = {}
+            if sig:
+                for k, v in raw_kwargs.items():
+                    if k not in sig.parameters:
+                        continue
+                    if isinstance(v, bool):
+                        kwargs[k] = v
+                    else:
+                        ptype = hints.get(k, str)
+                        real = unwrap_optional(ptype) if _is_opt(ptype) else ptype
+                        kwargs[k] = convert_value(str(v), real)
+            else:
+                kwargs = raw_kwargs
+            return cmd_path, kwargs, cmd_info
+
+        def _execute_from_cli_text(self):
+            """解析 CLI 输入框文本并执行命令"""
+            result = self._parse_cli_text()
+            if result is None:
+                self.notify("请输入有效命令（如: log --max-count 5）", timeout=3)
+                return
+            cmd_path, kwargs, cmd_info = result
+            if self._worker_tid is not None:
+                self.notify("有命令正在执行中", timeout=2)
+                return
+            self._current_cmd = cmd_info
+            self._current_path = cmd_path
+            self._exec_log = self.query_one("#output-log", RichLog)
+            self._exec_kwargs = kwargs
+            self._exec_path = cmd_path
+            self.query_one("#btn-exec", Button).disabled = True
+            self.query_one("#btn-stop", Button).disabled = False
+            self._do_execute()
+
+        # ---------- Resolve command path → (method, instance) ----------
+
+        def _resolve(self, route_path):
+            parts = route_path.split('/')
+            init_kwargs = self._collect_init_params()
+            if init_kwargs is not None:
+                root_inst = self._make_instance(init_kwargs)
+            else:
+                root_inst = self._make_instance()
+
+            if len(parts) == 1:
+                name = parts[0]
+                if name in commands and not commands[name].get('is_group'):
+                    return getattr(root_inst, name), root_inst
+                return None, None
+
+            current_inst = root_inst
+            current_cmds = commands
+            current_prefix = ''
+            for i, part in enumerate(parts):
+                if part not in current_cmds:
+                    return None, None
+                info = current_cmds[part]
+                if info.get('is_group'):
+                    g_cls = info['cls']
+                    g_kw = info.get('init_kwargs', {})
+                    try:
+                        child = g_cls(**g_kw) if g_kw else g_cls()
+                    except TypeError:
+                        child = g_cls.__new__(g_cls)
+                    if current_inst.nbctx is not None:
+                        child.nbctx = current_inst.nbctx
+                    current_inst = child
+                    current_prefix = (
+                        '{}/{}'.format(current_prefix, part)
+                        if current_prefix else part
+                    )
+                    current_cmds = discover_commands(
+                        current_inst, base_cls,
+                        include_builtins=False,
+                        allow_method_list=_allow,
+                        hide_method_list=_hide,
+                        command_prefix=current_prefix,
+                    )
+                elif i == len(parts) - 1:
+                    return getattr(current_inst, part), current_inst
+            return None, None
+
+        # ---------- Execution ----------
+
+        def on_button_pressed(self, event):
+            bid = event.button.id
+            if bid == 'btn-exec':
+                self.action_execute()
+            elif bid == 'btn-stop':
+                self.action_stop()
+            elif bid == 'btn-star':
+                self._toggle_star()
+            elif bid == 'btn-gen':
+                self._update_cmd_gen()
+            elif bid == 'btn-run':
+                self._execute_from_cli_text()
+            elif bid == 'btn-history':
+                self.action_show_history()
+            elif bid == 'btn-favs':
+                self.action_show_favorites()
+            elif bid == 'btn-copy':
+                self.action_copy_log()
+            elif bid == 'btn-clear':
+                self.action_clear_log()
+            elif bid == 'btn-quit':
+                self.action_quit_app()
+
+        def on_input_submitted(self, event):
+            self.action_execute()
+
+        def action_execute(self):
+            cli_text = ''
+            try:
+                cli_text = self.query_one("#cmd-gen", TextArea).text.strip()
+            except Exception:
+                pass
+            if not self._current_cmd or not self._current_path:
+                if cli_text:
+                    self._execute_from_cli_text()
+                return
+            if self._worker_tid is not None:
+                self.notify("有命令正在执行中", timeout=2)
+                return
+            self._exec_log = self.query_one("#output-log", RichLog)
+            self._exec_kwargs = self._collect_params()
+            self._exec_path = self._current_path
+            self._update_cmd_gen()
+            self.query_one("#btn-exec", Button).disabled = True
+            self.query_one("#btn-stop", Button).disabled = False
+            self._do_execute()
+
+        def action_stop(self):
+            tid = self._worker_tid
+            if tid is None:
+                return
+            import ctypes
+            try:
+                ctypes.pythonapi.PyThreadState_SetAsyncExc(
+                    ctypes.c_ulong(tid),
+                    ctypes.py_object(KeyboardInterrupt),
+                )
+            except Exception:
+                pass
+
+        def action_clear_log(self):
+            self.query_one("#output-log", RichLog).clear()
+            self._log_buffer.clear()
+
+        def action_copy_log(self):
+            text = '\n'.join(self._log_buffer)
+            if text.strip():
+                try:
+                    self.app.copy_to_clipboard(text)
+                    self.notify("已复制到剪贴板", timeout=2)
+                except Exception:
+                    self.notify("复制失败，请用 Shift+鼠标 选择文字", timeout=3)
+            else:
+                self.notify("控制台为空", timeout=2)
+
+        def action_show_doc(self):
+            self.app.switch_screen("doc")
+
+        def action_show_history(self):
+            self.app.push_screen(HistoryScreen())
+
+        def action_show_favorites(self):
+            self.app.push_screen(FavoritesScreen())
+
+        def _toggle_star(self):
+            cmd = self._build_cmd_str()
+            if not cmd.strip():
+                self.notify("请先选择命令", timeout=2)
+                return
+            conn = _get_db()
+            try:
+                exists = conn.execute(
+                    'SELECT 1 FROM saved_commands WHERE command = ?',
+                    (cmd,),
+                ).fetchone()
+                if exists:
+                    conn.execute(
+                        'DELETE FROM saved_commands WHERE command = ?', (cmd,))
+                    self.notify("已取消收藏", timeout=2)
+                    conn.commit()
+                else:
+                    conn.commit()
+                    self.app.push_screen(
+                        AliasInputScreen(cmd, '', self._on_star_done))
+            finally:
+                conn.close()
+
+        def _on_star_done(self, command, alias):
+            conn = _get_db()
+            try:
+                conn.execute(
+                    'INSERT OR IGNORE INTO saved_commands (command, alias) VALUES (?, ?)',
+                    (command, alias if alias else None))
+                conn.commit()
+            finally:
+                conn.close()
+            if alias:
+                self.notify("已收藏: [{}]".format(alias), timeout=2)
+            else:
+                self.notify("已收藏", timeout=2)
+
+        def action_quit_app(self):
+            self.app.exit()
+
+        def _buf_write(self, log, content, plain_text=None):
+            """Write to RichLog and buffer plain text for clipboard copy."""
+            buf_text = plain_text if plain_text is not None else str(content)
+            self._log_buffer.append(buf_text)
+            self.app.call_from_thread(log.write, content)
+
+        def _reset_btn_state(self):
+            try:
+                self.query_one("#btn-exec", Button).disabled = False
+                self.query_one("#btn-stop", Button).disabled = True
+            except Exception:
+                pass
+
+        @work(thread=True)
+        def _do_execute(self):
+            import threading
+            self._worker_tid = threading.current_thread().ident
+
+            log = self._exec_log
+            path = self._exec_path
+            kwargs = self._exec_kwargs
+
+            cmd_str = self._build_cmd_str(path, kwargs)
+            echo = '$ {}'.format(cmd_str)
+
+            try:
+                conn = _get_db()
+                conn.execute(
+                    'INSERT INTO command_history (command) VALUES (?)',
+                    (cmd_str,))
+                conn.execute(
+                    'DELETE FROM command_history WHERE id NOT IN '
+                    '(SELECT id FROM command_history '
+                    'ORDER BY id DESC LIMIT 1000)')
+                conn.commit()
+                conn.close()
+            except Exception:
+                pass
+            self._buf_write(log, echo)
+
+            method, target_inst = self._resolve(path)
+            if method is None:
+                err = '[错误] 无法解析命令: {}'.format(path)
+                self._buf_write(
+                    log, Text.from_markup('[bold red]{}[/]'.format(err)), err,
+                )
+                self._worker_tid = None
+                self.app.call_from_thread(self._reset_btn_state)
+                return
+
+            old_stdout = sys.stdout
+            old_stderr = sys.stderr
+
+            def _on_line(d):
+                self._log_buffer.append(d)
+                self.app.call_from_thread(
+                    log.write, _ansi_to_rich(d) if d else d,
+                )
+
+            writer = _TuiWriter(_on_line)
+            sys.stdout = writer
+            sys.stderr = writer
+
+            start = time.time()
+            try:
+                target_inst.before_run()
+                result = method(**kwargs)
+                if inspect.iscoroutine(result):
+                    result = asyncio.run(result)
+                result = handle_api_result(result)
+                if result is not None:
+                    self._buf_write(log, str(result))
+                elapsed = int((time.time() - start) * 1000)
+                done = '[完成] {}ms'.format(elapsed)
+                self._buf_write(
+                    log, Text.from_markup('[bold green]{}[/]'.format(done)), done,
+                )
+            except KeyboardInterrupt:
+                elapsed = int((time.time() - start) * 1000)
+                msg = '[已取消] {}ms'.format(elapsed)
+                self._buf_write(
+                    log, Text.from_markup('[bold yellow]{}[/]'.format(msg)), msg,
+                )
+            except Exception as exc:
+                elapsed = int((time.time() - start) * 1000)
+                err = '[错误] {} ({}ms)'.format(str(exc), elapsed)
+                self._buf_write(
+                    log, Text.from_markup('[bold red]{}[/]'.format(err)), err,
+                )
+                try:
+                    target_inst.on_error(path, exc)
+                except Exception as hook_err:
+                    herr = '[on_error 钩子异常] {}'.format(hook_err)
+                    self._buf_write(
+                        log, Text.from_markup('[bold red]{}[/]'.format(herr)), herr,
+                    )
+            finally:
+                writer.flush()
+                sys.stdout = old_stdout
+                sys.stderr = old_stderr
+                try:
+                    target_inst.after_run()
+                except Exception as hook_err:
+                    herr = '[after_run 钩子异常] {}'.format(hook_err)
+                    self._buf_write(
+                        log, Text.from_markup('[bold red]{}[/]'.format(herr)), herr,
+                    )
+                self._worker_tid = None
+                self.app.call_from_thread(self._reset_btn_state)
+
+    # ================================================================
+    #  App
+    # ================================================================
+    class NbCmdTuiApp(App):
+        TITLE = '{} v{}'.format(title, version)
+
+        CSS = """
+        #main-split {
+            height: 1fr;
+        }
+        #left-panel {
+            width: 2fr;
+            border-right: tall #0097e6;
+        }
+        #right-panel {
+            width: 3fr;
+        }
+        #tree-title {
+            background: #1a237e;
+            color: #64b5f6;
+            text-style: bold;
+            height: 1;
+            padding: 0 1;
+        }
+        #init-collapsible > CollapsibleTitle {
+            background: #e65100;
+            color: #ffe0b2;
+            text-style: bold;
+            padding: 0 1;
+        }
+        #param-collapsible > CollapsibleTitle {
+            background: #1b5e20;
+            color: #a5d6a7;
+            text-style: bold;
+            padding: 0 1;
+        }
+        Collapsible {
+            border: none;
+            padding: 0;
+        }
+        #log-title {
+            background: #4a148c;
+            color: #ce93d8;
+            text-style: bold;
+            height: 1;
+            padding: 0 1;
+        }
+        #cmd-tree {
+            height: auto;
+            max-height: 50%;
+            border-bottom: heavy #0f3460;
+            scrollbar-color: #00b0ff;
+            scrollbar-background: #001a33;
+        }
+        Tree > .tree--cursor {
+            background: #0d47a1;
+            color: #bbdefb;
+            text-style: bold;
+        }
+        Tree > .tree--highlight {
+            background: #1a237e;
+        }
+        #init-collapsible {
+            height: auto;
+            max-height: 10;
+        }
+        #param-collapsible {
+            height: auto;
+            max-height: 50%;
+        }
+        #init-form {
+            height: auto;
+            max-height: 8;
+            scrollbar-color: #e040fb;
+            scrollbar-background: #1a002e;
+        }
+        #param-form {
+            height: auto;
+            max-height: 100%;
+            scrollbar-color: #00e676;
+            scrollbar-background: #001a0d;
+        }
+        .form-row {
+            height: auto;
+            padding: 0 1;
+        }
+        .param-label {
+            width: 18;
+            min-width: 14;
+            height: 3;
+            content-align: left middle;
+            padding-right: 1;
+            color: #90caf9;
+        }
+        .form-row Input {
+            width: 1fr;
+            border: tall #37474f;
+        }
+        .form-row Input:focus {
+            border: tall #00bcd4;
+        }
+        .form-row Switch {
+            width: auto;
+            height: auto;
+            background: #1a2332;
+            border: tall #37474f;
+            padding: 0 1;
+        }
+        .form-row Switch:focus {
+            border: tall #00bcd4;
+        }
+        Switch > .switch--slider {
+            color: #90caf9;
+        }
+        Switch.-on > .switch--slider {
+            color: #00e676;
+        }
+        .form-row Select {
+            width: 1fr;
+            border: tall #37474f;
+        }
+        .form-row Select:focus {
+            border: tall #00bcd4;
+        }
+        #form-hint, #no-params {
+            padding: 1;
+            color: #546e7a;
+        }
+        #left-scroll {
+            height: 1fr;
+            scrollbar-color: #ff6d00;
+            scrollbar-background: #1a1000;
+        }
+        #cmd-gen-bar {
+            height: auto;
+            min-height: 4;
+            max-height: 10;
+            padding: 0 1;
+            dock: bottom;
+            margin-bottom: 3;
+        }
+        .cmd-gen-label {
+            width: 5;
+            height: 3;
+            content-align: right middle;
+            color: #64b5f6;
+            text-style: bold;
+        }
+        #cmd-gen {
+            width: 1fr;
+            min-height: 3;
+            max-height: 8;
+            border: tall #0097e6;
+            background: #0a1929;
+        }
+        #cmd-gen:focus {
+            border: tall #00e5ff;
+        }
+        #cmd-gen-btns {
+            width: auto;
+            height: auto;
+            padding: 0;
+        }
+        #cmd-gen-btns Button {
+            height: 3;
+            min-width: 6;
+            margin: 0 0 0 0;
+        }
+        .form-row TextArea {
+            width: 1fr;
+            min-height: 6;
+            max-height: 12;
+            border: tall #37474f;
+        }
+        .form-row TextArea:focus {
+            border: tall #00bcd4;
+        }
+        #btn-star {
+            width: 5;
+            min-width: 5;
+            background: #f57f17;
+            color: #000000;
+        }
+        #btn-gen {
+            min-width: 6;
+            background: #0288d1;
+            color: white;
+        }
+        #btn-run {
+            min-width: 6;
+            background: #2e7d32;
+            color: white;
+        }
+        #btn-bar {
+            height: 3;
+            align: left middle;
+            padding: 0 0;
+            dock: bottom;
+            background: #0a1929;
+        }
+        #btn-bar Button {
+            min-width: 4;
+            padding: 0 1;
+            margin: 0 0 0 1;
+        }
+        #btn-stop {
+            background: #d32f2f;
+            color: white;
+        }
+        #btn-stop:disabled {
+            background: #7f1d1d;
+            color: #999999;
+        }
+        #btn-history {
+            background: #00897b;
+            color: white;
+        }
+        #btn-favs {
+            background: #6a1b9a;
+            color: white;
+        }
+        #btn-quit {
+            background: #455a64;
+            color: white;
+        }
+        #output-log {
+            height: 1fr;
+            scrollbar-color: #7c4dff;
+            scrollbar-background: #0a1929;
+        }
+        #hist-title {
+            background: #1a237e;
+            color: #64b5f6;
+            text-style: bold;
+            height: 1;
+            padding: 0 1;
+        }
+        #fav-title {
+            background: #6a1b9a;
+            color: #ffffff;
+            text-style: bold;
+            height: 1;
+            padding: 0 1;
+        }
+        #fav-list {
+            background: #12001a;
+            scrollbar-color: #ab47bc;
+            scrollbar-background: #12001a;
+        }
+        .hist-item {
+            width: 100%;
+            margin: 0 0 1 0;
+        }
+        .hist-empty {
+            padding: 2;
+            color: #546e7a;
+        }
+        .fav-empty {
+            padding: 2;
+            color: #ce93d8;
+        }
+        .fav-row {
+            height: auto;
+            max-height: 4;
+            background: #1e0533;
+            border-bottom: solid #2d1b4e;
+        }
+        .fav-item {
+            width: 1fr;
+            background: transparent;
+            color: #ffffff;
+        }
+        .fav-item:hover {
+            background: #38006b;
+            color: #00e676;
+            text-style: bold;
+        }
+        .fav-item:focus {
+            background: #4a148c;
+            color: #00e676;
+            text-style: bold;
+        }
+        .fav-run {
+            width: 5;
+            min-width: 5;
+            background: #2e7d32;
+            color: #ffffff;
+        }
+        .fav-run:hover {
+            background: #43a047;
+            color: #ffffff;
+        }
+        .fav-copy {
+            width: 5;
+            min-width: 5;
+            background: #0277bd;
+            color: #ffffff;
+        }
+        .fav-copy:hover {
+            background: #039be5;
+            color: #ffffff;
+        }
+        .fav-edit {
+            width: 5;
+            min-width: 5;
+            background: #e65100;
+            color: #ffffff;
+        }
+        .fav-edit:hover {
+            background: #ff6d00;
+            color: #ffffff;
+        }
+        .fav-del {
+            width: 5;
+            min-width: 5;
+            background: #b71c1c;
+            color: #ffffff;
+        }
+        .fav-del:hover {
+            background: #d50000;
+            color: #ffffff;
+        }
+        #alias-box {
+            align: center middle;
+            width: 70%;
+            max-width: 80;
+            height: auto;
+            margin: 4 0;
+            padding: 2;
+            border: tall #0097e6;
+            background: #0a1929;
+        }
+        #alias-hint {
+            color: #64b5f6;
+            text-style: bold;
+            height: 1;
+            margin-bottom: 1;
+        }
+        #alias-cmd-preview {
+            color: #90a4ae;
+            height: 1;
+            margin-bottom: 1;
+        }
+        #alias-input {
+            width: 100%;
+            border: tall #37474f;
+            margin-bottom: 1;
+        }
+        #alias-input:focus {
+            border: tall #00bcd4;
+        }
+        #alias-btn-bar {
+            height: 3;
+            align: center middle;
+        }
+        #alias-btn-bar Button {
+            margin: 0 1;
+            min-width: 8;
+        }
+        """
+
+        def on_mount(self):
+            self.install_screen(DocScreen(), name="doc")
+            self.install_screen(MainScreen(), name="main")
+            self.push_screen("main")
+
+    app = NbCmdTuiApp()
+    app.run()
+
+`````
+
+--- **end of file: nb_cmd/modes/tui_mode.py** (project: nb_cmd) --- 
 
 ---
 
@@ -6270,7 +12437,13 @@ def start_web_server(instance, base_cls, host=None, port=None):
     _colors_mod._COLOR_ENABLED = True
 
     _enable_exec = getattr(meta, 'enable_exec', True)
-    commands = discover_commands(instance, base_cls, enable_exec=_enable_exec)
+    _allow_methods = getattr(meta, 'allow_method_list', None)
+    _hide_methods = getattr(meta, 'hide_method_list', None)
+    _auth_token = getattr(meta, 'auth_token', None)
+    _timeout = getattr(meta, 'timeout', 0)
+    commands = discover_commands(instance, base_cls, enable_exec=_enable_exec,
+                                 allow_method_list=_allow_methods,
+                                 hide_method_list=_hide_methods)
     description = inspect.getdoc(instance) or instance.__class__.__name__
 
     from ..core._io_dispatch import _tls, install as _install_io
@@ -6279,25 +12452,38 @@ def start_web_server(instance, base_cls, host=None, port=None):
     static_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'ui', 'static')
     has_built_frontend = os.path.isfile(os.path.join(static_dir, 'index.html'))
 
-    from ..modes.api_mode import _register_routes as _register_pydantic_routes
-    _register_pydantic_routes(app, instance, commands, base_cls=base_cls)
+    if _auth_token:
+        from ..modes.api_mode import _install_auth_middleware
+        _install_auth_middleware(app, _auth_token, exempt_prefixes=[
+            '/api/', '/ws/', '/static/',
+        ])
 
-    def _build_group_result(cmds_dict):
+    from ..modes.api_mode import _register_routes as _register_pydantic_routes
+    _register_pydantic_routes(app, instance, commands, base_cls=base_cls,
+                              allow_method_list=_allow_methods,
+                              hide_method_list=_hide_methods,
+                              command_prefix='', timeout=_timeout)
+
+    def _build_group_result(cmds_dict, command_prefix=''):
         """递归构建命令组的结构（含嵌套子命令组）"""
         result = {}
         for name, info in cmds_dict.items():
             if info.get('is_group'):
                 g_cls = info['cls']
                 g_kwargs = info.get('init_kwargs', {})
+                group_path = '{}/{}'.format(command_prefix, name) if command_prefix else name
                 try:
                     g_inst = g_cls(**g_kwargs) if g_kwargs else g_cls()
                 except TypeError:
                     g_inst = g_cls.__new__(g_cls)
-                g_cmds = discover_commands(g_inst, base_cls, include_builtins=False)
+                g_cmds = discover_commands(g_inst, base_cls, include_builtins=False,
+                                           allow_method_list=_allow_methods,
+                                           hide_method_list=_hide_methods,
+                                           command_prefix=group_path)
                 result[name] = {
                     'type': 'group',
                     'description': info.get('doc', ''),
-                    'sub_commands': _build_group_result(g_cmds),
+                    'sub_commands': _build_group_result(g_cmds, group_path),
                 }
             else:
                 result[name] = _build_cmd_info(info)
@@ -6305,7 +12491,7 @@ def start_web_server(instance, base_cls, host=None, port=None):
 
     @app.get('/api/commands', summary='获取所有命令及参数定义')
     async def get_commands():
-        return _build_group_result(commands)
+        return _build_group_result(commands, '')
 
     init_params_info = _build_init_params_info(instance)
     _user_cls = instance.__class__
@@ -6340,18 +12526,32 @@ def start_web_server(instance, base_cls, host=None, port=None):
     import queue as _queue
     import sqlite3 as _sqlite3
 
-    _db_path = os.path.join(os.getcwd(), 'nb_cmd_web.db')
+    _meta_db_dir = getattr(
+        getattr(instance.__class__, 'Meta', type('Meta', (), {})),
+        'db_dir', None)
+    if _meta_db_dir:
+        _db_dir = os.path.expanduser(_meta_db_dir)
+        if not os.path.isdir(_db_dir):
+            os.makedirs(_db_dir, exist_ok=True)
+    else:
+        _db_dir = os.getcwd()
+    _db_path = os.path.join(_db_dir, 'nb_cmd_web.db')
 
     def _get_db():
         conn = _sqlite3.connect(_db_path)
         conn.execute('CREATE TABLE IF NOT EXISTS saved_commands '
                      '(id INTEGER PRIMARY KEY AUTOINCREMENT, '
                      'command TEXT UNIQUE NOT NULL, '
+                     'alias TEXT DEFAULT NULL, '
                      'created_at TEXT DEFAULT CURRENT_TIMESTAMP)')
         conn.execute('CREATE TABLE IF NOT EXISTS command_history '
                      '(id INTEGER PRIMARY KEY AUTOINCREMENT, '
                      'command TEXT NOT NULL, '
                      'executed_at TEXT DEFAULT CURRENT_TIMESTAMP)')
+        try:
+            conn.execute('ALTER TABLE saved_commands ADD COLUMN alias TEXT DEFAULT NULL')
+        except Exception:
+            pass
         return conn
 
     _get_db().close()
@@ -6360,19 +12560,38 @@ def start_web_server(instance, base_cls, host=None, port=None):
     async def get_saved_commands():
         conn = _get_db()
         rows = conn.execute(
-            'SELECT id, command, created_at FROM saved_commands ORDER BY id DESC'
+            'SELECT id, command, alias, created_at FROM saved_commands ORDER BY id DESC'
         ).fetchall()
         conn.close()
-        return [{'id': r[0], 'command': r[1], 'created_at': r[2]} for r in rows]
+        return [{'id': r[0], 'command': r[1], 'alias': r[2], 'created_at': r[3]} for r in rows]
 
     @app.post('/api/save-command', summary='收藏命令（去重）')
     async def save_command(body: dict):
         cmd = body.get('command', '').strip()
         if not cmd:
             return {'status': 'error', 'message': '命令不能为空'}
+        alias = body.get('alias', '').strip() or None
         conn = _get_db()
         try:
-            conn.execute('INSERT OR IGNORE INTO saved_commands (command) VALUES (?)', (cmd,))
+            conn.execute(
+                'INSERT OR IGNORE INTO saved_commands (command, alias) VALUES (?, ?)',
+                (cmd, alias))
+            conn.commit()
+        finally:
+            conn.close()
+        return {'status': 'ok'}
+
+    @app.put('/api/save-command', summary='更新收藏命令别名')
+    async def update_saved_alias(body: dict):
+        cmd = body.get('command', '').strip()
+        if not cmd:
+            return {'status': 'error', 'message': '命令不能为空'}
+        alias = body.get('alias', '').strip() or None
+        conn = _get_db()
+        try:
+            conn.execute(
+                'UPDATE saved_commands SET alias = ? WHERE command = ?',
+                (alias, cmd))
             conn.commit()
         finally:
             conn.close()
@@ -6448,11 +12667,13 @@ def start_web_server(instance, base_cls, host=None, port=None):
             root_inst = _make_instance(raw_init_params)
             current_cmds = commands
             current_inst = root_inst
+            current_path = ''
             for i, part in enumerate(parts):
                 if part not in current_cmds:
                     break
                 info = current_cmds[part]
                 if info.get('is_group'):
+                    current_path = '{}/{}'.format(current_path, part) if current_path else part
                     g_cls = info['cls']
                     g_kwargs = info.get('init_kwargs', {})
                     try:
@@ -6464,7 +12685,10 @@ def start_web_server(instance, base_cls, host=None, port=None):
                         child_inst.nbctx = parent_ctx
                     current_inst = child_inst
                     current_cmds = discover_commands(current_inst, base_cls,
-                                                     include_builtins=False)
+                                                     include_builtins=False,
+                                                     allow_method_list=_allow_methods,
+                                                     hide_method_list=_hide_methods,
+                                                     command_prefix=current_path)
                 elif i == len(parts) - 1 and current_inst is not None:
                     return info['method'], current_inst, info
         return None, None, None
@@ -6502,11 +12726,10 @@ def start_web_server(instance, base_cls, host=None, port=None):
             def _run():
                 _tls.output_queue = output_q
                 saved_streams = []
-                if hasattr(target_inst, '_logger') and target_inst._logger:
-                    for h in target_inst._logger.handlers:
-                        if hasattr(h, 'stream'):
-                            saved_streams.append((h, h.stream))
-                            h.stream = sys.stderr
+                for h in target_inst.logger.handlers:
+                    if hasattr(h, 'stream'):
+                        saved_streams.append((h, h.stream))
+                        h.stream = sys.stderr
                 try:
                     target_inst.before_run()
                     r = method(**kwargs)
@@ -6532,6 +12755,16 @@ def start_web_server(instance, base_cls, host=None, port=None):
             worker_thread = t
             start_ts = time.time()
             t.start()
+
+            if _timeout > 0:
+                def _auto_timeout():
+                    if not cancel_event.wait(_timeout):
+                        cancel_event.set()
+                        if t.is_alive() and t.ident:
+                            _cancel_thread(t.ident)
+                        result_holder['error'] = '命令执行超时（{} 秒）'.format(_timeout)
+                _timer = threading.Thread(target=_auto_timeout, daemon=True)
+                _timer.start()
 
             async def _listen_cancel():
                 """后台监听客户端的取消消息"""
@@ -6865,7 +13098,11 @@ body { font-family: -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif;
 .s2-item:hover { background: var(--hover-bg); }
 .s2-item .s2-iico { margin-right: 6px; flex-shrink: 0; font-size: 11px; }
 .s2-item .s2-itxt { flex: 1; overflow: hidden; text-overflow: ellipsis; }
-.s2-item .s2-idel { flex-shrink: 0; margin-left: 6px; color: #888; cursor: pointer;
+.s2-item .s2-alias { color: #e65100; font-weight: bold; font-size: 11px; margin-right: 4px; flex-shrink: 0; }
+.s2-item .s2-iedit { flex-shrink: 0; margin-left: 4px; color: #888; cursor: pointer;
+                     border: none; background: none; font-size: 12px; padding: 0 3px; }
+.s2-item .s2-iedit:hover { color: #ffd740; }
+.s2-item .s2-idel { flex-shrink: 0; margin-left: 4px; color: #888; cursor: pointer;
                      border: none; background: none; font-size: 13px; padding: 0 4px; }
 .s2-item .s2-idel:hover { color: var(--error); }
 .s2-empty { padding: 10px; font-size: 11px; color: #636e72; text-align: center; }
@@ -7191,16 +13428,19 @@ function generateCmd(formId) {
       }
     });
   }
-  var initP = getInitParams();
-  if (initP) {
-    Object.entries(initP).forEach(function(e) {
-      if (typeof e[1] === 'boolean') {
-        if (e[1]) parts.push('--' + e[0].replace(/_/g, '-'));
-      } else {
-        parts.push('--' + e[0].replace(/_/g, '-'));
-        parts.push(String(e[1]));
-      }
-    });
+  var isBuiltin = (formId === 'exec' || formId === 'shell');
+  if (!isBuiltin) {
+    var initP = getInitParams();
+    if (initP) {
+      Object.entries(initP).forEach(function(e) {
+        if (typeof e[1] === 'boolean') {
+          if (e[1]) parts.push('--' + e[0].replace(/_/g, '-'));
+        } else {
+          parts.push('--' + e[0].replace(/_/g, '-'));
+          parts.push(String(e[1]));
+        }
+      });
+    }
   }
   document.getElementById('cmdInput').value = parts.join(' ');
   document.getElementById('cmdInput').focus();
@@ -7385,9 +13625,11 @@ async function loadHistory() {
 async function saveCurrentCmd() {
   var cmd = document.getElementById('cmdInput').value.trim();
   if (!cmd) return;
+  var alias = prompt('为收藏命令设置别名（可留空跳过）：', '');
+  if (alias === null) return;
   await fetch('/api/save-command', {
     method: 'POST', headers: {'Content-Type':'application/json'},
-    body: JSON.stringify({command: cmd})
+    body: JSON.stringify({command: cmd, alias: alias.trim() || ''})
   });
   await loadSavedCmds();
   renderSaved();
@@ -7398,6 +13640,18 @@ async function deleteSavedCmd(cmd, ev) {
   await fetch('/api/save-command', {
     method: 'DELETE', headers: {'Content-Type':'application/json'},
     body: JSON.stringify({command: cmd})
+  });
+  await loadSavedCmds();
+  renderSaved();
+}
+
+async function editSavedAlias(cmd, oldAlias, ev) {
+  if (ev) ev.stopPropagation();
+  var alias = prompt('修改别名（留空清除）：', oldAlias || '');
+  if (alias === null) return;
+  await fetch('/api/save-command', {
+    method: 'PUT', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({command: cmd, alias: alias.trim() || ''})
   });
   await loadSavedCmds();
   renderSaved();
@@ -7425,15 +13679,23 @@ function fuzzyMatch(query, text) {
 function renderSaved() {
   var body = document.getElementById('savedBody');
   var q = document.getElementById('savedSearch').value.trim();
-  var filtered = savedCmds.filter(function(s) { return fuzzyMatch(q, s.command); });
+  var filtered = savedCmds.filter(function(s) {
+    return fuzzyMatch(q, s.command) || (s.alias && fuzzyMatch(q, s.alias));
+  });
   document.getElementById('savedCount').textContent = savedCmds.length;
   var html = '';
   if (filtered.length > 0) {
     filtered.forEach(function(s) {
-      html += '<div class="s2-item" onclick="fillCmd(\\''+s.command.replace(/'/g,"\\\\'")+'\\')">';
+      var ce = s.command.replace(/'/g,"\\\\'");
+      var ae = (s.alias||'').replace(/'/g,"\\\\'");
+      html += '<div class="s2-item" onclick="fillCmd(\\''+ce+'\\')">';
       html += '<span class="s2-iico" style="color:#ffd740;">&#9733;</span>';
+      if (s.alias) {
+        html += '<span class="s2-alias">['+esc(s.alias)+']</span> ';
+      }
       html += '<span class="s2-itxt">' + esc(s.command) + '</span>';
-      html += '<button class="s2-idel" onclick="deleteSavedCmd(\\''+s.command.replace(/'/g,"\\\\'")+'\\'  ,event)" title="取消收藏">&times;</button>';
+      html += '<button class="s2-iedit" onclick="editSavedAlias(\\''+ce+'\\',\\''+ae+'\\',event)" title="编辑别名">&#9998;</button>';
+      html += '<button class="s2-idel" onclick="deleteSavedCmd(\\''+ce+'\\',event)" title="取消收藏">&times;</button>';
       html += '</div>';
     });
   } else {

@@ -6,7 +6,7 @@ AI Skill 文件夹生成器 —— 自动生成符合 agentskills.io 规范的 S
 
     from nb_cmd import SkillGen
 
-    g = SkillGen(MyApp, output_dir='./skills/my-app')
+    g = SkillGen(MyApp, base_dir='./skills')
     g.gen()
 """
 import os
@@ -93,7 +93,6 @@ class SkillGen(object):
         self._base_dir = base_dir
         self.script = script or self._get_script_name()
         self.python = python or sys.executable
-        self._cli_python = 'python'  # CLI 示例中使用简写，提升 AI 阅读体验
         self._base_cls = _find_base_cls(entry_cls)
         self._allow_methods = _get_allow_method_list(entry_cls)
         self._hide_methods = _get_hide_method_list(entry_cls)
@@ -182,7 +181,7 @@ class SkillGen(object):
         return self._auto_description()
 
     def _auto_description(self):
-        """自动生成 description"""
+        """自动生成 description（英文，适配任意工具）"""
         meta = getattr(self.entry_cls, 'Meta', None)
         app_name = getattr(meta, 'name', self.entry_cls.__name__) if meta else self.entry_cls.__name__
         instance = _safe_instantiate(self.entry_cls)
@@ -197,8 +196,8 @@ class SkillGen(object):
             cmd_names = [k.replace('_', '-') for k in commands.keys()]
         cmd_preview = ', '.join(cmd_names[:5])
         if len(commands) > 5:
-            cmd_preview += ' 等'
-        desc = '{} —— 支持 {} 等操作。当需要执行 {} 相关命令时使用。'.format(
+            cmd_preview += ', etc.'
+        desc = '{} —— supports operations such as {}. Activate when you need to run {} commands.'.format(
             app_name, cmd_preview, app_name
         )
         return desc
@@ -262,7 +261,12 @@ class SkillGen(object):
         if self._metadata:
             lines.append('metadata:')
             for k, v in self._metadata.items():
-                lines.append('  {}: "{}"'.format(k, v))
+                val = str(v)
+                # YAML 安全处理：如果值含双引号，用单引号包裹
+                if '"' in val:
+                    lines.append("  {}: '{}'".format(k, val))
+                else:
+                    lines.append('  {}: "{}"'.format(k, val))
         if self._allowed_tools:
             lines.append('allowed-tools: {}'.format(self._allowed_tools))
         if self._disable_model_invocation:
@@ -391,7 +395,7 @@ class SkillGen(object):
         if self._include_cli:
             lines.append('### CLI')
             lines.append('```bash')
-            lines.append('python {} [global_params] <command_path> [command_params]'.format(self.script))
+            lines.append('{} {} [global_params] <command_path> [command_params]'.format(self.python, self.script))
             lines.append('```')
             lines.append('')
         if self._include_python:
@@ -400,7 +404,7 @@ class SkillGen(object):
             lines.append('from {} import {}'.format(
                 self._module_name_hint(), self.entry_cls.__name__))
             lines.append('app = {}()  # pass global params if needed'.format(self.entry_cls.__name__))
-            lines.append('# app.group.method(param=value)')
+            lines.append('# app.subcommand.method(param=value)')
             lines.append('```')
             lines.append('')
         if self._include_api:
@@ -571,7 +575,7 @@ class SkillGen(object):
         if init_params:
             lines.append('- Global parameters defined in `__init__` are automatically passed to all subcommands.')
         lines.append('- Boolean flags default to `False`; add the flag to set it to `True`.')
-        lines.append('- Subcommand groups are accessed via space or dot, e.g., `db migrate` or `db.migrate`.')
+        lines.append('- Subcommand groups are accessed via space or dot, e.g., `<group> <command>` or `<group>.<command>`.')
         lines.append('- Use `--help` or `-h` to see available commands and options.')
         lines.append('- Use `--full-help` or `-fh` to see detailed parameter descriptions.')
         return '\n'.join(lines)
