@@ -320,6 +320,12 @@ class SkillGen(object):
             lines.append(self._user_priority_prompt)
             lines.append('')
 
+        init_params = _collect_init_params(self.entry_cls)
+        lines.append('## Guidelines')
+        lines.append('')
+        lines.append(self._gen_guidelines(init_params))
+        lines.append('')
+
         lines.append('## When to Use')
         lines.append('')
         lines.append(self._gen_when_to_use(commands, app_name))
@@ -330,7 +336,6 @@ class SkillGen(object):
         lines.append(self._gen_command_structure())
         lines.append('')
 
-        init_params = _collect_init_params(self.entry_cls)
         if init_params:
             lines.append('## Global Parameters')
             lines.append('')
@@ -352,10 +357,6 @@ class SkillGen(object):
             command_prefix='',
         )
         lines.append('')
-
-        lines.append('## Guidelines')
-        lines.append('')
-        lines.append(self._gen_guidelines(init_params))
 
         return '\n'.join(lines)
 
@@ -572,10 +573,12 @@ class SkillGen(object):
     def _gen_guidelines(self, init_params):
         """生成使用指南"""
         lines = []
+        lines.append('- This tool is implemented using the `nb_cmd` framework. Each public instance method of the `NbCmd` subclass becomes a subcommand.')
+        lines.append('- If you are unsure about the specific logic of a command, inspect the source code of the corresponding method in the implementation.')
         if init_params:
             lines.append('- Global parameters defined in `__init__` are automatically passed to all subcommands.')
         lines.append('- Boolean flags default to `False`; add the flag to set it to `True`.')
-        lines.append('- Subcommand groups are accessed via space or dot, e.g., `<group> <command>` or `<group>.<command>`.')
+        lines.append('- Subcommand groups are accessed via space, e.g., `<group> <command>`.')
         lines.append('- Use `--help` or `-h` to see available commands and options.')
         lines.append('- Use `--full-help` or `-fh` to see detailed parameter descriptions.')
         return '\n'.join(lines)

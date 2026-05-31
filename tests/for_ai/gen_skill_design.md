@@ -60,3 +60,14 @@ SkillGen 去掉以下参数
 nbcmd脚本位置在不同环境时候脚本在哪里 ，例如告诉ai运行脚本前要设置 PYTHONPATH 环境变量等等
 
 这个作为最高优先级的skill提示，放在题头下面的显要位置
+
+
+
+
+
+
+- Boolean flags default to `False`; add the flag to set it to `True`.
+- Subcommand groups are accessed via space or dot, e.g., `<group> <command>` or `<group>.<command>`.
+
+这里是不是有幻觉 <group>.<command> 不支持. 吧？
+然后需要加上 ，命令行有NbCmd三方包开发实现，继承NbCmd的类中的实例方法就是命令，如果ai不确定命令对应的具体逻辑，可以去看命令行实现的方法源码

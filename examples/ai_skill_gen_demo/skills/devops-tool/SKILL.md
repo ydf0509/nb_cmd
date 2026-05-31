@@ -12,6 +12,16 @@ DevOps 运维工具 —— AI Skill 自动生成演示。
 支持数据库管理、部署管理、监控告警三大模块。
 全局参数 env/region/verbose 自动穿透到所有子命令组。
 
+## Guidelines
+
+- This tool is implemented using the `nb_cmd` framework. Each public instance method of the `NbCmd` subclass becomes a subcommand.
+- If you are unsure about the specific logic of a command, inspect the source code of the corresponding method in the implementation.
+- Global parameters defined in `__init__` are automatically passed to all subcommands.
+- Boolean flags default to `False`; add the flag to set it to `True`.
+- Subcommand groups are accessed via space, e.g., `<group> <command>`.
+- Use `--help` or `-h` to see available commands and options.
+- Use `--full-help` or `-fh` to see detailed parameter descriptions.
+
 ## When to Use
 
 Activate this skill when you need to perform devops-tool-related operations, such as:
@@ -30,7 +40,7 @@ Activate this skill when you need to perform devops-tool-related operations, suc
 
 ### CLI
 ```bash
-python ai_skill_gen_demo.py [global_params] <command_path> [command_params]
+D:\ProgramData\Miniconda3\envs\py39b\python.exe ai_skill_gen_demo.py [global_params] <command_path> [command_params]
 ```
 
 **Parameter conventions:**
@@ -56,7 +66,7 @@ These parameters are defined in `__init__` and passed to all subcommands automat
 
 **CLI:**
 ```bash
-python ai_skill_gen_demo.py --env ${prod} --region ${us-east} --verbose health
+D:\ProgramData\Miniconda3\envs\py39b\python.exe ai_skill_gen_demo.py --env ${prod} --region ${us-east} --verbose health
 ```
 
 ### `version`
@@ -65,7 +75,7 @@ python ai_skill_gen_demo.py --env ${prod} --region ${us-east} --verbose health
 
 **CLI:**
 ```bash
-python ai_skill_gen_demo.py --env ${prod} --region ${us-east} --verbose version
+D:\ProgramData\Miniconda3\envs\py39b\python.exe ai_skill_gen_demo.py --env ${prod} --region ${us-east} --verbose version
 ```
 
 ### `db` *(subcommand group)*
@@ -82,7 +92,7 @@ python ai_skill_gen_demo.py --env ${prod} --region ${us-east} --verbose version
 
 **CLI:**
 ```bash
-python ai_skill_gen_demo.py --env ${prod} --region ${us-east} --verbose db backup
+D:\ProgramData\Miniconda3\envs\py39b\python.exe ai_skill_gen_demo.py --env ${prod} --region ${us-east} --verbose db backup
 ```
 
 ### `db migrate`
@@ -96,7 +106,7 @@ python ai_skill_gen_demo.py --env ${prod} --region ${us-east} --verbose db backu
 
 **CLI:**
 ```bash
-python ai_skill_gen_demo.py --env ${prod} --region ${us-east} --verbose db migrate --dry-run --target ${latest}
+D:\ProgramData\Miniconda3\envs\py39b\python.exe ai_skill_gen_demo.py --env ${prod} --region ${us-east} --verbose db migrate --dry-run --target ${latest}
 ```
 
 ### `db restore`
@@ -109,7 +119,7 @@ python ai_skill_gen_demo.py --env ${prod} --region ${us-east} --verbose db migra
 
 **CLI:**
 ```bash
-python ai_skill_gen_demo.py --env ${prod} --region ${us-east} --verbose db restore --file $<file>
+D:\ProgramData\Miniconda3\envs\py39b\python.exe ai_skill_gen_demo.py --env ${prod} --region ${us-east} --verbose db restore --file $<file>
 ```
 
 ### `deploy` *(subcommand group)*
@@ -127,7 +137,7 @@ python ai_skill_gen_demo.py --env ${prod} --region ${us-east} --verbose db resto
 
 **CLI:**
 ```bash
-python ai_skill_gen_demo.py --env ${prod} --region ${us-east} --verbose deploy canary --version $<version> --traffic ${0.1}
+D:\ProgramData\Miniconda3\envs\py39b\python.exe ai_skill_gen_demo.py --env ${prod} --region ${us-east} --verbose deploy canary --version $<version> --traffic ${0.1}
 ```
 
 ### `deploy rollback`
@@ -140,7 +150,7 @@ python ai_skill_gen_demo.py --env ${prod} --region ${us-east} --verbose deploy c
 
 **CLI:**
 ```bash
-python ai_skill_gen_demo.py --env ${prod} --region ${us-east} --verbose deploy rollback --steps ${1}
+D:\ProgramData\Miniconda3\envs\py39b\python.exe ai_skill_gen_demo.py --env ${prod} --region ${us-east} --verbose deploy rollback --steps ${1}
 ```
 
 ### `deploy rolling`
@@ -155,7 +165,7 @@ python ai_skill_gen_demo.py --env ${prod} --region ${us-east} --verbose deploy r
 
 **CLI:**
 ```bash
-python ai_skill_gen_demo.py --env ${prod} --region ${us-east} --verbose deploy rolling --version $<version> --batch-size ${3} --wait ${30}
+D:\ProgramData\Miniconda3\envs\py39b\python.exe ai_skill_gen_demo.py --env ${prod} --region ${us-east} --verbose deploy rolling --version $<version> --batch-size ${3} --wait ${30}
 ```
 
 ### `monitor` *(subcommand group)*
@@ -173,7 +183,7 @@ python ai_skill_gen_demo.py --env ${prod} --region ${us-east} --verbose deploy r
 
 **CLI:**
 ```bash
-python ai_skill_gen_demo.py --env ${prod} --region ${us-east} --verbose monitor alert --rule $<rule> --threshold $<threshold>
+D:\ProgramData\Miniconda3\envs\py39b\python.exe ai_skill_gen_demo.py --env ${prod} --region ${us-east} --verbose monitor alert --rule $<rule> --threshold $<threshold>
 ```
 
 ### `monitor status`
@@ -186,14 +196,6 @@ python ai_skill_gen_demo.py --env ${prod} --region ${us-east} --verbose monitor 
 
 **CLI:**
 ```bash
-python ai_skill_gen_demo.py --env ${prod} --region ${us-east} --verbose monitor status
+D:\ProgramData\Miniconda3\envs\py39b\python.exe ai_skill_gen_demo.py --env ${prod} --region ${us-east} --verbose monitor status
 ```
 
-
-## Guidelines
-
-- Global parameters defined in `__init__` are automatically passed to all subcommands.
-- Boolean flags default to `False`; add the flag to set it to `True`.
-- Subcommand groups are accessed via space or dot, e.g., `<group> <command>` or `<group>.<command>`.
-- Use `--help` or `-h` to see available commands and options.
-- Use `--full-help` or `-fh` to see detailed parameter descriptions.
