@@ -199,3 +199,27 @@ D:\ProgramData\Miniconda3\envs\py39b\python.exe ai_skill_gen_demo.py --env ${pro
 D:\ProgramData\Miniconda3\envs\py39b\python.exe ai_skill_gen_demo.py --env ${prod} --region ${us-east} --verbose monitor status
 ```
 
+
+## Implementation Note
+
+This tool is built on the `nb_cmd` framework. Here is how the Python source code maps to CLI commands:
+
+1. **Class = Top-level command group**. The main class `DevOpsTool` inherits from `NbCmd`.
+   Each public instance method of this class becomes a top-level subcommand.
+
+2. **`sub_commands` dict = Nested command groups**. When a class defines:
+   ```python
+   sub_commands = {"db": DbCmd, "deploy": DeployCmd}
+   ```
+   the keys become the command path segments, and the values are other `NbCmd` subclasses.
+   So `DbCmd.backup(...)` in Python maps to `db backup` on the CLI.
+
+3. **`__init__` params = Global CLI flags**. Parameters of `__init__(self, ...)` become `--flag` options
+   that are automatically passed to all subcommands and subcommand groups.
+
+4. **Method params = Command params**. Parameters of each public method become the command-specific flags.
+   For example, `def backup(self, compress: bool = True)` produces the `--compress` flag for the `backup` command.
+
+5. **Method docstring = Command description**. The first line of a method's docstring becomes the help text for that command.
+
+If a command's behavior is unclear, locate the corresponding method in the source code of `DevOpsTool` (or its nested `NbCmd` subclasses) and read the implementation directly.

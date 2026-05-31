@@ -92,8 +92,8 @@ def test_simple_skill_gen():
 
         # CLI 示例默认开启
         assert '```bash' in content
-        # Python 示例默认关闭
-        assert '```python' not in content
+        # Python 调用示例默认关闭（Implementation Note 中可能有解释性代码块，不属于调用示例）
+        assert '**Python:**' not in content
 
         print('test_simple_skill_gen PASSED')
 

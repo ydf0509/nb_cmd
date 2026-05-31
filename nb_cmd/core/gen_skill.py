@@ -358,6 +358,11 @@ class SkillGen(object):
         )
         lines.append('')
 
+        lines.append('## Implementation Note')
+        lines.append('')
+        lines.append(self._gen_impl_note())
+        lines.append('')
+
         return '\n'.join(lines)
 
     def _gen_when_to_use(self, commands, app_name):
@@ -573,7 +578,7 @@ class SkillGen(object):
     def _gen_guidelines(self, init_params):
         """生成使用指南"""
         lines = []
-        lines.append('- This tool is implemented using the `nb_cmd` framework. Each public instance method of the `NbCmd` subclass becomes a subcommand.')
+        lines.append('- This tool is implemented using the `nb_cmd` framework. Each public instance method of the `NbCmd` subclass becomes a subcommand.\n you can read the Implementation Note to learn more details.')
         lines.append('- If you are unsure about the specific logic of a command, inspect the source code of the corresponding method in the implementation.')
         if init_params:
             lines.append('- Global parameters defined in `__init__` are automatically passed to all subcommands.')
@@ -581,6 +586,36 @@ class SkillGen(object):
         lines.append('- Subcommand groups are accessed via space, e.g., `<group> <command>`.')
         lines.append('- Use `--help` or `-h` to see available commands and options.')
         lines.append('- Use `--full-help` or `-fh` to see detailed parameter descriptions.')
+        return '\n'.join(lines)
+
+    def _gen_impl_note(self):
+        """生成实现原理说明，帮助 AI 理解源码与命令行的对应关系"""
+        lines = []
+        lines.append('This tool is built on the `nb_cmd` framework. Here is how the Python source code maps to CLI commands:')
+        lines.append('')
+        lines.append('1. **Class = Top-level command group**. The main class `{}` inherits from `NbCmd`.'.format(self.entry_cls.__name__))
+        lines.append('   Each public instance method of this class becomes a top-level subcommand.')
+        lines.append('')
+        lines.append('2. **`sub_commands` dict = Nested command groups**. When a class defines:')
+        lines.append('   ```python')
+        lines.append('   sub_commands = {"db": DbCmd, "deploy": DeployCmd}')
+        lines.append('   ```')
+        lines.append('   the keys become the command path segments, and the values are other `NbCmd` subclasses.')
+        lines.append('   So `DbCmd.backup(...)` in Python maps to `db backup` on the CLI.')
+        lines.append('')
+        lines.append('3. **`__init__` params = Global CLI options**. Parameters of `__init__(self, ...)` become global options:')
+        lines.append('   - `str` / `int` / `float` params → `--name value` (e.g., `--env prod`, `--port 8080`)')
+        lines.append('   - `bool` params (default `False`) → `--name` (no value, presence means `True`)')
+        lines.append('   These options are automatically passed to all subcommands and subcommand groups.')
+        lines.append('')
+        lines.append('4. **Method params = Command-level options**. Same rules as above:')
+        lines.append('   - `str` / `int` / `float` → `--name value`')
+        lines.append('   - `bool` (default `False`) → `--name`')
+        lines.append('   For example, `def backup(self, compress: bool = True)` produces `--compress` for the `backup` command.')
+        lines.append('')
+        lines.append('5. **Method docstring = Command description**. The first line of a method\'s docstring becomes the help text for that command.')
+        lines.append('')
+        lines.append('If a command\'s behavior is unclear, locate the corresponding method in the source code of `{}` (or its nested `NbCmd` subclasses) and read the implementation directly.'.format(self.entry_cls.__name__))
         return '\n'.join(lines)
 
 
